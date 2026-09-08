@@ -1,0 +1,30 @@
+# Build-context hygiene (TASK-07, subtask 7.3.2): the image must never carry
+# secrets, the local database or the repo history.
+
+# VCS and local environment
+.git/
+.gitignore
+.env
+.env.*
+
+# Python local artifacts
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Runtime data: local SQLite DBs and exported reports stay on the host
+data/
+reports/
+
+# Docs, tests and editor config are not needed to build or run the image
+.aicontext/
+.cursor/
+tests/
+
+# Docker's own files (except docker/entrypoint.sh: the image COPYs it)
+Dockerfile
+.dockerignore
+docker-compose.yml
+scripts/

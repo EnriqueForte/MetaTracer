@@ -1,0 +1,23 @@
+# MetaTracer local deployment (TASK-07, subtask 7.3.3): API + Web UI on :8000.
+#
+# METATRACER_ALLOW_LOOPBACK is a TEST-ONLY flag and is deliberately NOT set
+# here — the container keeps the default safety posture (loopback/private
+# targets blocked). Secrets arrive via the host environment, never baked in.
+services:
+  web:
+    build: .
+    image: metatracer:0.1.0
+    command: ["web"]
+    ports:
+      - "8000:8000"
+    environment:
+      METATRACER_BIND_HOST: "0.0.0.0"
+      METATRACER_LLM_API_KEY: "${METATRACER_LLM_API_KEY:-}"
+      METATRACER_LLM_BASE_URL: "${METATRACER_LLM_BASE_URL:-}"
+      METATRACER_LLM_MODEL: "${METATRACER_LLM_MODEL:-}"
+      METATRACER_FAST_MODEL: "${METATRACER_FAST_MODEL:-}"
+      METATRACER_LOG_LEVEL: "${METATRACER_LOG_LEVEL:-INFO}"
+    volumes:
+      - ./data:/app/data
+      - ./reports:/app/reports
+    restart: unless-stopped

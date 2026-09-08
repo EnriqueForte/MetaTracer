@@ -1,0 +1,43 @@
+---
+description: Contratos de datos compartidos de MetaTracer — enums en minúsculas, ciclo de vida de severity, dedup, idiomas por capa.
+alwaysApply: true
+---
+
+# Contratos de datos compartidos
+
+Fuente de verdad: `.aicontext/tasks/README.md`. Valores **en minúsculas** en base de datos, JSON, API y Pydantic. La capa de presentación (CLI/UI/Markdown) puede mostrarlos en Title Case (`High`, `Critical`).
+
+## Enums cerrados
+
+| Contrato | Valores |
+| :--- | :--- |
+| `finding_type` | `gps` \| `email` \| `internal_path` \| `software_version` \| `debug_comment` |
+| `severity` | `critical` \| `high` \| `medium` \| `low` \| `info` |
+| `confidence` | `high` \| `medium` \| `low` |
+| `detector_method` | `rule` \| `heuristic` \| `agent` |
+| `reasoning_depth` | `brief` \| `standard` \| `detailed` (default: `standard`) |
+| `run.status` | `pending` \| `running` \| `completed` \| `failed` \| `aborted` |
+| `extraction_status` | `ok` \| `skipped` \| `failed` |
+| `skip_reason` | `unsupported_type` \| `too_large` \| `out_of_scope` \| `duplicate_hash` \| `empty_body` |
+| `namespace` | `exif` \| `xmp` \| `pdfinfo` \| `iptc` \| `http` \| `html` \| `js` |
+
+No añadir valores sin actualizar antes `.aicontext/tasks/README.md`.
+
+## Ciclo de vida de severity
+
+- `Finding.severity` es **NULL** hasta que corre el clasificador. Los detectores **nunca** asignan severity.
+- Pipeline: detectores (severity NULL) → heurístico (baseline + plantillas) → agente (ajusta dentro de la rúbrica; el guard solo puede bajar o rechazar).
+- `dedup_signature` = `sha256(f"{asset_id}:{finding_type}:{evidence_snippet.strip().lower()}")`, con unique constraint `(asset_id, dedup_signature)`.
+
+## Idiomas por capa
+
+- Reportes exportados (Markdown/JSON): **inglés** (plataformas de bug bounty).
+- UI/CLI: **inglés** (audiencia internacional).
+- Documentación (`.aicontext/`): **español**.
+
+## Persistencia
+
+- UUIDs como `str` (UUID4), salvo `RawMetadataItem.id` autoincrement.
+- Timestamps timezone-aware UTC.
+- `PRAGMA foreign_keys=ON` en `init_db()`.
+- Schema preparado para PostgreSQL: no usar tipos exclusivos de SQLite en los modelos.

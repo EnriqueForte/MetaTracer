@@ -1,0 +1,21 @@
+# Secrets and local configuration
+.env
+
+# Runtime data and exported reports
+data/*.db
+reports/*.md
+reports/*.json
+reports/*.html
+
+# Validation records of real targets (may reference third-party metadata)
+validation/results/
+# Manual ground truths of real documents (personal metadata)
+validation/ground-truths/
+
+# Python
+__pycache__/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+*.egg-info/

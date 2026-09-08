@@ -1,0 +1,94 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "metatracer"
+version = "0.1.0"
+description = "AI-powered sensitive metadata discovery for authorized bug bounty and red team engagements"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+# Closed dependency list (TASK-00, subtask 0.1.3). Do not add packages without
+# explicit approval; any addition must update both this file and the task list.
+dependencies = [
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "sqlmodel>=0.0.18",
+    "aiosqlite>=0.20",
+    "langgraph>=0.1.0",
+    "langchain-core>=0.2.0",
+    "langchain-openai>=1.0",
+    "httpx>=0.27.0",
+    "pillow>=10.3.0",
+    "pypdf>=4.2.0",
+    "piexif>=1.1.3",
+    "typer>=0.12.0",
+    "rich>=13.7.0",
+    "fastapi>=0.111.0",
+    "uvicorn>=0.30.0",
+    "jinja2>=3.1",
+    "beautifulsoup4>=4.12",
+    "tenacity>=8.3",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.4.0",
+    "reportlab>=4.2",
+]
+
+[project.scripts]
+metatracer = "metatracer.cli.main:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# Versioned prompt artifacts loaded via importlib.resources (TASK-05).
+# Web UI templates and static assets loaded relative to the module (TASK-06).
+[tool.setuptools.package-data]
+"metatracer.agents.prompts" = ["*.md"]
+"metatracer.api" = ["templates/*.html", "static/*"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint.isort]
+# The tests/ tree is a namespace package (no __init__.py); declare it so its
+# imports classify as first-party uniformly from tests/unit and tests/integration.
+known-first-party = ["tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "I", "UP"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+# Marks (TASK-07, subtask 7.2): tests/conftest.py auto-marks by directory
+# (unit/ and agents/ -> unit, integration/ -> integration); the e2e module
+# carries pytest.mark.e2e itself. Fast CI: pytest -m "not e2e"; full CI: all.
+markers = [
+    "unit: fast single-module tests (tests/unit, tests/agents with mocked LLM)",
+    "integration: multi-module tests over faked transport or the loopback mock origin",
+    "e2e: full pipeline over real loopback HTTP (needs METATRACER_ALLOW_LOOPBACK semantics)",
+    "slow: tests too slow for the fast local loop",
+]
+
+[tool.coverage.run]
+# DoD (TASK-07): >= 85% in metatracer.core / detectors / extractors / reports.
+# Measure with: pytest --cov=metatracer.core --cov=metatracer.detectors \
+#   --cov=metatracer.extractors --cov=metatracer.reports --cov-report=term-missing
+source = ["src/metatracer"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_also = [
+    'if TYPE_CHECKING:',
+    'raise NotImplementedError',
+    '^\s*\.\.\.$',
+]

@@ -1,0 +1,32 @@
+/* MetaTracer Web UI custom styles (TASK-06, 6.4). Tailwind covers the rest. */
+
+/* Alpine.js cloak: hide pre-initialization markup. */
+[x-cloak] {
+  display: none !important;
+}
+
+/* Dark-theme scrollbars for the drawer and modal lists. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #334155 #0f172a;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+*::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
+/* Dashboard severity bars (TASK-11): width comes from Alpine `:style` with a
+   numeric percent (never a data-driven string concatenated into CSS). */
+.severity-bar {
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(90deg, #10b981, #f59e0b, #ef4444);
+  min-width: 0;
+}

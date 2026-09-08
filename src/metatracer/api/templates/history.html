@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}MetaTracer — History{% endblock %}
+{% block content %}
+<div x-data="runHistory" x-init="load()" class="max-w-4xl mx-auto">
+  <div class="flex items-end justify-between gap-4 mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-100 mb-1">Local history</h1>
+      <p class="text-sm text-slate-400">
+        Runs stored in this installation. Reopen a scan to review findings or
+        re-export the report. This is not a multi-user dashboard.
+      </p>
+    </div>
+    <a href="/" class="text-sm text-emerald-400 hover:text-emerald-300 font-medium">New scan</a>
+  </div>
+
+  <div class="flex flex-wrap gap-2 mb-4">
+    <template x-for="status in statuses" :key="status">
+      <button type="button" @click="setStatus(status)"
+              class="px-3 py-1 rounded-full text-xs font-semibold border transition-colors"
+              :class="statusFilter === status ? 'border-emerald-500 text-emerald-300' : 'border-slate-700 text-slate-400 hover:border-slate-500'"
+              x-text="status"></button>
+    </template>
+  </div>
+
+  <p x-show="loadError" x-cloak class="text-sm text-red-400">Could not load the local history.</p>
+
+  <div x-show="!loadError && loaded && runs.length === 0" x-cloak
+       class="bg-slate-900/60 border border-slate-800 rounded-lg p-8 text-center">
+    <p class="text-lg font-semibold text-slate-200 mb-1">No runs yet</p>
+    <p class="text-sm text-slate-400 mb-4">Start a scan to build a local history.</p>
+    <a href="/" class="text-emerald-400 hover:text-emerald-300 text-sm font-medium">New scan</a>
+  </div>
+
+  <div x-show="runs.length > 0" class="overflow-x-auto bg-slate-900/60 border border-slate-800 rounded-lg">
+    <table class="min-w-full text-sm">
+      <thead class="border-b border-slate-800 text-left text-xs uppercase tracking-wide text-slate-500">
+        <tr>
+          <th class="px-4 py-3">Status</th>
+          <th class="px-4 py-3">Target</th>
+          <th class="px-4 py-3">Assets</th>
+          <th class="px-4 py-3">Findings</th>
+          <th class="px-4 py-3">Started (UTC)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-for="run in runs" :key="run.run_id">
+          <tr class="border-b border-slate-800/60 hover:bg-slate-800/40">
+            <td class="px-4 py-3">
+              <span class="px-2 py-0.5 rounded text-xs font-semibold"
+                    :class="statusBadge(run.status)" x-text="run.status"></span>
+            </td>
+            <td class="px-4 py-3">
+              <a :href="'/runs/' + run.run_id"
+                 class="text-emerald-400 hover:text-emerald-300 font-mono text-xs break-all"
+                 x-text="run.target"></a>
+            </td>
+            <td class="px-4 py-3 text-slate-300" x-text="run.total_assets"></td>
+            <td class="px-4 py-3 text-slate-300" x-text="run.total_findings"></td>
+            <td class="px-4 py-3 text-xs text-slate-500 font-mono" x-text="formatWhen(run.started_at)"></td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+document.addEventListener('alpine:init', () => {
+  const STATUS_BADGES = {
+    pending: 'bg-slate-700 text-slate-300',
+    running: 'bg-yellow-600 text-white',
+    completed: 'bg-emerald-700 text-white',
+    failed: 'bg-red-700 text-white',
+    aborted: 'bg-slate-600 text-slate-200',
+  };
+  Alpine.data('runHistory', () => ({
+    runs: [],
+    loaded: false,
+    loadError: false,
+    statusFilter: 'all',
+    statuses: ['all', 'completed', 'failed', 'running', 'pending', 'aborted'],
+
+    async load() {
+      const params = this.statusFilter === 'all' ? '' : ('?status=' + encodeURIComponent(this.statusFilter));
+      try {
+        const response = await fetch('/api/runs' + params);
+        if (!response.ok) {
+          this.loadError = true;
+          return;
+        }
+        const data = await response.json();
+        this.runs = data.runs;
+        this.loaded = true;
+      } catch (err) {
+        this.loadError = true;
+      }
+    },
+    setStatus(status) {
+      this.statusFilter = status;
+      this.load();
+    },
+    statusBadge(status) {
+      return STATUS_BADGES[status] || STATUS_BADGES.pending;
+    },
+    formatWhen(value) {
+      if (!value) return '';
+      return String(value).replace('T', ' ').replace(/\.\d+/, '').replace('+00:00', '').replace('Z', '');
+    },
+  }));
+});
+</script>
+{% endblock %}

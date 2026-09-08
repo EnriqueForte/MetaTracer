@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}MetaTracer — New scan{% endblock %}
+{% block content %}
+<div x-data="scanWizard" class="max-w-2xl mx-auto">
+  <h1 class="text-2xl font-bold text-slate-100 mb-2">New scan</h1>
+  <p class="text-sm text-slate-400 mb-6">
+    Discover sensitive metadata (GPS, emails, internal paths, software versions,
+    debug comments) in publicly available documents inside your authorized scope.
+  </p>
+
+  <form @submit.prevent="openModal" class="space-y-5 bg-slate-900/60 border border-slate-800 rounded-lg p-6">
+    <div>
+      <label for="targets" class="block text-sm font-medium text-slate-300 mb-1">Targets</label>
+      <textarea id="targets" x-model="targets" rows="4" required
+        class="w-full rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none"
+        placeholder="One target per line: domains or URLs of public documents, e.g.&#10;example.com&#10;https://example.com/investor-report.pdf"></textarea>
+    </div>
+    <div>
+      <label for="scope" class="block text-sm font-medium text-slate-300 mb-1">Authorized scope domains</label>
+      <input id="scope" type="text" x-model="scopeDomains" required
+        class="w-full rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none"
+        placeholder="One per line or comma-separated, e.g. example.com, static.example.com">
+      <p class="text-xs text-slate-500 mt-1">
+        The scope is never inferred from the targets: only documents on these
+        domains are ever requested.
+      </p>
+    </div>
+    <div>
+      <label for="saved-scope" class="block text-sm font-medium text-slate-300 mb-1">… or reuse a saved scope</label>
+      <div class="flex gap-2">
+        <select id="saved-scope" x-model="selectedScopeId" @change="chooseScope(selectedScopeId)"
+          class="flex-1 rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none">
+          <option value="">Manual scope (enter domains above)</option>
+          <template x-for="scope in savedScopes" :key="scope.id">
+            <option :value="scope.id" x-text="scope.name"></option>
+          </template>
+        </select>
+        <a href="/scopes" class="rounded-md border border-slate-700 text-slate-300 px-3 py-2 text-sm hover:bg-slate-800 transition-colors">Manage…</a>
+      </div>
+      <p class="text-xs text-slate-500 mt-1">
+        Choosing a saved scope fills the manual field with its domains. You can
+        still edit the text before the scan.
+      </p>
+    </div>
+    <div>
+      <label for="depth" class="block text-sm font-medium text-slate-300 mb-1">Reasoning depth</label>
+      <select id="depth" x-model="depth"
+        class="w-full rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none">
+        {% for depth in depths %}
+        <option value="{{ depth }}" {% if depth == 'standard' %}selected{% endif %}>{{ depth }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit"
+      class="w-full rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2 text-sm transition-colors">
+      Start scan
+    </button>
+    <p x-show="error" x-text="error" x-cloak class="text-sm text-red-400"></p>
+  </form>
+
+  <!-- Blocking scope-confirmation modal: the POST never leaves without the check. -->
+  <div x-show="modalOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80"
+       role="dialog" aria-modal="true" aria-labelledby="scope-modal-title">
+    <div class="bg-slate-900 border border-slate-700 rounded-lg max-w-lg w-full mx-4 p-6 shadow-2xl">
+      <h2 id="scope-modal-title" class="text-lg font-bold text-slate-100 mb-3">
+        Confirm authorized scope
+      </h2>
+      <p class="text-sm text-slate-300 mb-2">You are about to audit:</p>
+      <ul class="text-sm text-slate-400 list-disc list-inside mb-3 max-h-32 overflow-y-auto">
+        <template x-for="target in targetList()" :key="target">
+          <li x-text="target"></li>
+        </template>
+      </ul>
+      <p class="text-sm text-slate-300 mb-1">Restricted to the authorized scope:</p>
+      <p class="text-sm text-emerald-400 font-mono mb-4" x-text="scopeList().join(', ')"></p>
+      <p class="text-xs text-slate-500 mb-4">
+        MetaTracer only downloads public documents on these domains, extracts their
+        metadata and never attempts exploitation. Scanning systems without explicit
+        authorization may be illegal in your jurisdiction.
+      </p>
+      <label class="flex items-start gap-2 text-sm text-slate-200 mb-5 cursor-pointer">
+        <input type="checkbox" x-model="confirmed"
+          class="mt-1 rounded border-slate-600 bg-slate-950 text-emerald-600 focus:ring-emerald-500">
+        <span>I confirm I have explicit authorization to audit these targets and that
+          they are inside the stated scope.</span>
+      </label>
+      <div class="flex gap-3">
+        <button type="button" @click="modalOpen = false"
+          class="flex-1 rounded-md border border-slate-700 text-slate-300 py-2 text-sm hover:bg-slate-800 transition-colors">
+          Cancel
+        </button>
+        <button type="button" @click="startScan" :disabled="!confirmed"
+          class="flex-1 rounded-md bg-emerald-600 text-white font-semibold py-2 text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:bg-emerald-500 disabled:hover:bg-emerald-600">
+          Confirm and start scan
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('alpine:init', () => {
+  Alpine.data('scanWizard', () => ({
+    targets: '',
+    scopeDomains: '',
+    depth: 'standard',
+    modalOpen: false,
+    confirmed: false,
+    error: '',
+    savedScopes: [],
+    selectedScopeId: '',
+
+    init() {
+      // TASK-10 (v2.0): the wizard offers saved scopes, but they never
+      // bypass the manual confirmation below.
+      this.loadSavedScopes();
+    },
+
+    async loadSavedScopes() {
+      try {
+        const response = await fetch('/api/scopes');
+        if (response.ok) {
+          const data = await response.json();
+          this.savedScopes = data.scopes;
+        }
+        // A broken scopes fetch must not block the manual scan flow.
+      } catch (err) {
+        this.savedScopes = [];
+      }
+    },
+
+    scopeList() {
+      return this.scopeDomains.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
+    },
+    targetList() {
+      return this.targets.split(/\n+/).map((s) => s.trim()).filter(Boolean);
+    },
+    openModal() {
+      this.error = '';
+      if (!this.targetList().length) {
+        this.error = 'Enter at least one target.';
+        return;
+      }
+      // A saved scope counts as an explicit scope source; without one we
+      // still need at least one manual domain.
+      if (!this.scopeList().length && !this.selectedScopeId) {
+        this.error = 'Enter at least one authorized scope domain or choose a saved scope; ' +
+          'the scope is never inferred from the target.';
+        return;
+      }
+      this.confirmed = false; // the checkbox is never pre-checked
+      this.modalOpen = true;
+    },
+    chooseScope(scopeId) {
+      // Filling the manual field keeps the exact same wire contract as v1.x:
+      // scope_domains, scope_confirmed=true, no scope_id needed.
+      const scope = this.savedScopes.find((s) => s.id === scopeId);
+      this.scopeDomains = scope ? scope.domains.join('\n') : '';
+    },
+    async startScan() {
+      if (!this.confirmed) return; // defense in depth: the button is also disabled
+      const body = {
+        targets: this.targetList(),
+        scope_confirmed: true,
+        reasoning_depth: this.depth,
+      };
+      if (this.selectedScopeId && !this.scopeList().length) {
+        // Operator picked a saved scope and did not override it manually:
+        // send scope_id and let the server resolve the domains.
+        body.scope_id = this.selectedScopeId;
+      } else {
+        body.scope_domains = this.scopeList();
+      }
+      try {
+        const response = await fetch('/api/runs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (response.status === 202) {
+          const data = await response.json();
+          window.location.assign('/runs/' + encodeURIComponent(data.run_id));
+          return;
+        }
+        if (response.status === 409) {
+          this.error = 'Another scan is already running; wait for it to finish.';
+        } else if (response.status === 403) {
+          this.error = 'The scope confirmation was rejected by the server.';
+        } else if (response.status === 404) {
+          this.error = 'The selected saved scope no longer exists; choose or enter domains manually.';
+        } else {
+          this.error = 'The scan could not be started (HTTP ' + response.status + ').';
+        }
+      } catch (err) {
+        this.error = 'Network error: the API is unreachable.';
+      }
+      this.modalOpen = false;
+    },
+  }));
+});
+</script>
+{% endblock %}

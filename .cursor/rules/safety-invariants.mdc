@@ -1,0 +1,44 @@
+---
+description: Reglas inviolables de seguridad de MetaTracer (scope, anti-SSRF, binarios, LLM). Un cambio que las viole no está done.
+alwaysApply: true
+---
+
+# Reglas inviolables de MetaTracer
+
+Fuente: `.aicontext/tasks/README.md`. Aplican a todo el código, sin excepciones.
+
+1. **No hay red sin scope**: toda petición HTTP exige `scope_confirmed=True` y pasar `ScopeValidator` + `NetworkSafetyGuard`. Prohibido usar `httpx` crudo desde extractores/servicios: todo pasa por el wrapper `safe_httpx_request`.
+2. **Sin modo oculto**: no crear flags `--insecure` ni bypasses de safety en la distribución por defecto.
+3. **Cero binarios**: nunca persistir bytes de archivos (ni en SQLite ni en logs) ni enviarlos al LLM. Solo metadata estructurada y snippets cortos (~150 chars).
+4. **Redirects in-scope**: re-validar el host de cada hop; fuera de scope → `RedirectOutOfScopeError` antes de leer el body.
+5. **Un asset fallido no tumba el run**: marcar `failed`/`skipped` con `error_message` y continuar.
+6. **Los agentes no inventan**: no cambian `finding_type` ni `evidence_snippet`, no generan exploits/payloads, no suben severidad sin texto que lo justifique en el snippet.
+7. **Loopback/privadas bloqueadas** en runtime normal. El bypass `METATRACER_ALLOW_LOOPBACK=true` es SOLO para tests, por variable de entorno, nunca activo por defecto.
+
+## Ejemplos
+
+```python
+# MAL: cliente HTTP crudo en un extractor
+async with httpx.AsyncClient() as client:
+    r = await client.get(url)
+
+# BIEN: todo pasa por el wrapper que ejecuta scope + guard
+r = await safe_httpx_request(url, scope=run.allowed_scope)
+```
+
+```python
+# MAL: mandar el EXIF completo al LLM
+payload = {"exif": full_exif_dict}
+
+# BIEN: solo los campos del contrato (TASK-05)
+payload = {
+    "finding_type": "gps",
+    "field_source": "EXIF:GPSInfo",
+    "evidence_snippet": "Latitude: 40.416775, Longitude: -3.703790",
+    "confidence": "high",
+    "heuristic_severity": "high",
+    "target_domain": "target.com",
+    "asset_content_type": "image/jpeg",
+    "asset_url": "https://target.com/photo.jpg",
+}
+```

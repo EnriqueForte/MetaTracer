@@ -1,0 +1,17 @@
+<!doctype html>
+<!-- Crawler fixture: in-scope absolute/relative links, off-scope host,
+     non-HTTP schemes, a non-document page link and a duplicate. -->
+<html>
+<body>
+  <a href="/docs/report.pdf">report</a>
+  <a href="https://target.com/img/photo.jpg">photo</a>
+  <a href="https://evil.com/steal.pdf">off scope</a>
+  <a href="javascript:void(0)">js</a>
+  <a href="mailto:someone@target.com">mail</a>
+  <a href="data:text/plain;base64,AAAA">data</a>
+  <a href="/about.html">another page, not a document</a>
+  <img src="images/pic.png">
+  <img src="https://sub.target.com/pic.webp">
+  <a href="/docs/report.pdf">duplicate of the first link</a>
+</body>
+</html>

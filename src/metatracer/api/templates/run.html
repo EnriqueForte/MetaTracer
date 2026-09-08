@@ -1,0 +1,440 @@
+{% extends "base.html" %}
+{% block title %}MetaTracer — Run results{% endblock %}
+{% block content %}
+<div x-data="runDashboard" x-init="init()">
+
+  <!-- Loading state -->
+  <div x-show="!run && !loadError" class="flex items-center gap-3 text-slate-400">
+    <span class="inline-block h-5 w-5 animate-spin rounded-full border-2 border-slate-600 border-t-emerald-500"></span>
+    <span>Loading run…</span>
+  </div>
+
+  <!-- Unknown run: a dignified state, not a blank screen -->
+  <div x-show="loadError" x-cloak class="bg-slate-900/60 border border-slate-800 rounded-lg p-8 text-center">
+    <p class="text-lg font-semibold text-slate-200 mb-2">Run not found</p>
+    <p class="text-sm text-slate-400 mb-4">
+      This run id does not exist in the local database. It may belong to another
+      MetaTracer installation or the database may have been reset.
+    </p>
+    <a href="/" class="text-emerald-400 hover:text-emerald-300 text-sm font-medium">Start a new scan</a>
+  </div>
+
+  <div x-show="run && !loadError" x-cloak>
+    <!-- Run header -->
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+      <div>
+        <h1 class="text-xl font-bold text-slate-100">
+          Scan of <span class="font-mono text-emerald-400" x-text="run ? run.target : ''"></span>
+        </h1>
+        <p class="text-xs text-slate-500 font-mono" x-text="run ? run.run_id : ''"></p>
+      </div>
+      <span class="px-3 py-1 rounded-full text-xs font-semibold"
+            :class="statusBadgeClass(run ? run.status : '')"
+            x-text="run ? run.status : ''"></span>
+    </div>
+
+    <!-- Failed run: explicit error, never an empty dashboard -->
+    <div x-show="run && run.status === 'failed'" x-cloak
+         class="bg-red-950/50 border border-red-800 rounded-lg p-5 mb-6">
+      <p class="text-sm font-semibold text-red-300 mb-1">Scan failed</p>
+      <p class="text-sm text-red-200/90 font-mono whitespace-pre-wrap"
+         x-text="run ? (run.error_message || 'unknown error') : ''"></p>
+    </div>
+
+    <!-- Live progress (SSE) -->
+    <div x-show="run && (run.status === 'pending' || run.status === 'running')" x-cloak
+         class="bg-slate-900/60 border border-slate-800 rounded-lg p-6 mb-6">
+      <h2 class="text-sm font-semibold text-slate-300 mb-4">Progress</h2>
+      <ol class="space-y-2">
+        <template x-for="stage in stages" :key="stage.key">
+          <li class="flex items-center gap-3 text-sm">
+            <span x-show="stage.state === 'done'" class="text-emerald-400 font-bold">&#10003;</span>
+            <span x-show="stage.state === 'active'"
+                  class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-600 border-t-emerald-500"></span>
+            <span x-show="stage.state === 'pending'" class="inline-block h-4 w-4 rounded-full border-2 border-slate-700"></span>
+            <span x-show="stage.state === 'failed'" class="text-red-400 font-bold">&#10007;</span>
+            <span :class="stage.state === 'pending' ? 'text-slate-500' : 'text-slate-200'"
+                  x-text="stage.label"></span>
+          </li>
+        </template>
+      </ol>
+      <p class="text-xs text-slate-400 mt-4 font-mono" x-text="currentMessage"></p>
+    </div>
+
+    <!-- Results -->
+    <div x-show="run && run.status === 'completed'" x-cloak>
+      <!-- Severity + type badges and search (client-side; export stays complete) -->
+      <div class="flex flex-wrap gap-2 mb-3">
+        <button @click="severityFilter = 'all'"
+                class="px-3 py-1 rounded-full text-xs font-semibold border transition-colors"
+                :class="severityFilter === 'all' ? 'border-emerald-500 text-emerald-300' : 'border-slate-700 text-slate-400 hover:border-slate-500'">
+          All (<span x-text="findings.length"></span>)
+        </button>
+        <template x-for="sev in severityOrder" :key="sev">
+          <button @click="severityFilter = (severityFilter === sev ? 'all' : sev)"
+                  class="px-3 py-1 rounded-full text-xs font-semibold border transition-colors"
+                  :class="severityFilter === sev ? 'border-emerald-500 text-emerald-300' : 'border-slate-700 text-slate-400 hover:border-slate-500'">
+            <span x-text="sev"></span> (<span x-text="counts[sev] || 0"></span>)
+          </button>
+        </template>
+      </div>
+      <div class="flex flex-wrap gap-2 mb-3">
+        <button @click="typeFilter = 'all'"
+                class="px-3 py-1 rounded-full text-xs font-semibold border transition-colors"
+                :class="typeFilter === 'all' ? 'border-emerald-500 text-emerald-300' : 'border-slate-700 text-slate-400 hover:border-slate-500'">
+          All types
+        </button>
+        <template x-for="type in typeOptions" :key="type.value">
+          <button @click="typeFilter = (typeFilter === type.value ? 'all' : type.value)"
+                  class="px-3 py-1 rounded-full text-xs font-semibold border transition-colors"
+                  :class="typeFilter === type.value ? 'border-emerald-500 text-emerald-300' : 'border-slate-700 text-slate-400 hover:border-slate-500'"
+                  x-text="type.label"></button>
+        </template>
+      </div>
+      <input type="search" x-model="query" placeholder="Search evidence, title, field or URL"
+             class="w-full mb-4 rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none">
+
+      <!-- Zero findings: a valid result, rendered as such -->
+      <div x-show="findingsLoaded && findings.length === 0"
+           class="bg-slate-900/60 border border-emerald-900 rounded-lg p-8 text-center">
+        <p class="text-lg font-semibold text-emerald-300 mb-1">No findings</p>
+        <p class="text-sm text-slate-400">
+          No sensitive metadata was identified in the
+          <span x-text="run ? run.total_assets : 0"></span> asset(s) analyzed.
+        </p>
+      </div>
+
+      <!-- Findings table -->
+      <div x-show="findings.length > 0" class="overflow-x-auto bg-slate-900/60 border border-slate-800 rounded-lg">
+        <table class="min-w-full text-sm">
+          <thead class="border-b border-slate-800 text-left text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th class="px-4 py-3">Severity</th>
+              <th class="px-4 py-3">Type</th>
+              <th class="px-4 py-3">Evidence</th>
+              <th class="px-4 py-3">Asset</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="finding in filteredFindings" :key="finding.id">
+              <tr @click="select(finding)"
+                  class="border-b border-slate-800/60 hover:bg-slate-800/40 cursor-pointer">
+                <td class="px-4 py-3">
+                  <span class="px-2 py-0.5 rounded text-xs font-semibold"
+                        :class="severityBadgeClass(finding.severity)"
+                        x-text="finding.severity || 'unclassified'"></span>
+                </td>
+                <td class="px-4 py-3 text-slate-300" x-text="finding.type_label"></td>
+                <td class="px-4 py-3 font-mono text-xs text-slate-400"
+                    x-text="truncate(finding.evidence_snippet, 90)"></td>
+                <td class="px-4 py-3 font-mono text-xs text-slate-400"
+                    x-text="truncate(finding.asset_final_url, 60)"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+        <p x-show="filteredFindings.length === 0" class="px-4 py-6 text-sm text-slate-500 text-center">
+          No findings match the current filters.
+        </p>
+      </div>
+
+      <!-- Asset issues: a failed asset is visible, never a silent gap -->
+      <details x-show="run && run.asset_issues.length > 0"
+               class="mt-6 bg-slate-900/60 border border-slate-800 rounded-lg">
+        <summary class="px-4 py-3 text-sm font-semibold text-slate-300 cursor-pointer">
+          Asset issues (<span x-text="run ? run.asset_issues.length : 0"></span>) — failed or
+          skipped documents that did not abort the run
+        </summary>
+        <ul class="px-4 pb-4 space-y-2">
+          <template x-for="issue in (run ? run.asset_issues : [])" :key="issue.asset_id">
+            <li class="text-xs font-mono text-slate-400">
+              <span class="px-1.5 py-0.5 rounded"
+                    :class="issue.status === 'failed' ? 'bg-red-900/60 text-red-300' : 'bg-slate-800 text-slate-400'"
+                    x-text="issue.skip_reason || issue.status"></span>
+              <span x-text="' ' + issue.source_url"></span>
+              <span class="text-slate-500" x-text="issue.error_message ? ' — ' + issue.error_message : ''"></span>
+            </li>
+          </template>
+        </ul>
+      </details>
+
+      <!-- Export -->
+      <div class="flex gap-3 mt-6">
+        <a :href="'/api/runs/' + runId + '/export?format=md'" download
+           class="rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-4 py-2 text-sm font-medium transition-colors">
+          Download Markdown
+        </a>
+        <a :href="'/api/runs/' + runId + '/export?format=json'" download
+           class="rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-4 py-2 text-sm font-medium transition-colors">
+          Download JSON
+        </a>
+        <a :href="'/api/runs/' + runId + '/export?format=html'" download
+           class="rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-4 py-2 text-sm font-medium transition-colors">
+          Download HTML
+        </a>
+        <a href="/runs" class="ml-auto text-sm text-slate-400 hover:text-slate-200 font-medium">History</a>
+        <a href="/" class="text-sm text-emerald-400 hover:text-emerald-300 font-medium">
+          New scan
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Finding drawer: full evidence + agent prose. All values via x-text. -->
+  <div x-show="selected" x-cloak class="fixed inset-0 z-50" @keydown.escape.window="selected = null">
+    <div class="absolute inset-0 bg-slate-950/70" @click="selected = null"></div>
+    <aside class="absolute inset-y-0 right-0 w-full max-w-xl bg-slate-900 border-l border-slate-700 shadow-2xl overflow-y-auto">
+      <template x-if="selected">
+        <div class="p-6">
+          <div class="flex items-start justify-between gap-4 mb-4">
+            <h2 class="text-base font-bold text-slate-100" x-text="selected.title"></h2>
+            <button @click="selected = null"
+                    class="text-slate-400 hover:text-slate-200 text-xl leading-none">&times;</button>
+          </div>
+          <div class="flex items-center gap-2 mb-4">
+            <span class="px-2 py-0.5 rounded text-xs font-semibold"
+                  :class="severityBadgeClass(selected.severity)"
+                  x-text="selected.severity || 'unclassified'"></span>
+            <span class="text-xs text-slate-400" x-text="selected.type_label"></span>
+            <span class="text-xs text-slate-500" x-text="'confidence: ' + selected.confidence"></span>
+          </div>
+
+          <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Asset</h3>
+          <a :href="safeUrl(selected.asset_final_url)" target="_blank" rel="noopener noreferrer"
+             class="block text-xs font-mono text-emerald-400 break-all mb-1"
+             x-text="selected.asset_final_url"></a>
+          <p class="text-xs text-slate-500 font-mono mb-4">
+            <span x-text="'source: ' + selected.asset_source_url"></span><br>
+            <span x-text="'content-type: ' + selected.asset_content_type"></span><br>
+            <span x-text="'field: ' + selected.field_source"></span>
+          </p>
+
+          <div class="flex items-center justify-between mb-1">
+            <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Evidence</h3>
+            <button @click="copyEvidence"
+                    class="text-xs text-emerald-400 hover:text-emerald-300 font-medium"
+                    x-text="copied ? 'Copied' : 'Copy'"></button>
+          </div>
+          <pre class="bg-slate-950 border border-slate-800 rounded p-3 text-xs font-mono text-slate-300 whitespace-pre-wrap break-all mb-4"
+               x-text="selected.evidence_snippet"></pre>
+
+          <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Justification</h3>
+          <p class="text-sm text-slate-300 mb-4" x-text="selected.severity_justification"></p>
+
+          <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Impact</h3>
+          <p class="text-sm text-slate-300 mb-4" x-text="selected.impact_analysis"></p>
+
+          <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Reproduction steps</h3>
+          <ol class="list-decimal list-inside text-sm text-slate-300 mb-4 space-y-1">
+            <template x-for="(step, index) in selected.reproduction_steps" :key="index">
+              <li x-text="step"></li>
+            </template>
+          </ol>
+
+          <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Remediation</h3>
+          <p class="text-sm text-slate-300" x-text="selected.remediation_advice"></p>
+        </div>
+      </template>
+    </aside>
+  </div>
+</div>
+
+<script>
+document.addEventListener('alpine:init', () => {
+  const SEVERITY_BADGES = {
+    critical: 'bg-red-600 text-white',
+    high: 'bg-fuchsia-600 text-white',
+    medium: 'bg-yellow-500 text-slate-900',
+    low: 'bg-cyan-600 text-white',
+    info: 'bg-slate-500 text-white',
+    unclassified: 'bg-slate-700 text-slate-300',
+  };
+  const STATUS_BADGES = {
+    pending: 'bg-slate-700 text-slate-300',
+    running: 'bg-yellow-600 text-white',
+    completed: 'bg-emerald-700 text-white',
+    failed: 'bg-red-700 text-white',
+    aborted: 'bg-slate-600 text-slate-200',
+  };
+
+  Alpine.data('runDashboard', () => ({
+    runId: '',
+    run: null,
+    loadError: false,
+    findings: [],
+    findingsLoaded: false,
+    severityFilter: 'all',
+    typeFilter: 'all',
+    query: '',
+    severityOrder: ['critical', 'high', 'medium', 'low', 'info'],
+    selected: null,
+    copied: false,
+    currentMessage: 'Connecting to the live stream…',
+    eventSource: null,
+    pollTimer: null,
+    stages: [
+      { key: 'scope_validation', label: 'Scope validation', state: 'pending' },
+      { key: 'discovery', label: 'Discovery', state: 'pending' },
+      { key: 'downloading', label: 'Downloading', state: 'pending' },
+      { key: 'extraction', label: 'Metadata extraction', state: 'pending' },
+      { key: 'detection', label: 'Detection', state: 'pending' },
+      { key: 'ai_analysis', label: 'Classification and AI analysis', state: 'pending' },
+      { key: 'report_generation', label: 'Report generation', state: 'pending' },
+    ],
+
+    init() {
+      // The run id comes from the page URL, never from template interpolation.
+      const parts = window.location.pathname.replace(/\/+$/, '').split('/');
+      this.runId = decodeURIComponent(parts.pop() || '');
+      this.refreshRun();
+      this.connectStream();
+    },
+
+    get counts() {
+      const tallies = {};
+      for (const finding of this.findings) {
+        const key = finding.severity || 'unclassified';
+        tallies[key] = (tallies[key] || 0) + 1;
+      }
+      return tallies;
+    },
+
+    get typeOptions() {
+      const seen = new Map();
+      for (const finding of this.findings) {
+        if (!seen.has(finding.finding_type)) {
+          seen.set(finding.finding_type, finding.type_label);
+        }
+      }
+      return Array.from(seen, ([value, label]) => ({ value, label }));
+    },
+
+    get filteredFindings() {
+      const needle = String(this.query || '').trim().toLowerCase();
+      return this.findings.filter((finding) => {
+        if (this.severityFilter !== 'all'
+            && (finding.severity || 'unclassified') !== this.severityFilter) {
+          return false;
+        }
+        if (this.typeFilter !== 'all' && finding.finding_type !== this.typeFilter) {
+          return false;
+        }
+        if (!needle) return true;
+        const blob = [
+          finding.title, finding.evidence_snippet, finding.field_source,
+          finding.asset_source_url, finding.asset_final_url, finding.type_label,
+        ].join(' ').toLowerCase();
+        return blob.includes(needle);
+      });
+    },
+
+    severityBadgeClass(severity) {
+      return SEVERITY_BADGES[severity || 'unclassified'] || SEVERITY_BADGES.unclassified;
+    },
+    statusBadgeClass(status) {
+      return STATUS_BADGES[status] || STATUS_BADGES.pending;
+    },
+    truncate(text, limit) {
+      const collapsed = String(text || '').replace(/\s+/g, ' ').trim();
+      return collapsed.length <= limit ? collapsed : collapsed.slice(0, limit - 3) + '...';
+    },
+    safeUrl(url) {
+      // Defense in depth (threat 12): the asset URL is target-controlled, so
+      // only http(s) values become navigable hrefs; anything else is inert.
+      return /^https?:\/\//i.test(String(url || '')) ? url : '#';
+    },
+
+    async refreshRun() {
+      try {
+        const response = await fetch('/api/runs/' + encodeURIComponent(this.runId));
+        if (response.status === 404) {
+          this.loadError = true;
+          return;
+        }
+        this.run = await response.json();
+        if (this.run.status === 'completed') this.loadFindings();
+      } catch (err) {
+        this.loadError = true;
+      }
+    },
+
+    connectStream() {
+      const source = new EventSource('/api/runs/' + encodeURIComponent(this.runId) + '/stream');
+      this.eventSource = source;
+      source.onmessage = (message) => this.handleEvent(JSON.parse(message.data));
+      source.onerror = () => {
+        // SSE failed (e.g. proxy): fall back to polling the run endpoint.
+        source.close();
+        this.startPolling();
+      };
+    },
+
+    handleEvent(event) {
+      this.currentMessage = event.message;
+      if (event.stage === 'completed') {
+        this.stages.forEach((stage) => { stage.state = 'done'; });
+        this.closeStream();
+        this.refreshRun();
+        return;
+      }
+      if (event.stage === 'failed') {
+        const active = this.stages.find((stage) => stage.state === 'active');
+        if (active) active.state = 'failed';
+        this.closeStream();
+        this.refreshRun();
+        return;
+      }
+      const index = this.stages.findIndex((stage) => stage.key === event.stage);
+      if (index === -1) return;
+      this.stages.forEach((stage, i) => {
+        if (i < index) stage.state = 'done';
+        else if (i === index) stage.state = 'active';
+      });
+    },
+
+    closeStream() {
+      if (this.eventSource) {
+        this.eventSource.close();
+        this.eventSource = null;
+      }
+    },
+
+    startPolling() {
+      if (this.pollTimer) return;
+      this.pollTimer = setInterval(async () => {
+        await this.refreshRun();
+        if (this.run && (this.run.status === 'completed' || this.run.status === 'failed')) {
+          clearInterval(this.pollTimer);
+          this.pollTimer = null;
+        }
+      }, 2000);
+    },
+
+    async loadFindings() {
+      const response = await fetch('/api/runs/' + encodeURIComponent(this.runId) + '/findings');
+      if (response.ok) {
+        const data = await response.json();
+        this.findings = data.findings;
+        this.findingsLoaded = true;
+      }
+    },
+
+    select(finding) {
+      this.selected = finding;
+      this.copied = false;
+    },
+
+    async copyEvidence() {
+      if (!this.selected) return;
+      try {
+        await navigator.clipboard.writeText(this.selected.evidence_snippet);
+        this.copied = true;
+        setTimeout(() => { this.copied = false; }, 2000);
+      } catch (err) {
+        // Clipboard unavailable (permissions): the evidence stays selectable.
+      }
+    },
+  }));
+});
+</script>
+{% endblock %}
