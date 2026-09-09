@@ -267,3 +267,16 @@ def template_for(finding_type: FindingType, severity: Severity) -> SeverityTempl
     if severity is Severity.info:
         return _TEMPLATES.get((finding_type, severity), AMBIGUOUS_EVIDENCE)
     return _TEMPLATES[(finding_type, severity)]
+
+
+def has_template(finding_type: FindingType, severity: Severity) -> bool:
+    """True when a type renders that severity without fabricating prose.
+
+    ``info`` always renders (the generic ambiguous-evidence template); other
+    levels require a real template for the type, otherwise the report would
+    KeyError. Used by the feedback injection (TASK-13) to ensure a down-vote
+    only lands on a severity the report can actually write.
+    """
+    if severity is Severity.info:
+        return True
+    return (finding_type, severity) in _TEMPLATES

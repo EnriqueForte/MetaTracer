@@ -21,19 +21,29 @@ is applied by the pipeline, which needs database access this layer avoids.
 
 import json
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 
+from metatracer.agents.memory import FeedbackExample
 from metatracer.classification.anchor import parse_gps_line
 from metatracer.classification.rubric import cap_severity, ceiling_for
 from metatracer.classification.templates import (
     UNANCHORED_EVIDENCE,
     RenderContext,
     SeverityTemplate,
+    has_template,
     render_template,
     template_for,
     tool_for_content_type,
 )
-from metatracer.db.models import Asset, Finding, FindingType, Severity
+from metatracer.db.models import (
+    Asset,
+    FeedbackVote,
+    Finding,
+    FindingType,
+    Severity,
+    severity_rank,
+)
 
 # Secret markers that push a debug comment to critical (subtask 3.2.3,
 # verbatim from the task contract).
@@ -122,9 +132,24 @@ class SeverityAssessment:
 
 
 class HeuristicRiskClassifier:
-    """Maps a finding to a rubric-anchored severity with template prose."""
+    """Maps a finding to a rubric-anchored severity with template prose.
 
-    def classify(self, finding: Finding, asset: Asset | None = None) -> SeverityAssessment:
+    TASK-13 (v2.1+): :meth:`classify` accepts an optional sequence of
+    ``feedback_examples`` (operator corrections for the same finding type).
+    The examples may only LOWER the proposed severity — never raise it —
+    because a single operator correction is weaker evidence than the rubric
+    anchors (ambiguity rule: down, never up). A ``down`` vote consensus can
+    therefore relax a heuristic's ``high`` to ``medium``, while ``up`` votes
+    are intentionally ignored: raising requires explicit rubric evidence, not
+    an example the heuristic cannot verify.
+    """
+
+    def classify(
+        self,
+        finding: Finding,
+        asset: Asset | None = None,
+        feedback_examples: Sequence[FeedbackExample] = (),
+    ) -> SeverityAssessment:
         """Classify one finding; pure function of the persisted fields."""
         snippet = finding.evidence_snippet
         if not snippet or not snippet.strip():
@@ -133,7 +158,41 @@ class HeuristicRiskClassifier:
         # Belt and braces: the per-type logic already respects the ceilings,
         # but the rubric invariant is enforced centrally (subtask 3.2.3).
         severity = cap_severity(severity, ceiling_for(finding.finding_type))
+        severity = self._apply_feedback(
+            severity, finding.finding_type, feedback_examples
+        )
         return self._assess(finding, asset, severity)
+
+    @staticmethod
+    def _apply_feedback(
+        severity: Severity,
+        finding_type: FindingType,
+        examples: Sequence[FeedbackExample],
+    ) -> Severity:
+        """Lower severity on a consensus of ``down`` votes, never raise.
+
+        Returns the least severe ``severity_after`` among votes that requested
+        a decrease, are still below the current one, and are **renderable**
+        for the finding type (``has_template``). ``up`` votes and absent
+        examples leave the severity untouched (see class docstring).
+        """
+        if not examples:
+            return severity
+        current_rank = severity_rank(severity)
+        down_after = [
+            example.severity_after
+            for example in examples
+            if example.vote is FeedbackVote.down
+        ]
+        lowered = severity
+        for candidate in down_after:
+            rank = severity_rank(candidate)
+            if rank < current_rank and rank < severity_rank(lowered):
+                # A report must be able to write the corrected level: without
+                # a template the exporter would KeyError (templates.py).
+                if has_template(finding_type, candidate):
+                    lowered = candidate
+        return lowered
 
     def _severity_for(self, finding: Finding) -> Severity:
         snippet = finding.evidence_snippet.strip()

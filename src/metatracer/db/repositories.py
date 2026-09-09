@@ -13,6 +13,7 @@ from metatracer.db.models import (
     AgentLog,
     Asset,
     Finding,
+    FindingFeedback,
     RawMetadataItem,
     Run,
     RunStatus,
@@ -268,6 +269,67 @@ class ScopeRepository:
             select(Scope).order_by(Scope.created_at.desc())  # type: ignore[arg-type]
         )
         return list(result.all())
+
+
+class FeedbackRepository:
+    """Operator feedback over findings (TASK-13, v2.1+). Persistence only.
+
+    ``upsert_by_finding`` implements the "one active feedback per finding"
+    contract: a new vote for a finding that already has feedback **replaces**
+    the row instead of creating a duplicate, so the few-shot memory stays
+    bounded and later examples win over earlier ones.
+    """
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def create(self, feedback: FindingFeedback) -> FindingFeedback:
+        self._session.add(feedback)
+        await self._session.commit()
+        await self._session.refresh(feedback)
+        return feedback
+
+    async def get_by_finding(self, finding_id: str) -> FindingFeedback | None:
+        result = await self._session.exec(
+            select(FindingFeedback).where(FindingFeedback.finding_id == finding_id)
+        )
+        return result.first()
+
+    async def upsert_by_finding(self, feedback: FindingFeedback) -> FindingFeedback:
+        """Insert, or replace the existing row for the same ``finding_id``.
+
+        A replacement persists a brand-new row (fresh ``id``/``created_at``)
+        and removes the previous one, so the few-shot memory always reflects
+        the latest correction while the "one active feedback per finding"
+        contract holds. The new row is returned.
+        """
+        existing = await self.get_by_finding(feedback.finding_id)
+        if existing is not None:
+            await self._session.delete(existing)
+            # Flush so the DELETE is emitted before the INSERT of the new row;
+            # without it SQLAlchemy may reorder and briefly hold both rows.
+            await self._session.flush()
+        self._session.add(feedback)
+        await self._session.commit()
+        await self._session.refresh(feedback)
+        return feedback
+
+    async def list_recent(self, limit: int = 50) -> list[FindingFeedback]:
+        """Newest-first feedback rows, for the few-shot memory loader."""
+        result = await self._session.exec(
+            select(FindingFeedback).order_by(
+                FindingFeedback.created_at.desc()  # type: ignore[arg-type]
+            ).limit(limit)
+        )
+        return list(result.all())
+
+    async def delete(self, finding_id: str) -> bool:
+        feedback = await self.get_by_finding(finding_id)
+        if feedback is None:
+            return False
+        await self._session.delete(feedback)
+        await self._session.commit()
+        return True
 
 
 class DashboardRepository:

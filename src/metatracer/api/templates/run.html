@@ -233,6 +233,43 @@
 
           <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Remediation</h3>
           <p class="text-sm text-slate-300" x-text="selected.remediation_advice"></p>
+
+          <!-- Operator feedback (TASK-13, v2.1+): local correction, becomes
+               few-shot guidance for future runs. Values via x-text only. -->
+          <div class="mt-6 border-t border-slate-800 pt-4">
+            <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Feedback</h3>
+            <p class="text-xs text-slate-400 mb-2">
+              Correct the severity if the model got it wrong. Your correction is
+              stored locally and guides future runs with similar findings.
+            </p>
+            <template x-if="feedback">
+              <p class="text-xs text-emerald-400 mb-2"
+                 x-text="'Current feedback: ' + feedback.vote + ' → ' + feedback.severity_after"></p>
+            </template>
+            <div class="flex flex-wrap items-center gap-2">
+              <label class="text-xs text-slate-400">Corrected severity</label>
+              <select x-model="feedbackSeverity"
+                      class="rounded-md bg-slate-950 border border-slate-700 px-2 py-1.5 text-xs text-slate-200 focus:border-emerald-500 focus:outline-none">
+                <template x-for="sev in severityOrder" :key="sev">
+                  <option :value="sev" x-text="sev"></option>
+                </template>
+              </select>
+              <button @click="sendFeedback()"
+                      class="px-3 py-1.5 rounded-md border border-slate-700 text-xs font-semibold text-slate-200 hover:border-emerald-500 hover:text-emerald-300 transition-colors"
+                      x-text="feedback !== null ? 'Update feedback' : 'Save feedback'"></button>
+              <template x-if="feedback">
+                <button @click="deleteFeedback()"
+                        class="px-3 py-1.5 rounded-md border border-red-900/60 text-xs font-semibold text-red-300 hover:border-red-500 transition-colors">
+                  Remove
+                </button>
+              </template>
+              <span class="text-xs text-slate-500" x-text="feedbackBusy ? 'Saving…' : ''"></span>
+              <span class="text-xs text-red-400" x-text="feedbackError"></span>
+            </div>
+            <input type="text" x-model="feedbackReason"
+                   placeholder="Optional: why (stored locally, never sent to the model)"
+                   class="mt-2 w-full rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-xs text-slate-300 focus:border-emerald-500 focus:outline-none">
+          </div>
         </div>
       </template>
     </aside>
@@ -269,6 +306,11 @@ document.addEventListener('alpine:init', () => {
     severityOrder: ['critical', 'high', 'medium', 'low', 'info'],
     selected: null,
     copied: false,
+    feedback: null,
+    feedbackSeverity: '',
+    feedbackReason: '',
+    feedbackBusy: false,
+    feedbackError: '',
     currentMessage: 'Connecting to the live stream…',
     eventSource: null,
     pollTimer: null,
@@ -422,6 +464,85 @@ document.addEventListener('alpine:init', () => {
     select(finding) {
       this.selected = finding;
       this.copied = false;
+      this.feedback = null;
+      this.feedbackError = '';
+      this.feedbackSeverity = finding.severity || 'info';
+      this.loadFeedback(finding.id);
+    },
+
+    async loadFeedback(findingId) {
+      try {
+        const response = await fetch('/api/feedback/' + encodeURIComponent(findingId));
+        if (response.status === 200) {
+          this.feedback = await response.json();
+        } else {
+          this.feedback = null;
+        }
+      } catch (err) {
+        this.feedback = null;
+      }
+    },
+
+    async sendFeedback() {
+      if (!this.selected) return;
+      const before = this.selected.severity;
+      const after = this.feedbackSeverity;
+      if (!after || after === before) {
+        this.feedbackError = 'Choose a different severity to save feedback.';
+        return;
+      }
+      // The direction is derived from the chosen severity: 'up' when moving
+      // higher on the info -> critical scale, 'down' otherwise. The API
+      // re-validates with the actual persisted severity.
+      const order = ['info', 'low', 'medium', 'high', 'critical'];
+      const vote = order.indexOf(after) > order.indexOf(before) ? 'up' : 'down';
+      this.feedbackBusy = true;
+      this.feedbackError = '';
+      try {
+        const response = await fetch(
+          '/api/feedback/' + encodeURIComponent(this.selected.id),
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              vote: vote,
+              severity_after: after,
+              reason: String(this.feedbackReason || '').trim() || null,
+            }),
+          },
+        );
+        if (response.ok) {
+          this.feedback = await response.json();
+        } else {
+          const payload = await response.json().catch(() => ({}));
+          this.feedbackError = payload.detail || 'Feedback could not be saved';
+        }
+      } catch (err) {
+        this.feedbackError = 'Feedback could not be saved';
+      } finally {
+        this.feedbackBusy = false;
+      }
+    },
+
+    async deleteFeedback() {
+      if (!this.selected) return;
+      this.feedbackBusy = true;
+      this.feedbackError = '';
+      try {
+        const response = await fetch(
+          '/api/feedback/' + encodeURIComponent(this.selected.id),
+          { method: 'DELETE' },
+        );
+        if (response.status === 204) {
+          this.feedback = null;
+        } else {
+          this.feedbackError = 'Feedback could not be removed';
+        }
+      } catch (err) {
+        this.feedbackError = 'Feedback could not be removed';
+      } finally {
+        this.feedbackBusy = false;
+      }
     },
 
     async copyEvidence() {

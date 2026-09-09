@@ -83,6 +83,17 @@ class Severity(StrEnum):
     info = "info"
 
 
+class FeedbackVote(StrEnum):
+    """Operator correction direction (TASK-13, v2.1+).
+
+    ``up`` means the human considers the finding more severe than the model
+    said; ``down`` means less severe. Values are the lowercase wire strings.
+    """
+
+    up = "up"
+    down = "down"
+
+
 class Run(SQLModel, table=True):
     __tablename__ = "run"
 
@@ -198,4 +209,52 @@ class Scope(SQLModel, table=True):
     name: str = Field(unique=True, index=True)
     description: str | None = Field(default=None, sa_type=Text)
     domains: str = Field(sa_type=Text)  # JSON list of normalized host entries
+    created_at: datetime = Field(default_factory=_utc_now, sa_type=DateTime(timezone=True))
+
+
+# Severity has no plain order on the wire; ``_SEVERITY_RANK`` exists for the
+# feedback vote validation (TASK-13): same five levels, from info -> critical.
+_SEVERITY_RANK: dict[str, int] = {
+    "info": 0,
+    "low": 1,
+    "medium": 2,
+    "high": 3,
+    "critical": 4,
+}
+
+
+def severity_rank(severity: Severity | str) -> int:
+    """Numeric rank of a severity, ``info`` (0) to ``critical`` (4).
+
+    Falls back to 0 for unknown/empty input so a corrupt row never crashes
+    the feedback endpoint — the caller still validates the truth.
+    """
+    key = str(severity)
+    return _SEVERITY_RANK.get(key, 0)
+
+
+class FindingFeedback(SQLModel, table=True):
+    """One operator correction over a finding's severity (TASK-13, v2.1+).
+
+    This is the memory of the feedback loop: each row is a small example
+    ("this GPS was over-rated → down to medium") that later runs can reuse as
+    few-shot guidance for findings of the same type. Rules:
+
+    - one active row per ``finding_id`` (upsert semantics in the repository);
+    - ``vote`` direction must match ``severity_after`` vs. the finding's
+      current severity (validated by the API layer, not here);
+    - ``reason`` is operator-only context — it never travels to the LLM, only
+      the structured fields (finding type, evidence snippet, before/after) do;
+    - ``reason`` is truncated to ~150 chars at the API edge (defense in depth).
+    """
+
+    __tablename__ = "finding_feedback"
+
+    id: str = Field(default_factory=_new_uuid, primary_key=True)
+    finding_id: str = Field(foreign_key="finding.id", index=True, unique=True)
+    run_id: str = Field(foreign_key="run.id", index=True)
+    vote: FeedbackVote
+    severity_before: Severity
+    severity_after: Severity
+    reason: str | None = Field(default=None, sa_type=Text)
     created_at: datetime = Field(default_factory=_utc_now, sa_type=DateTime(timezone=True))

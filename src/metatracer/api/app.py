@@ -21,7 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from metatracer import __version__
-from metatracer.api import notifications, pages, runs, scopes, stats
+from metatracer.api import feedback, notifications, pages, runs, scopes, stats
 from metatracer.core.config import Settings
 from metatracer.core.logging import configure_logging
 from metatracer.db.engine import create_db_engine, create_session_factory, init_db
@@ -89,6 +89,7 @@ def create_app(
     app.include_router(scopes.router)
     app.include_router(stats.router)
     app.include_router(notifications.router)
+    app.include_router(feedback.router)
     app.include_router(pages.router)
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
     return app

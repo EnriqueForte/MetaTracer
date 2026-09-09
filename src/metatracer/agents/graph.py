@@ -86,6 +86,12 @@ class AgentState(TypedDict):
     dicts; only ``payload`` (the closed contract keys) is ever sent to a model.
     ``evaluated_findings`` holds one working dict per processed finding; nodes
     refine the last entry as it flows through the loop.
+
+    TASK-13 (v2.1+): each entry may additionally carry ``feedback_examples``
+    (a list of operator-feedback dicts for findings of the same type). They
+    travel OUTSIDE the closed ``payload`` — the ContextOptimizer contract
+    stays intact — and ``AnalyzeContextNode`` merges them into the model
+    message as guidance, never as evidence.
     """
 
     target_domain: str
@@ -140,6 +146,12 @@ class AnalyzeContextNode:
 
     The prompt forbids assuming facts beyond the payload; failure flags the
     entry for the heuristic fallback instead of breaking the loop.
+
+    TASK-13 (v2.1+): when the entry carries ``feedback_examples`` (operator
+    corrections for the same finding type), they are merged into the model
+    message as non-authoritative guidance — the rubric, the guard and the
+    payload remain the source of truth, and the examples never replace the
+    evidence snippet.
     """
 
     def __init__(self, client: AgentClient) -> None:
@@ -148,9 +160,14 @@ class AnalyzeContextNode:
     async def __call__(self, state: AgentState) -> dict[str, Any]:
         entry = dict(state["raw_findings"][state["current_index"]])
         error_log = list(state["error_log"])
+        model_payload = dict(entry["payload"])
+        feedback = entry.get("feedback_examples")
+        if feedback:
+            # Guidance only, outside the closed payload-contract keys.
+            model_payload = {**model_payload, "feedback_examples": feedback}
         try:
             result = await self._client.analyze(
-                analysis_system_prompt(state["reasoning_depth"]), entry["payload"]
+                analysis_system_prompt(state["reasoning_depth"]), model_payload
             )
         except AgentUnavailableError as exc:
             logger.warning(
@@ -162,6 +179,8 @@ class AnalyzeContextNode:
             entry.update({"fallback": True, "analysis": None, "usage": LLMUsage()})
         else:
             entry.update({"fallback": False, "analysis": result.value, "usage": result.usage})
+            if feedback:
+                entry["feedback_used"] = True
         return {
             "evaluated_findings": [*state["evaluated_findings"], entry],
             "error_log": error_log,

@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from metatracer.agents.memory import FeedbackMemory
 from metatracer.classification.anchor import evidence_is_anchored
 from metatracer.classification.classifier import (
     HeuristicRiskClassifier,
@@ -48,19 +49,29 @@ class ClassificationSummary:
 
 
 class ClassificationPipeline:
-    """Runs the TASK-03 heuristic classification phase for one persisted Run."""
+    """Runs the TASK-03 heuristic classification phase for one persisted Run.
+
+    TASK-13 (v2.1+): an optional :class:`FeedbackMemory` is injected; its
+    examples may only lower the heuristic severity of matching type (see
+    :class:`HeuristicRiskClassifier`). A memory with no rows (or None) is a
+    no-op — behaviour is identical to v2.0.
+    """
 
     def __init__(
         self,
         session_factory: async_sessionmaker[AsyncSession],
         classifier: HeuristicRiskClassifier | None = None,
+        feedback_memory: FeedbackMemory | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._classifier = classifier if classifier is not None else HeuristicRiskClassifier()
+        self._feedback_memory = feedback_memory
 
     async def execute(self, run_id: str) -> ClassificationSummary:
         """Classify every finding of the run whose severity is still NULL."""
         set_run_context(run_id)
+        memory = self._feedback_memory if self._feedback_memory is not None else FeedbackMemory()
+        await memory.load(self._session_factory)
         async with self._session_factory() as session:
             run = await RunRepository(session).get(run_id)
         if run is None:
@@ -80,7 +91,9 @@ class ClassificationPipeline:
                 asset = await AssetRepository(session).get(finding.asset_id)
                 items = await RawMetadataRepository(session).list_by_asset(finding.asset_id)
             if evidence_is_anchored(finding, items):
-                assessment = self._classifier.classify(finding, asset)
+                assessment = self._classifier.classify(
+                    finding, asset, feedback_examples=memory.examples_for(finding.finding_type)
+                )
             else:
                 assessment = unanchored_assessment(finding, asset)
             apply_assessment(finding, assessment)

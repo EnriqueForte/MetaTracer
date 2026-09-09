@@ -22,6 +22,7 @@ Enums en **minúsculas** en DB, JSON, API y Pydantic. La presentación (CLI/UI/M
 | `extraction_status` | `ok` \| `skipped` \| `failed` |
 | `skip_reason` | `unsupported_type` \| `too_large` \| `out_of_scope` \| `duplicate_hash` \| `empty_body` |
 | `namespace` | `exif` \| `xmp` \| `pdfinfo` \| `iptc` \| `http` \| `html` \| `js` |
+| `feedback.vote` | `up` \| `down` (TASK-13, v2.1+) |
 
 ## Modelos (SQLModel)
 
@@ -30,6 +31,7 @@ Enums en **minúsculas** en DB, JSON, API y Pydantic. La presentación (CLI/UI/M
 - **`RawMetadataItem`**: `id` int autoincrement (única excepción a UUID); `namespace` ∈ `exif`/`xmp`/`pdfinfo`/`iptc`/`http`/`html`/`js`; `value` siempre texto sanitizado, **nunca bytes**; truncar >2 KB con marca `[truncated]`.
 - **`Finding`**: `severity` **Optional, NULL hasta clasificar**; `severity_justification`, `impact_analysis`, `remediation_advice`, `reproduction_steps`, `title` y `agent_model_used` todos Optional. `title` solo lo escribe una evaluación de agente real (no el fallback); el reporte cae a la plantilla por tipo si es NULL.
 - **`AgentLog`**: tokens, `model_name`, `latency_ms`, `raw_response` (salida estructurada; no guardar el prompt completo si contiene secretos).
+- **`FindingFeedback`** (TASK-13, v2.1+): `vote` (`up`/`down`), `severity_before`/`severity_after` (la After **distinta** y en la dirección del vote), `reason` Optional Text truncado a ~150 chars (**nunca** viaja al LLM), `created_at`. Un `finding_id` admite **un solo** feedback activo (upsert); no se exporta a reportes ni al dashboard.
 
 Convenciones: UUIDs como `str` (UUID4); timestamps timezone-aware UTC; `PRAGMA foreign_keys=ON`; sin tipos exclusivos de SQLite (migración a PostgreSQL en el horizonte).
 
@@ -57,6 +59,8 @@ Unique constraint `(asset_id, dedup_signature)`. Insertar ignorando conflictos; 
 ## Repositorios
 
 `RunRepository`, `AssetRepository`, `RawMetadataRepository`, `FindingRepository`, `AgentLogRepository`: CRUD mínimo + `list_by_run`. **Sin lógica de negocio** en la capa de acceso a datos.
+
+`FeedbackRepository` (TASK-13): `create`, `get_by_finding`, `upsert_by_finding`, `list_recent`, `delete` — mismo estilo CRUD mínimo.
 
 ## Ciclo de vida del dato personal (amenaza 14)
 

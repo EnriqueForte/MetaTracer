@@ -33,11 +33,12 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from metatracer.agents.graph import AgentState, build_graph, recursion_limit_for
 from metatracer.agents.llm import AgentClient, RetryPolicy, build_default_client
+from metatracer.agents.memory import FeedbackMemory, examples_to_payload
 from metatracer.agents.optimizer import ContextOptimizer
 from metatracer.core.config import Settings
 from metatracer.core.exceptions import MetaTracerError
 from metatracer.core.logging import sanitize_for_log, set_run_context
-from metatracer.db.models import AgentLog, Finding, Run
+from metatracer.db.models import AgentLog, Finding, FindingType, Run
 from metatracer.db.repositories import (
     AgentLogRepository,
     AssetRepository,
@@ -134,7 +135,13 @@ class SqlEvaluationWriter:
 
 
 class AgentPipeline:
-    """Runs the TASK-05 agent phase for one persisted Run."""
+    """Runs the TASK-05 agent phase for one persisted Run.
+
+    TASK-13 (v2.1+): an optional :class:`FeedbackMemory` is injected; when it
+    holds operator corrections for a finding type, those examples travel to
+    the graph as ``feedback_examples`` guidance. A memory with no rows (or
+    None) is a complete no-op — the payload contract never changes.
+    """
 
     def __init__(
         self,
@@ -143,12 +150,24 @@ class AgentPipeline:
         *,
         client: AgentClient | None = None,
         retry_policy: RetryPolicy | None = None,
+        feedback_memory: FeedbackMemory | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._settings = settings
         self._client = (
             client if client is not None else build_default_client(settings, retry_policy)
         )
+        self._feedback_memory = feedback_memory
+
+    async def _load_feedback(self, run_id: str) -> FeedbackMemory:
+        """Return the injected memory, freshly loaded for this run.
+
+        ``None`` memory -> an empty one: the phase stays a strict no-op when
+        feedback is not wired (default installs).
+        """
+        memory = self._feedback_memory if self._feedback_memory is not None else FeedbackMemory()
+        await memory.load(self._session_factory)
+        return memory
 
     async def execute(self, run_id: str) -> AgentSummary:
         """Evaluate every finding of the run (subject to the cost cap)."""
@@ -171,14 +190,25 @@ class AgentPipeline:
             target_domain,
         )
         skipped = len(findings) - len(optimized)
-        raw_findings = [
-            {
+        memory = await self._load_feedback(run_id)
+        raw_findings = []
+        for entry in optimized:
+            item = {
                 "finding_id": entry.finding_id,
                 "payload": entry.payload,
                 "had_baseline_severity": entry.had_baseline_severity,
             }
-            for entry in optimized
-        ]
+            # TASK-13: attach operator-guided examples of the same type when
+            # present. examples_to_payload caps the total size; an empty list
+            # is omitted so the payload contract never changes.
+            ftype = entry.payload.get("finding_type")
+            examples = (
+                memory.examples_for(FindingType(ftype)) if ftype in FindingType.__members__ else []
+            )
+            rendered = examples_to_payload(examples)
+            if rendered:
+                item["feedback_examples"] = rendered
+            raw_findings.append(item)
 
         writer = SqlEvaluationWriter(
             self._session_factory, run_id, {finding.id: finding for finding in findings}
