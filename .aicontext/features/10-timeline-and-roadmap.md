@@ -33,7 +33,7 @@ v1.0–v1.2 están **cerradas**. La siguiente fase de producto es **v2.0 Platafo
 | v1.1 | Usabilidad | Mejoras de CLI, exportación HTML, filtros, historial local, coherencia post-LLM | **Cerrada** — [TASK-08](../tasks/08-usability.md) |
 | v1.2 | Expansión de fuentes | HTML, HTTP headers, comentarios JS | **Cerrada** — [TASK-09](../tasks/09-source-expansion.md) |
 | v2.0 | Plataforma | Dashboard completo, gestión de scopes, notificaciones | Demostrar capacidad de producto — **Cerrada 2026-09-08** (TASK-10 scopes ✅, TASK-11 dashboard ✅, TASK-12 notificaciones ✅) |
-| v2.1+ | Inteligencia avanzada | RAG, feedback loop, integraciones | Diferenciación fuerte en AI + OffSec — **en curso: TASK-14 RAG ligero (FTS5)** |
+| v2.1+ | Inteligencia avanzada | RAG, feedback loop, integraciones | Diferenciación fuerte en AI + OffSec — **en curso: 2/3 entregables (TASK-13 feedback ✅, TASK-14 RAG ligero ✅); falta "integraciones" por definir** |
 
 ## Mapeo a características del MVP
 

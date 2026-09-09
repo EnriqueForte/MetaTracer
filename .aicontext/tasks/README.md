@@ -3,7 +3,7 @@
 **Proyecto:** MetaTracer  
 **Versión:** 2.1 (Inteligencia avanzada)  
 **PRD:** [Volver al PRD](../PRD.md)  
-**Estado:** MVP v1.0–v1.2 cerradas — v2.0 completada (TASK-10 scopes ✅, TASK-11 dashboard ✅, TASK-12 notificaciones ✅) — v2.1 en curso (TASK-13 feedback loop ✅, TASK-14 RAG ligero)  
+**Estado:** MVP v1.0–v1.2 cerradas — v2.0 completada (TASK-10 scopes ✅, TASK-11 dashboard ✅, TASK-12 notificaciones ✅) — v2.1 en curso (TASK-13 feedback loop ✅, TASK-14 RAG ligero ✅; queda el entregable "integraciones" sin definir)  
 
 Este directorio descompone el MVP en tareas implementables. Cada archivo es un contrato: objetivo, subtareas, contratos de datos, fuera de alcance, tests mínimos y criterios de aceptación verificables.
 

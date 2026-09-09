@@ -3,7 +3,7 @@
 **Módulo:** Plataforma — gestión de scopes  
 **Referencia PRD:** [Timeline y roadmap](../features/10-timeline-and-roadmap.md), [Interfaces](../features/06-interfaces.md)  
 **Dependencias:** TASK-00 … TASK-09 (v1.0–v1.2 cerradas), fase v2.0  
-**Estado:** En curso
+**Estado:** Cerrada
 
 ---
 
@@ -168,10 +168,10 @@ En la capa de presentación (Web UI):
 
 ## 5. Criterios de aceptación (DoD)
 
-- [ ] Crear un scope y verlo en `GET /api/scopes`; el `name` es único (case-insensitive).
-- [ ] Un scan lanzado con `scope_id` persiste `Run.allowed_scope` con los dominios resueltos.
-- [ ] Un scan ad-hoc (sin `scope_id`) sigue funcionando igual que en v1.x.
-- [ ] Borrar un scope no rompe ni modifica runs ya persistidos.
-- [ ] La Web UI permite crear, listar, editar y borrar scopes, y usarlos en el wizard.
-- [ ] Cero datos de bytes/secretos; cero relajación del safety gate.
-- [ ] `pytest -m "not e2e"` en verde y `ruff check src tests` limpio.
+- [x] Crear un scope y verlo en `GET /api/scopes`; el `name` es único (case-insensitive).
+- [x] Un scan lanzado con `scope_id` persiste `Run.allowed_scope` con los dominios resueltos.
+- [x] Un scan ad-hoc (sin `scope_id`) sigue funcionando igual que en v1.x.
+- [x] Borrar un scope no rompe ni modifica runs ya persistidos.
+- [x] La Web UI permite crear, listar, editar y borrar scopes, y usarlos en el wizard.
+- [x] Cero datos de bytes/secretos; cero relajación del safety gate.
+- [x] `pytest -m "not e2e"` en verde y `ruff check src tests` limpio.

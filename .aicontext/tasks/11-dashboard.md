@@ -3,7 +3,7 @@
 **Módulo:** Plataforma — dashboard  
 **Referencia PRD:** [Timeline y roadmap](../features/10-timeline-and-roadmap.md), [Interfaces](../features/06-interfaces.md)  
 **Dependencias:** TASK-10 (scopes persistentes cerrado), TASK-00 … TASK-09  
-**Estado:** En curso
+**Estado:** Cerrada
 
 ---
 
@@ -159,13 +159,13 @@ GET /api/stats  -> 200 DashboardStats
 
 ## 5. Criterios de aceptación (DoD)
 
-- [ ] `GET /api/stats` devuelve KPIs, desgloses, top dominios, top evidencia y
+- [x] `GET /api/stats` devuelve KPIs, desgloses, top dominios, top evidencia y
       uso de agente sobre los datos persistidos.
-- [ ] El dashboard funciona con **cero runs** (todo cero, página digna).
-- [ ] El dashboard funciona **sin agentes** (agente `0`, no falla).
-- [ ] `top_evidence` agrupa por `dedup_signature` (el mismo snippet en N assets
+- [x] El dashboard funciona con **cero runs** (todo cero, página digna).
+- [x] El dashboard funciona **sin agentes** (agente `0`, no falla).
+- [x] `top_evidence` agrupa por `dedup_signature` (el mismo snippet en N assets
       cuenta una vez).
-- [ ] `top_domains` normaliza (`Target.COM/path` → `target.com`).
-- [ ] `AgentLog.raw_response` / bytes / secretos **nunca** aparecen en la respuesta.
-- [ ] `pytest -m "not e2e"` en verde y `ruff check src tests` limpio.
-- [ ] Nada de esto escribe en la BD (los tests lo comprueban con `count()`).
+- [x] `top_domains` normaliza (`Target.COM/path` → `target.com`).
+- [x] `AgentLog.raw_response` / bytes / secretos **nunca** aparecen en la respuesta.
+- [x] `pytest -m "not e2e"` en verde y `ruff check src tests` limpio.
+- [x] Nada de esto escribe en la BD (los tests lo comprueban con `count()`).

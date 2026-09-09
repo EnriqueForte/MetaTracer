@@ -3,7 +3,7 @@
 **Módulo:** Inteligencia avanzada — aprendizaje por corrección humana
 **Referencia PRD:** [Timeline y roadmap](../features/10-timeline-and-roadmap.md), [Agentes de IA](../features/05-ai-agents.md)
 **Dependencias:** TASK-00 … TASK-12 (v1.0–v2.0 cerradas), fase v2.1+
-**Estado:** En curso
+**Estado:** Completada
 
 ---
 
@@ -229,16 +229,16 @@ Nuevo router `metatracer/api/feedback.py` (prefix `/api/feedback`, tag
 
 ## 5. Criterios de aceptación (DoD)
 
-- [ ] Un operador puede corregir la severidad de un finding vía `PUT /api/feedback`
+- [x] Un operador puede corregir la severidad de un finding vía `PUT /api/feedback`
       y la corrección persiste (`GET` la devuelve).
-- [ ] Corregir el mismo finding dos veces reemplaza (no duplica) el feedback.
-- [ ] Con feedback existente del mismo `finding_type`, un run nuevo sugiere
+- [x] Corregir el mismo finding dos veces reemplaza (no duplica) el feedback.
+- [x] Con feedback existente del mismo `finding_type`, un run nuevo sugiere
       severidad acorde a los ejemplos (el heurístico lo refleja y el agente lo
       ve en el prompt), **sin** tocar `evidence_snippet` ni `finding_type`.
-- [ ] El feedback nunca viaja al reporte ni al LLM como texto libre (`reason`
+- [x] El feedback nunca viaja al reporte ni al LLM como texto libre (`reason`
       queda fuera del prompt).
-- [ ] Una memoria vacía deja el pipeline idéntico al de v2.0 (no-op total).
-- [ ] Cero dependencias nuevas; la tabla `finding_feedback` se crea con
+- [x] Una memoria vacía deja el pipeline idéntico al de v2.0 (no-op total).
+- [x] Cero dependencias nuevas; la tabla `finding_feedback` se crea con
       `create_all` (sin migración real).
-- [ ] Cero relajación del safety gate/guard; sin red nueva en feedback.
-- [ ] `pytest -m "not e2e"` en verde y `ruff check src tests` limpio.
+- [x] Cero relajación del safety gate/guard; sin red nueva en feedback.
+- [x] `pytest -m "not e2e"` en verde (403 passed) y `ruff check src tests` limpio.

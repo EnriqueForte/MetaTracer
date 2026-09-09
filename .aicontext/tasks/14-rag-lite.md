@@ -3,7 +3,7 @@
 **Módulo:** Inteligencia avanzada — recuperación de contexto histórico
 **Referencia PRD:** [Timeline y roadmap](../features/10-timeline-and-roadmap.md), [Agentes de IA](../features/05-ai-agents.md)
 **Dependencias:** TASK-00 … TASK-13 (v1.0–v2.1), fase v2.1+
-**Estado:** En curso
+**Estado:** Completada
 
 ---
 
