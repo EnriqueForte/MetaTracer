@@ -62,6 +62,17 @@ Unique constraint `(asset_id, dedup_signature)`. Insertar ignorando conflictos; 
 
 `FeedbackRepository` (TASK-13): `create`, `get_by_finding`, `upsert_by_finding`, `list_recent`, `delete` — mismo estilo CRUD mínimo.
 
+## RAG ligero (TASK-14, v2.1+)
+
+`metatracer/agents/knowledge.py`:
+
+- **`KnowledgeIndex`** — índice FTS5 (virtual table `knowledge_fts`) sobre findings históricos. `rebuild()` lo reconstruye (idempotente), `search(query, finding_type=None, exclude_finding_id=None, limit=5)` devuelve `RetrievedEvidence` rankeados. La tabla derivada **nunca es fuente de verdad**; se borra/recrea.
+- **`KnowledgeRetriever`** — construye la query desde los campos cerrados del payload (`evidence_snippet` + `field_source` + `finding_type`), sin red y sin texto libre del operador. Índice vacío → no-op (`[]`).
+- **`RetrievedEvidence`** (dataclass read-only): `finding_id`, `run_id`, `finding_type`, `evidence_snippet`, `severity | None`, `title | None`, `created_at | None`, `score`.
+- Inyección: `AgentPipeline(..., knowledge=KnowledgeRetriever)` adjunta `entry["retrieved_evidence"]` **fuera** del payload cerrado; `AnalyzeContextNode` lo fusiona al prompt como guía **no autoritativa** (nunca como evidencia del finding actual). Trazabilidad: nota `retrieved_evidence_used=<n>` en `guard_notes` (AgentLog), nunca los snippets.
+- FTS5 sanitiza la query (tokens alfanuméricos AND-phrases) porque los snippets llevan `.` `/` `@` que romperían la sintaxis.
+- Endpoint read-only `GET /api/knowledge/search?q=...&finding_type=...&limit=...`.
+
 ## Ciclo de vida del dato personal (amenaza 14)
 
 MetaTracer **es** una herramienta que encuentra datos personales: GPS, emails, nombres en paths.

@@ -3,7 +3,7 @@
 **Proyecto:** MetaTracer  
 **Versión:** 2.1 (Inteligencia avanzada)  
 **PRD:** [Volver al PRD](../PRD.md)  
-**Estado:** MVP v1.0–v1.2 cerradas — v2.0 completada (TASK-10 scopes ✅, TASK-11 dashboard ✅, TASK-12 notificaciones ✅) — v2.1 en curso (TASK-13 feedback loop)  
+**Estado:** MVP v1.0–v1.2 cerradas — v2.0 completada (TASK-10 scopes ✅, TASK-11 dashboard ✅, TASK-12 notificaciones ✅) — v2.1 en curso (TASK-13 feedback loop ✅, TASK-14 RAG ligero)  
 
 Este directorio descompone el MVP en tareas implementables. Cada archivo es un contrato: objetivo, subtareas, contratos de datos, fuera de alcance, tests mínimos y criterios de aceptación verificables.
 
@@ -75,6 +75,7 @@ Aplican a **todas** las tasks. Un PR que las viole no está done.
 | **TASK-10** | [10-scope-management.md](10-scope-management.md) | Scopes persistentes, CRUD API, select en wizard (v2.0) | TASK-00 a TASK-09 |
 | **TASK-11** | [11-dashboard.md](11-dashboard.md) | Dashboard agregado + GET /api/stats (v2.0) | TASK-00 a TASK-10 |
 | **TASK-13** | [13-feedback-loop.md](13-feedback-loop.md) | Feedback loop: corrección humana persistida + few-shot memory (v2.1+) | TASK-00 a TASK-12 |
+| **TASK-14** | [14-rag-lite.md](14-rag-lite.md) | RAG ligero: índice full-text FTS5 + contexto histórico al agente (v2.1+) | TASK-00 a TASK-13 |
 
 `TASK-04` **no** depende de `TASK-05`: el motor de reportes debe funcionar con clasificaciones heurísticas (campos de explicación vacíos o plantilla). `TASK-05` rellena justificación, impacto, remediación y repro. `TASK-06` orquesta el pipeline completo.
 
@@ -130,6 +131,7 @@ Alineado con [Timeline y roadmap](../features/10-timeline-and-roadmap.md).
 | 9 | v2.0 | `TASK-11` | Dashboard agregado + `/api/stats` |
 | 10 | v2.0 | `TASK-12` | Notificaciones: cola en memoria, campana en la UI, `GET/DELETE /api/notifications` |
 | 11 | v2.1+ | `TASK-13` | Feedback loop: corrección persistida + few-shot memory en clasificación/agente |
+| 12 | v2.1+ | `TASK-14` | RAG ligero: índice FTS5 + contexto histórico recuperado para el agente |
 
 Si hay que recortar, proteger los [criterios de éxito](../features/09-success-criteria.md) antes que pulido de UI.
 

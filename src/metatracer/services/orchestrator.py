@@ -64,6 +64,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from metatracer.agents.knowledge import KnowledgeRetriever
 from metatracer.agents.pipeline import AgentPipeline, AgentSummary
 from metatracer.classification.pipeline import ClassificationPipeline, ClassificationSummary
 from metatracer.core.config import Settings
@@ -225,6 +226,7 @@ class ScanOrchestratorService:
         classification: ClassificationPipeline | None = None,
         agents: AgentPipeline | None = None,
         notifications: NotificationBus | None = None,
+        knowledge: KnowledgeRetriever | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._settings = settings
@@ -237,7 +239,12 @@ class ScanOrchestratorService:
             if classification is not None
             else ClassificationPipeline(session_factory)
         )
-        self._agents = agents if agents is not None else AgentPipeline(session_factory, settings)
+        self._agents = (
+            agents
+            if agents is not None
+            else AgentPipeline(session_factory, settings, knowledge=knowledge)
+        )
+        self._knowledge = knowledge
         # TASK-12 (v2.0): optional in-memory notification bus. Injected like
         # on_progress: the pipeline never knows it exists and a broken bus
         # never kills the scan (inviolable rule 5).

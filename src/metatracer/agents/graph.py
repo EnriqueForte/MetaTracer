@@ -152,6 +152,13 @@ class AnalyzeContextNode:
     message as non-authoritative guidance — the rubric, the guard and the
     payload remain the source of truth, and the examples never replace the
     evidence snippet.
+
+    TASK-14 (v2.1+): when the entry carries ``retrieved_evidence`` (historical
+    full-text hits from previous runs), the *titles and snippets* are merged
+    into the model message as **precedent context only** — never as evidence
+    of the current finding. The prompt tells the model to treat it as
+    background, and ``cited_evidence`` must still be a substring of the
+    current ``evidence_snippet``.
     """
 
     def __init__(self, client: AgentClient) -> None:
@@ -165,6 +172,13 @@ class AnalyzeContextNode:
         if feedback:
             # Guidance only, outside the closed payload-contract keys.
             model_payload = {**model_payload, "feedback_examples": feedback}
+        retrieved = entry.get("retrieved_evidence")
+        if retrieved:
+            # TASK-14: precedent context, capped and cited as background only.
+            model_payload = {
+                **model_payload,
+                "retrieved_evidence": _retrieved_to_prompt(retrieved),
+            }
         try:
             result = await self._client.analyze(
                 analysis_system_prompt(state["reasoning_depth"]), model_payload
@@ -240,6 +254,11 @@ class ClassifySeverityNode:
                 "guard_notes": notes,
             }
         )
+        if entry.get("retrieved_evidence"):
+            # TASK-14: trace RAG usage without leaking the retrieved snippets
+            # themselves (they are other runs' findings, see knowledge.py).
+            notes.append(f"retrieved_evidence_used={len(entry['retrieved_evidence'])}")
+            entry["guard_notes"] = notes
         entries[-1] = entry
         return {"evaluated_findings": entries}
 
@@ -410,6 +429,41 @@ def _shape_prose(justification: str, depth: str) -> str:
     if depth == "brief":
         return justification.split("\n\n", 1)[0].strip()
     return justification.strip()
+
+
+# TASK-14: retrieve cap for the prompt injection. The retrieved snippets are
+# other findings' evidence (potentially sensitive: GPS, paths); they travel to
+# the model only as short precedent context and are never logged (AgentLog
+# stores the guard note counter, not the snippets).
+_MAX_RETRIEVED_CHARS = 800
+
+
+def _retrieved_to_prompt(retrieved: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """Serialize retrieved hits for the prompt: capped, string-only, safe.
+
+    Input rows come from the pipeline and already contain only the contract
+    keys (finding_type, evidence_snippet, severity, title, score). We re-cap
+    the total size so a pathological index cannot bloat the model call.
+    """
+    rendered: list[dict[str, str]] = []
+    used = 0
+    for hit in retrieved:
+        title = (hit.get("title") or "").strip()
+        snippet = (hit.get("evidence_snippet") or "").strip()
+        if not snippet:
+            continue
+        entry = {
+            "finding_type": str(hit.get("finding_type", "unknown")),
+            "evidence_snippet": snippet,
+            "severity": str(hit.get("severity")) if hit.get("severity") else "unknown",
+            "title": title[:160],
+        }
+        cost = sum(len(value) for value in entry.values())
+        if used + cost > _MAX_RETRIEVED_CHARS:
+            break
+        used += cost
+        rendered.append(entry)
+    return rendered
 
 
 def _fallback_title(payload: dict[str, str]) -> str:

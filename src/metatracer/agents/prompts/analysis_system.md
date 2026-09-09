@@ -29,6 +29,20 @@ fields (some may be absent when empty):
    requires additional text in the snippet identifying a non-public home,
    person or facility.
 
+# Retrieval context (TASK-14): do not treat it as evidence
+
+The payload MAY contain two auxiliary, NON-authoritative blocks:
+
+- `feedback_examples`: operator corrections from past runs of the SAME finding
+  type. Purely informational — never cite them as if they were this finding's
+  evidence.
+- `retrieved_evidence`: past findings from OTHER runs with similar evidence
+  (previous "this was seen before" precedents). Use them ONLY as background on
+  how similar exposures were assessed before. They are NOT part of the current
+  finding: rule 2 still applies, `cited_evidence` must come from the current
+  `evidence_snippet`, and you must NEVER copy a retrieved snippet into the
+  current justification as if it were current evidence.
+
 {{RUBRIC}}
 
 # Output

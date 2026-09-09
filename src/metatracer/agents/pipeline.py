@@ -32,6 +32,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from metatracer.agents.graph import AgentState, build_graph, recursion_limit_for
+from metatracer.agents.knowledge import KnowledgeRetriever
 from metatracer.agents.llm import AgentClient, RetryPolicy, build_default_client
 from metatracer.agents.memory import FeedbackMemory, examples_to_payload
 from metatracer.agents.optimizer import ContextOptimizer
@@ -151,6 +152,7 @@ class AgentPipeline:
         client: AgentClient | None = None,
         retry_policy: RetryPolicy | None = None,
         feedback_memory: FeedbackMemory | None = None,
+        knowledge: KnowledgeRetriever | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._settings = settings
@@ -158,6 +160,7 @@ class AgentPipeline:
             client if client is not None else build_default_client(settings, retry_policy)
         )
         self._feedback_memory = feedback_memory
+        self._knowledge = knowledge
 
     async def _load_feedback(self, run_id: str) -> FeedbackMemory:
         """Return the injected memory, freshly loaded for this run.
@@ -208,6 +211,34 @@ class AgentPipeline:
             rendered = examples_to_payload(examples)
             if rendered:
                 item["feedback_examples"] = rendered
+            # TASK-14: attach historical full-text context when a retriever is
+            # wired. A missing retriever (or an empty index) leaves the entry
+            # unchanged — RAG is a strict no-op without prior findings.
+            if self._knowledge is not None:
+                try:
+                    retrieved = await self._knowledge.retrieve(
+                        entry.payload, exclude_finding_id=entry.finding_id
+                    )
+                except Exception:
+                    # A broken knowledge layer must never kill the agent phase
+                    # (inviolable rule 5): log and continue without context.
+                    logger.exception(
+                        "knowledge retrieval failed for finding %s; continuing without RAG",
+                        sanitize_for_log(entry.finding_id),
+                    )
+                    retrieved = []
+                if retrieved:
+                    item["retrieved_evidence"] = [
+                        {
+                            "finding_id": hit.finding_id,
+                            "finding_type": str(hit.finding_type),
+                            "evidence_snippet": hit.evidence_snippet,
+                            "severity": str(hit.severity) if hit.severity else None,
+                            "title": hit.title,
+                            "score": round(hit.score, 3),
+                        }
+                        for hit in retrieved
+                    ]
             raw_findings.append(item)
 
         writer = SqlEvaluationWriter(

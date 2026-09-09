@@ -21,7 +21,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from metatracer import __version__
-from metatracer.api import feedback, notifications, pages, runs, scopes, stats
+from metatracer.agents.knowledge import KnowledgeRetriever
+from metatracer.agents.pipeline import AgentPipeline
+from metatracer.api import feedback, knowledge, notifications, pages, runs, scopes, stats
 from metatracer.core.config import Settings
 from metatracer.core.logging import configure_logging
 from metatracer.db.engine import create_db_engine, create_session_factory, init_db
@@ -57,8 +59,20 @@ def create_app(
         app.state.session_factory = create_session_factory(engine)
         app.state.bus = ProgressBus()
         app.state.notifications_bus = NotificationBus()
+        # TASK-14 (v2.1+): shared light-RAG retriever for the agent phase and
+        # the /api/knowledge inspection endpoint. Lazy: the FTS5 index is
+        # rebuilt on first use and cached for the process lifetime.
+        app.state.knowledge_retriever = KnowledgeRetriever(engine, app.state.session_factory)
+        agents = AgentPipeline(
+            app.state.session_factory,
+            settings,
+            knowledge=app.state.knowledge_retriever,
+        )
         app.state.orchestrator = ScanOrchestratorService(
-            app.state.session_factory, settings, notifications=app.state.notifications_bus
+            app.state.session_factory,
+            settings,
+            notifications=app.state.notifications_bus,
+            agents=agents,
         )
         app.state.reports_dir = reports_dir
         app.state.templates = Jinja2Templates(directory=TEMPLATES_DIR)
@@ -90,6 +104,7 @@ def create_app(
     app.include_router(stats.router)
     app.include_router(notifications.router)
     app.include_router(feedback.router)
+    app.include_router(knowledge.router)
     app.include_router(pages.router)
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
     return app
