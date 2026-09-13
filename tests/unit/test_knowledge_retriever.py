@@ -99,3 +99,24 @@ async def test_retrieve_excludes_current_finding(engine: AsyncEngine) -> None:
         exclude_finding_id=gps_id,
     )
     assert hits == []  # the only matching row is the excluded one
+
+
+async def test_retrieve_no_double_sanitization_regression(engine: AsyncEngine) -> None:
+    """The retriever must pass the RAW snippet to search() (TASK-17).
+
+    Regression for the double-sanitization bug: pre-sanitizing in the
+    retriever produced ``"..." AND "AND" ...`` (the word AND became a term),
+    which never matched. The snippet with FTS5-special characters (``:`` ``-``)
+    must still retrieve the row.
+    """
+    await _seed_gps(engine)
+    retriever = KnowledgeRetriever(engine, create_session_factory(engine))
+    hits = await retriever.retrieve(
+        {
+            "evidence_snippet": "Latitude: 41.6521, Longitude: -0.8809",
+            "finding_type": "gps",
+        }
+    )
+    assert len(hits) == 1
+    assert hits[0].finding_type is FindingType.gps
+    assert hits[0].severity is Severity.high

@@ -37,6 +37,7 @@ from metatracer.core.logging import configure_logging
 from metatracer.db.engine import create_db_engine, create_session_factory, init_db
 from metatracer.db.models import Confidence, FindingType, ReasoningDepth, Run, RunStatus, Severity
 from metatracer.db.repositories import RunRepository
+from metatracer.knowledge.portable import export_kb, import_kb
 from metatracer.reports.builder import DEFAULT_REPORTS_DIR, ReportBuilder, ReportData
 from metatracer.reports.filters import filter_findings
 from metatracer.services.orchestrator import (
@@ -265,6 +266,91 @@ def serve(
         "[dim](no authentication in v1.0 — localhost / trusted network only)[/dim]"
     )
     uvicorn.run(create_app(settings), host=bind_host, port=port)
+
+
+@app.command()
+def kb_export(
+    output: Annotated[
+        Path,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Destination path for the portable knowledge-base JSON file.",
+        ),
+    ] = Path("kb-export.json"),
+    limit: Annotated[
+        int,
+        typer.Option(
+            "--limit",
+            help="Maximum number of newest findings to export.",
+        ),
+    ] = 1000,
+) -> None:
+    """Export the historical precedents (light-RAG corpus) to a portable JSON file.
+
+    The file contains only the portable-KB contract fields (finding type,
+    sanitized snippet, severity, title, created_at) — never run/asset ids,
+    raw metadata or file bytes. To bring these precedents into another
+    database on this machine, use ``metatracer kb import``.
+    """
+    if limit < 0:
+        err_console.print("[red]Error:[/red] --limit must be >= 0.")
+        raise typer.Exit(1)
+    n = asyncio.run(_execute_kb_export(output, limit))
+    noun = "entry" if n == 1 else "entries"
+    console.print(f"[green]Exported[/green] {n} knowledge {noun} to {output}")
+
+
+@app.command()
+def kb_import(
+    input: Annotated[
+        Path,
+        typer.Argument(help="Path to a portable knowledge-base JSON file."),
+    ],
+) -> None:
+    """Import a portable knowledge-base export into the local database.
+
+    Importing is idempotent: entries whose finding id already exists are
+    skipped, and nothing is deleted. Each imported row gets a fresh shadow
+    run/asset so foreign keys hold without dragging the origin run.
+    """
+    if not input.exists() or not input.is_file():
+        err_console.print(f"[red]Error:[/red] file not found: {input}")
+        raise typer.Exit(1)
+    try:
+        n = asyncio.run(_execute_kb_import(input))
+    except ValueError as exc:
+        # Invalid / unsupported / malformed portable file: report and exit 1.
+        err_console.print(f"[red]Import failed:[/red] {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+    noun = "entry" if n == 1 else "entries"
+    console.print(f"[green]Imported[/green] {n} knowledge {noun} from {input}")
+
+
+async def _execute_kb_export(dest: Path, limit: int) -> int:
+    """Single async boundary of ``kb export``: engine up, export, engine down."""
+    settings = Settings()
+    configure_logging(settings.log_level)
+    engine = create_db_engine(settings.database_url)
+    try:
+        await init_db(engine)
+        session_factory = create_session_factory(engine)
+        return await export_kb(session_factory, dest, limit=limit)
+    finally:
+        await engine.dispose()
+
+
+async def _execute_kb_import(source: Path) -> int:
+    """Single async boundary of ``kb import``: engine up, import, engine down."""
+    settings = Settings()
+    configure_logging(settings.log_level)
+    engine = create_db_engine(settings.database_url)
+    try:
+        await init_db(engine)
+        session_factory = create_session_factory(engine)
+        return await import_kb(session_factory, source)
+    finally:
+        await engine.dispose()
 
 
 def _render_scan_outcome(result: ScanResult, report_data: ReportData | None) -> None:

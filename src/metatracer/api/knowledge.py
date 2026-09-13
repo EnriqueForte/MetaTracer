@@ -7,11 +7,17 @@ network, never writes business rows, and never exports findings outside the
 local server.
 """
 
+import os
+from pathlib import Path
+from tempfile import mkstemp
+
 from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from metatracer.agents.knowledge import KnowledgeRetriever, RetrievedEvidence
 from metatracer.db.models import FindingType
+from metatracer.knowledge.portable import export_kb, import_kb
 
 router = APIRouter(prefix="/api/knowledge", tags=["knowledge"])
 
@@ -83,3 +89,69 @@ async def search_knowledge(
         total=len(hits),
         hits=[_hit_from(hit) for hit in truncated],
     )
+
+
+class ImportResponse(BaseModel):
+    """Number of rows actually inserted by a portable-KB import (TASK-17)."""
+
+    imported: int
+
+
+@router.post("/export")
+async def export_kb_endpoint(request: Request) -> FileResponse:
+    """Export the historical precedents as a downloadable portable KB JSON.
+
+    The writer streams to a temporary file (never persists a copy on the
+    server); the operator downloads it and owns the file. Only the portable-KB
+    contract fields leave the machine — never run/asset ids, raw metadata or
+    bytes.
+    """
+    factory = getattr(request.app.state, "session_factory", None)
+    if factory is None:
+        raise HTTPException(status_code=503, detail="knowledge index is not configured")
+    fd, tmp_name = mkstemp(suffix=".json")
+    os.close(fd)  # close the descriptor: FileResponse opens the path itself
+    try:
+        await export_kb(factory, Path(tmp_name))
+        return FileResponse(
+            tmp_name,
+            media_type="application/json",
+            filename="kb-export.json",
+        )
+    finally:
+        # The FileResponse streams after this handler returns; schedule the
+        # cleanup on the next loop tick so the download completes.
+        import asyncio
+
+        loop = asyncio.get_running_loop()
+        loop.call_later(2.0, lambda: Path(tmp_name).unlink(missing_ok=True))
+
+
+@router.post("/import", response_model=ImportResponse)
+async def import_kb_endpoint(request: Request) -> ImportResponse:
+    """Import a portable KB JSON into the local database (idempotent).
+
+    Rows whose original finding id was already imported are skipped; nothing
+    is deleted. ``finding_type``/``severity`` are validated against the
+    closed enums and an invalid file is rejected with 422 (never reassigned).
+    The body is the raw portable JSON (no multipart, keeping the dependency
+    list closed).
+    """
+    factory = getattr(request.app.state, "session_factory", None)
+    if factory is None:
+        raise HTTPException(status_code=503, detail="knowledge index is not configured")
+    body = await request.body()
+    if not body:
+        raise HTTPException(status_code=422, detail="empty body: send the portable KB JSON")
+    fd, tmp_name = mkstemp(suffix=".json")
+    os.close(fd)
+    try:
+        with open(tmp_name, "wb") as fh:
+            fh.write(body)
+        try:
+            imported = await import_kb(factory, Path(tmp_name))
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return ImportResponse(imported=imported)
+    finally:
+        Path(tmp_name).unlink(missing_ok=True)

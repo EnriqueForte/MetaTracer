@@ -321,7 +321,16 @@ async def test_recover_pending_reenqueues_on_next_terminal(session_factory) -> N
     # old pending row) and then dispatches the new run.
     run2 = await _seed_run(session_factory)
     await dispatcher.enqueue_terminal(run2.id, RunStatus.completed)
-    await asyncio.sleep(0.1)
+    # Poll until the recovered row reaches the terminal state (robust under
+    # suite load, unlike a fixed sleep).
+    for _ in range(50):
+        await asyncio.sleep(0.02)
+        async with session_factory() as session:
+            recovered = await WebhookDeliveryRepository(session).get_by_webhook_run(
+                cfg.id, run.id
+            )
+        if recovered is not None and recovered.status is not WebhookDeliveryStatus.pending:
+            break
     async with session_factory() as session:
         recovered = await WebhookDeliveryRepository(session).get_by_webhook_run(cfg.id, run.id)
         assert recovered.status == WebhookDeliveryStatus.succeeded

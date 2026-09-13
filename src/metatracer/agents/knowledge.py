@@ -172,7 +172,7 @@ class KnowledgeIndex:
                     "SELECT finding_id, run_id, finding_type, evidence_snippet, "
                     "severity, title, created_at, bm25(knowledge_fts) AS score "
                     "FROM knowledge_fts WHERE knowledge_fts MATCH :q "
-                    "ORDER BY rank LIMIT :limit"
+                    "ORDER BY bm25(knowledge_fts) LIMIT :limit"
                 ),
                 {"q": fts_query, "limit": limit * 4},  # headroom for post-filters
             )
@@ -221,8 +221,11 @@ def _fts_safe_query(raw: str, *, max_terms: int = 12) -> str:
 
     Evidence snippets contain FTS5 operators (``.`` ``/`` ``@`` etc.); a raw
     MATCH would raise `sqlite3.OperationalError: fts5: syntax error`. Tokenize
-    into alphanumeric terms and join with AND so the query can never inject
-    FTS5 syntax, and dedupe + cap the term count to bound the query size.
+    into alphanumeric terms (FTS5's default unicode61 tokenizer splits on
+    ``.`` ``/`` ``-`` ``@`` exactly like this regex, so ``41.6521`` becomes
+    the two index tokens ``41`` and ``6521`` — matching the way the same
+    snippet was indexed) and join with AND. Dedupes and caps the term count
+    to bound the query size.
     """
     seen: list[str] = []
     for term in _FTS_TOKEN.findall(raw):
@@ -261,16 +264,23 @@ class KnowledgeRetriever:
         *,
         exclude_finding_id: str | None = None,
     ) -> list[RetrievedEvidence]:
-        """Best-match historical findings for a closed payload."""
+        """Best-match historical findings for a closed payload.
+
+        The FTS5 query is built from the snippet only. ``field_source`` is
+        deliberately NOT added to the MATCH: imported ports carry
+        ``field_source='kb-import'`` (TASK-17), while native rows carry
+        e.g. ``EXIF:GPSInfo``, so requiring it would make imported precedents
+        unrecoverable. The snippet is the portable, source-independent key;
+        ``finding_type`` remains a post-filter.
+        """
         snippet = (payload.get("evidence_snippet") or "").strip()
-        field_source = (payload.get("field_source") or "").strip()
         ftype_raw = payload.get("finding_type")
-        query = " ".join(part for part in (snippet, field_source) if part)
-        if not query:
+
+        if not snippet:
             return []
         ftype = FindingType(ftype_raw) if ftype_raw in FindingType.__members__ else None
         return await self._index.search(
-            query,
+            snippet,  # raw snippet: search() sanitizes internally
             finding_type=ftype,
             exclude_finding_id=exclude_finding_id,
             limit=self._limit,
