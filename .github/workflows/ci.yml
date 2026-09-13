@@ -1,0 +1,75 @@
+# MetaTracer CI guardrail (TASK-16, v2.2)
+#
+# Dos niveles, sin secretos ni servicios de contenedor (la suite es 100% local:
+# el e2e corre contra un mock uvicorn en 127.0.0.1 efímero):
+#
+#   pr   -> barrera rápida por pull request: ruff + suite "not e2e".
+#   main -> suite COMPLETA (incluye e2e) + cobertura >= 85% combinada
+#           (core/detectors/extractors/reports, DoD TASK-07). Requiere "pr".
+#
+# Supply chain (threat 15): todas las acciones fijadas por SHA completo.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  pr:
+    name: PR guardrail (ruff + fast suite)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install project with dev extras
+        run: pip install '.[dev]'
+      - name: Lint
+        run: python -m ruff check src tests
+      - name: Fast suite (no e2e)
+        run: python -m pytest -m 'not e2e' -q
+
+  main:
+    name: Full suite + coverage (>= 85%)
+    runs-on: ubuntu-latest
+    needs: pr
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install project with dev extras
+        run: pip install '.[dev]'
+      - name: Lint
+        run: python -m ruff check src tests
+      - name: Full suite incl. e2e
+        # El e2e activa allow_loopback EN PROCESO (Settings(allow_loopback=True)),
+        # no requiere METATRACER_ALLOW_LOOPBACK en el entorno.
+        run: python -m pytest -q
+      - name: Coverage >= 85% (core/detectors/extractors/reports)
+        run: |
+          python -m pytest \
+            --cov=metatracer.core \
+            --cov=metatracer.detectors \
+            --cov=metatracer.extractors \
+            --cov=metatracer.reports \
+            --cov-report=term-missing \
+            --cov-fail-under=85 \
+            -m 'not e2e' -q
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b7f34f2757f9f2b8d2e5f5a6c0a # v4.4.3
+        with:
+          name: coverage-and-reports
+          path: |
+            .coverage
+            reports/
+          retention-days: 7
