@@ -23,7 +23,7 @@ El orden es orientativo; cada slice debe poder demostrarse.
 | 9–11 | Reportes + UI + CLI | Reporte priorizado, export, ambas interfaces sobre un pipeline |
 | 12–14 | Hardening | Dominios de prueba, docs, walkthrough de entrevista, rate limits |
 
-v1.0–v1.2 están **cerradas**. La siguiente fase de producto es **v2.0 Plataforma**.
+**Estado del roadmap:** v1.0–v1.2 cerradas ✅ — v2.0 Plataforma cerrada ✅ — v2.1+ Inteligencia avanzada cerrada ✅ — **v2.2 Integraciones cerrada ✅ (2026-09-13, TASK-15→19, `pytest` 475 passed + ruff limpio)**. Todas las fases definidas hasta la fecha están implementadas.
 
 ## Roadmap por fases
 
@@ -34,7 +34,7 @@ v1.0–v1.2 están **cerradas**. La siguiente fase de producto es **v2.0 Platafo
 | v1.2 | Expansión de fuentes | HTML, HTTP headers, comentarios JS | **Cerrada** — [TASK-09](../tasks/09-source-expansion.md) |
 | v2.0 | Plataforma | Dashboard completo, gestión de scopes, notificaciones | Demostrar capacidad de producto — **Cerrada 2026-09-08** (TASK-10 scopes ✅, TASK-11 dashboard ✅, TASK-12 notificaciones ✅) |
 | v2.1+ | Inteligencia avanzada | RAG, feedback loop | **Cerrada** — TASK-13 feedback ✅, TASK-14 RAG ligero ✅ |
-| v2.2 | Integraciones | Webhooks de salida + run_ref, KB portable, exports bounty, CI guardrail, import scope | **En curso** — TASK-15 webhooks ✅, TASK-16 CI guardrail ✅, TASK-17 KB portable ✅, **TASK-18 exports bounty ✅ (cerrada 2026-09-13**, CSV + plantilla bounty, `pytest` 453 passed + ruff limpio). **TASK-19 import scope ✅ (implementada y validada 2026-09-13**, archivo JSON → CLI `scope import/export` + API `POST /api/scopes/import`, `pytest` 475 passed + ruff limpio). Fase v2.2 completa — listo para cerrarla |
+| v2.2 | Integraciones | Webhooks de salida + run_ref, KB portable, exports bounty, CI guardrail, import scope | **Cerrada 2026-09-13** (TASK-15 webhooks ✅, TASK-16 CI guardrail ✅, TASK-17 KB portable ✅, TASK-18 exports bounty ✅, TASK-19 import scope ✅ — `pytest` 475 passed + ruff limpio + cobertura ≥85%) |
 
 ## Mapeo a características del MVP
 

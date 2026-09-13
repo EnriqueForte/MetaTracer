@@ -213,17 +213,17 @@ Wiring en `app.py`: ninguno nuevo (el router ya está registrado).
 
 ## 5. Criterios de aceptación (DoD)
 
-- [ ] Un operador recibe un `scopes.json` y `metatracer scope import --file
+- [x] Un operador recibe un `scopes.json` y `metatracer scope import --file
       scopes.json` crea los scopes; los dominios quedan normalizados.
-- [ ] Importar el mismo archivo dos veces no duplica (idempotencia por
+- [x] Importar el mismo archivo dos veces no duplica (idempotencia por
       `name` case-insensitive) y no pisa scopes existentes.
-- [ ] Import con `format_version`/estructura/`name` duplicado/entrada sin
+- [x] Import con `format_version`/estructura/`name` duplicado/entrada sin
       dominios → error claro, sin insertar nada incorrecto (no reasigna).
-- [ ] `POST /api/scopes/import` permite el mismo flujo por Web UI/curl y
+- [x] `POST /api/scopes/import` permite el mismo flujo por Web UI/curl y
       devuelve counts; sin archivo → 422.
-- [ ] Los scopes importados se usan igual que los creados a mano en un scan
+- [x] Los scopes importados se usan igual que los creados a mano en un scan
       (`scope_id` → dominios resueltos en `Run.allowed_scope`).
-- [ ] Cero dependencias nuevas; cero red; cero bytes en archivo/BD (solo
+- [x] Cero dependencias nuevas; cero red; cero bytes en archivo/BD (solo
       metadata de contrato).
-- [ ] `pytest -m "not e2e"` en verde y `ruff check src tests` limpio,
+- [x] `pytest -m "not e2e"` en verde y `ruff check src tests` limpio,
       validado con el guardrail de TASK-16 (`scripts/ci-check.ps1`).

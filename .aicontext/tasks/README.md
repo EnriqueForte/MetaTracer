@@ -3,7 +3,7 @@
 **Proyecto:** MetaTracer  
 **Versión:** 2.2 (Integraciones)  
 **PRD:** [Volver al PRD](../PRD.md)  
-**Estado:** MVP v1.0–v1.2 cerradas — v2.0 completada (TASK-10/11/12 ✅) — v2.1 completada (TASK-13 feedback ✅, TASK-14 RAG ligero ✅) — v2.2 "Integraciones" en curso: **TASK-15 webhooks cerrada 2026-09-13** (✅ `pytest` 435 passed + `ruff` limpio); **TASK-16 CI guardrail cerrada 2026-09-13** (✅ workflow `ci.yml` + scripts locales + cobertura ≥85%); **TASK-17 KB portable cerrada 2026-09-13** (✅ export/import JSON + CLI `kb` + API + `pytest` 451 passed); **TASK-18 exports bounty cerrada 2026-09-13** (✅ exportador CSV + plantilla bounty + `--format csv\|bounty` + API + `pytest` 453 passed + cobertura 89.30%); **TASK-19 import scope implementada 2026-09-13** (✅ archivo JSON + CLI `scope import/export` + API `POST /api/scopes/import` + `pytest` 475 passed + ruff limpio + cobertura ≥85%)  
+**Estado:** MVP v1.0–v1.2 cerradas — v2.0 completada (TASK-10/11/12 ✅) — v2.1 completada (TASK-13 feedback ✅, TASK-14 RAG ligero ✅) — **v2.2 "Integraciones" completada 2026-09-13**: TASK-15 webhooks ✅, TASK-16 CI guardrail ✅, TASK-17 KB portable ✅, TASK-18 exports bounty ✅, TASK-19 import scope ✅ (todas cerradas; `pytest` 475 passed + ruff limpio + cobertura ≥85%) — **todas las fases del roadmap actual hasta v2.2 están cerradas**  
 
 Este directorio descompone el MVP en tareas implementables. Cada archivo es un contrato: objetivo, subtareas, contratos de datos, fuera de alcance, tests mínimos y criterios de aceptación verificables.
 
