@@ -3,7 +3,7 @@
 **Módulo:** Integraciones — egreso operacional a canales de terceros
 **Referencia PRD:** [Timeline y roadmap](../features/10-timeline-and-roadmap.md), [Interfaces](../features/06-interfaces.md)
 **Dependencias:** TASK-00 … TASK-14 (v1.0–v2.1 cerradas), fase v2.2
-**Estado:** **Implementada y validada** (schema + CRUD API + dispatcher + relay buffer) — `pytest -m "not e2e"` **434 passed** + `ruff check src tests` limpio (incluye test anti-SSRF del egreso). Revisión de seguridad: 1 hallazgo Medium (egreso sin `NetworkSafetyGuard`) **corregido y re-verificado**.
+**Estado:** **Cerrada y validada 2026-09-13** (schema + CRUD API + dispatcher + relay buffer) — whook integrado en el repo en el commit `71df7a7`; verificado localmente `pytest -m "not e2e"` **435 passed** + `ruff check src tests` limpio (incluye test anti-SSRF del egreso). Revisión de seguridad: 1 hallazgo Medium (egreso sin `NetworkSafetyGuard`) **corregido y re-verificado**.
 
 ---
 

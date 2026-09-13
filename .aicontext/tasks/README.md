@@ -3,7 +3,7 @@
 **Proyecto:** MetaTracer  
 **Versión:** 2.1 (Inteligencia avanzada)  
 **PRD:** [Volver al PRD](../PRD.md)  
-**Estado:** MVP v1.0–v1.2 cerradas — v2.0 completada (TASK-10/11/12 ✅) — v2.1 completada (TASK-13 feedback ✅, TASK-14 RAG ligero ✅) — v2.2 "Integraciones" en curso (TASK-15 webhooks ✅; pendientes: KB portable, exports bounty, CI guardrail, import scope)  
+**Estado:** MVP v1.0–v1.2 cerradas — v2.0 completada (TASK-10/11/12 ✅) — v2.1 completada (TASK-13 feedback ✅, TASK-14 RAG ligero ✅) — v2.2 "Integraciones" en curso: **TASK-15 webhooks cerrada 2026-09-13** (✅ `pytest` 435 passed + `ruff` limpio); pendientes de descomponer: KB portable, exports bounty, CI guardrail, import scope  
 
 Este directorio descompone el MVP en tareas implementables. Cada archivo es un contrato: objetivo, subtareas, contratos de datos, fuera de alcance, tests mínimos y criterios de aceptación verificables.
 
@@ -133,6 +133,7 @@ Alineado con [Timeline y roadmap](../features/10-timeline-and-roadmap.md).
 | 10 | v2.0 | `TASK-12` | Notificaciones: cola en memoria, campana en la UI, `GET/DELETE /api/notifications` |
 | 11 | v2.1+ | `TASK-13` | Feedback loop: corrección persistida + few-shot memory en clasificación/agente |
 | 12 | v2.1+ | `TASK-14` | RAG ligero: índice FTS5 + contexto histórico recuperado para el agente |
+| 13 | v2.2 | `TASK-15` | Webhooks de salida + `run_ref`: relay buffer, retries/backoff, anti-SSRF en egreso |
 
 Si hay que recortar, proteger los [criterios de éxito](../features/09-success-criteria.md) antes que pulido de UI.
 

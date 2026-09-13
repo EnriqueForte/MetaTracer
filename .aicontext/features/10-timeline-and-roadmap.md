@@ -34,7 +34,7 @@ v1.0–v1.2 están **cerradas**. La siguiente fase de producto es **v2.0 Platafo
 | v1.2 | Expansión de fuentes | HTML, HTTP headers, comentarios JS | **Cerrada** — [TASK-09](../tasks/09-source-expansion.md) |
 | v2.0 | Plataforma | Dashboard completo, gestión de scopes, notificaciones | Demostrar capacidad de producto — **Cerrada 2026-09-08** (TASK-10 scopes ✅, TASK-11 dashboard ✅, TASK-12 notificaciones ✅) |
 | v2.1+ | Inteligencia avanzada | RAG, feedback loop | **Cerrada** — TASK-13 feedback ✅, TASK-14 RAG ligero ✅ |
-| v2.2 | Integraciones | Webhooks de salida + run_ref, KB portable, exports bounty, CI guardrail, import scope | **En curso:** TASK-15 webhooks (código + tests escritos; **validación `pytest`/`ruff` pendiente**) — roadmap de integraciones en [TASK-15](../tasks/15-webhooks.md) |
+| v2.2 | Integraciones | Webhooks de salida + run_ref, KB portable, exports bounty, CI guardrail, import scope | **Cerrada 2026-09-13** (TASK-15 webhooks ✅, `pytest` 435 passed + `ruff` limpio) — pendientes de descomponer en contratos: KB portable, exports bounty, CI guardrail, import scope |
 
 ## Mapeo a características del MVP
 
