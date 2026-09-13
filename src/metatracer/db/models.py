@@ -11,6 +11,7 @@ Data-contract conventions:
 - no SQLite-exclusive column types, so the schema can migrate to PostgreSQL.
 """
 
+import random
 import uuid
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -21,6 +22,20 @@ from sqlmodel import Field, SQLModel
 
 def _new_uuid() -> str:
     return str(uuid.uuid4())
+
+
+# Human-readable run references for reports / webhooks / URLs. The RNG is
+# fully recoverable (not cryptographic), so these are public identifiers only:
+# never use them as tokens or for access control.
+_RUN_REF_ALPHABET = "23456789abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ"
+_RUN_REF_LEN = 10
+
+
+def _new_run_ref() -> str:
+    """Non-guessable-*looking* public tag; uniqueness enforced by DB index."""
+    alphabet = _RUN_REF_ALPHABET
+    rand = random.SystemRandom()
+    return "".join(rand.choice(alphabet) for _ in range(_RUN_REF_LEN))
 
 
 def _utc_now() -> datetime:
@@ -98,6 +113,19 @@ class Run(SQLModel, table=True):
     __tablename__ = "run"
 
     id: str = Field(default_factory=_new_uuid, primary_key=True)
+    # Short human-readable tag for reports/URLs/webhooks (TASK-15, v2.2):
+    # derived public identifier, not a security token. Unique + indexed.
+    # Python default_factory generates the value for every new insert. On an
+    # existing database the init_db hook adds this column as NULLABLE (the
+    # ADD COLUMN of a NOT-NULL-without-constant-default otherwise breaks a
+    # non-empty table); new rows always carry the generated value, and old
+    # rows read NULL until an offline backfill normalizes them (see TASK-15).
+    run_ref: str = Field(
+        default_factory=_new_run_ref,
+        index=True,
+        unique=True,
+        sa_column_kwargs={"nullable": False},
+    )
     target_input: str = Field(sa_type=Text)  # JSON-serialized list of targets
     allowed_scope: str = Field(sa_type=Text)  # JSON-serialized list of authorized domains
     scope_confirmed: bool = False
@@ -258,3 +286,83 @@ class FindingFeedback(SQLModel, table=True):
     severity_after: Severity
     reason: str | None = Field(default=None, sa_type=Text)
     created_at: datetime = Field(default_factory=_utc_now, sa_type=DateTime(timezone=True))
+
+
+class WebhookDeliveryStatus(StrEnum):
+    """Per-delivery attempt status of an outbound webhook (TASK-15, v2.2)."""
+
+    pending = "pending"
+    succeeded = "succeeded"
+    failed = "failed"
+    rejected = "rejected"
+
+
+class WebhookConfig(SQLModel, table=True):
+    """One outbound HTTP(S) webhook subscribed to run-terminal events.
+
+    Created by the operator through the CLI/API; the recipient must be an
+    HTTPS URL. On a terminal event the orchestrator's ``WebhookDispatcher``
+    POSTs a payload built from the fixed key set ``PAYLOAD_KEYS`` (counters +
+    run metadata) — there is no operator-editable template, so the payload can
+    never accidentally carry raw metadata.
+
+    Privacy/safety posture:
+
+    - the URL and each header value are sanitized in logs; the signature
+      secret is stored as SHA-256 local hash, so the plaintext secret never
+      leaves the CLI/API edge and cannot be read back from the database;
+    - the payload carries only structured counters and the summary — never
+      file bytes, never raw metadata values;
+    - deliveries are persisted into :class:`WebhookDelivery` (relay buffer)
+      and are retried with a cap; a failing webhook never fails a scan.
+    """
+
+    __tablename__ = "webhook_config"
+
+    id: str = Field(default_factory=_new_uuid, primary_key=True)
+    name: str = Field(default=None, max_length=80)  # "name" is not reserved in SQL
+    url: str = Field(sa_type=Text)  # HTTPS URL; validated at write time
+    event: RunStatus = RunStatus.completed  # subscription: one terminal status
+    headers: str = Field(default="{}", sa_type=Text)  # JSON dict name -> value
+    signature_secret_hash: str | None = Field(default=None, sa_type=Text)
+    max_retries: int = 3
+    active: bool = True
+    created_at: datetime = Field(default_factory=_utc_now, sa_type=DateTime(timezone=True))
+
+
+class WebhookDelivery(SQLModel, table=True):
+    """Persisted delivery state of one terminal event to one webhook (TASK-15).
+
+    The relay buffer: a delivery is idempotent by ``(webhook_id, run_id)`` so
+    crash/retry replays cannot double-send the same event. ``payload_json`` is
+    cached so retries re-send the exact same body without re-running the
+    report pipeline. ``last_error`` is the sanitized failure message.
+    """
+
+    __tablename__ = "webhook_delivery"
+    __table_args__ = (
+        UniqueConstraint("webhook_id", "run_id", name="uq_webhook_delivery_run"),
+    )
+
+    id: str = Field(default_factory=_new_uuid, primary_key=True)
+    webhook_id: str = Field(foreign_key="webhook_config.id", index=True)
+    run_id: str = Field(foreign_key="run.id", index=True)
+    status: WebhookDeliveryStatus = WebhookDeliveryStatus.pending
+    attempts: int = 0  # incremented before each HTTP attempt
+    max_retries: int = 3
+    payload_json: str = Field(sa_type=Text)
+    status_code: int | None = None
+    # Unix timestamp (s) of the next allowed attempt; the dispatcher retries
+    # with backoff when due. NULL once terminal (succeeded / rejected).
+    # SQLModel infers FLOAT from the ``float`` annotation (no explicit type_:
+    # passing sa_column_kwargs={"type_": ...} here duplicates the type and
+    # breaks model import with "May not pass type_ positionally and as keyword").
+    next_retry_at: float | None = Field(default=None)
+    last_error: str | None = Field(default=None, sa_type=Text)  # sanitized
+    created_at: datetime = Field(default_factory=_utc_now, sa_type=DateTime(timezone=True))
+
+
+# NOTE (TASK-15): no payload-template table. The outbound payload uses a fixed
+# key set (PAYLOAD_KEYS in metatracer.api.webhooks), which is safer and simpler
+# than operator-editable templates: the payload can never carry unexpected raw
+# metadata. A future slice could add a template table if a use case requires it.

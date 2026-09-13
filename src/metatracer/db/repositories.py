@@ -18,6 +18,9 @@ from metatracer.db.models import (
     Run,
     RunStatus,
     Scope,
+    WebhookConfig,
+    WebhookDelivery,
+    WebhookDeliveryStatus,
 )
 
 # Canonical orderings for dashboard breakdowns (mirrors the report ordering).
@@ -423,6 +426,120 @@ class DashboardRepository:
             ),
             "latency_ms": sum(log.latency_ms for log in logs),
         }
+
+
+class WebhookConfigRepository:
+    """Persistent webhook configurations (TASK-15, v2.2). Persistence only."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def create(self, config: WebhookConfig) -> WebhookConfig:
+        self._session.add(config)
+        await self._session.commit()
+        await self._session.refresh(config)
+        return config
+
+    async def get(self, webhook_id: str) -> WebhookConfig | None:
+        return await self._session.get(WebhookConfig, webhook_id)
+
+    async def update(self, config: WebhookConfig) -> WebhookConfig:
+        merged = await self._session.merge(config)
+        await self._session.commit()
+        await self._session.refresh(merged)
+        return merged
+
+    async def delete(self, webhook_id: str) -> bool:
+        config = await self.get(webhook_id)
+        if config is None:
+            return False
+        await self._session.delete(config)
+        await self._session.commit()
+        return True
+
+    async def list_all(self) -> list[WebhookConfig]:
+        result = await self._session.exec(
+            select(WebhookConfig).order_by(  # type: ignore[arg-type]
+                WebhookConfig.created_at.desc()
+            )
+        )
+        return list(result.all())
+
+    async def list_active_by_event(self, event: RunStatus) -> list[WebhookConfig]:
+        """Active webhooks subscribed to one terminal event, for the dispatcher."""
+        result = await self._session.exec(
+            select(WebhookConfig).where(
+                WebhookConfig.active.is_(True),
+                WebhookConfig.event == event,
+            )
+        )
+        return list(result.all())
+
+
+class WebhookDeliveryRepository:
+    """Persisted relay-buffer rows of outbound webhook deliveries (TASK-15)."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def create(self, delivery: WebhookDelivery) -> WebhookDelivery:
+        self._session.add(delivery)
+        await self._session.commit()
+        await self._session.refresh(delivery)
+        return delivery
+
+    async def get(self, delivery_id: str) -> WebhookDelivery | None:
+        return await self._session.get(WebhookDelivery, delivery_id)
+
+    async def update(self, delivery: WebhookDelivery) -> WebhookDelivery:
+        merged = await self._session.merge(delivery)
+        await self._session.commit()
+        await self._session.refresh(merged)
+        return merged
+
+    async def delete(self, delivery_id: str) -> bool:
+        delivery = await self.get(delivery_id)
+        if delivery is None:
+            return False
+        await self._session.delete(delivery)
+        await self._session.commit()
+        return True
+
+    async def get_by_webhook_run(self, webhook_id: str, run_id: str) -> WebhookDelivery | None:
+        """The (unique) delivery row for one webhook/run pair, or None."""
+        result = await self._session.exec(
+            select(WebhookDelivery).where(
+                WebhookDelivery.webhook_id == webhook_id,
+                WebhookDelivery.run_id == run_id,
+            )
+        )
+        return result.first()
+
+    async def list_by_webhook(self, webhook_id: str) -> list[WebhookDelivery]:
+        result = await self._session.exec(
+            select(WebhookDelivery)
+            .where(WebhookDelivery.webhook_id == webhook_id)
+            .order_by(WebhookDelivery.created_at.desc())  # type: ignore[arg-type]
+        )
+        return list(result.all())
+
+    async def list_pending(self, limit: int = 50) -> list[WebhookDelivery]:
+        """Retriable deliveries whose next attempt is due, oldest first.
+
+        Used by the dispatcher's sweep on startup so relay-buffer rows
+        survive a restart (the idempotency key makes replays safe).
+        """
+        import time
+
+        now = time.time()
+        result = await self._session.exec(
+            select(WebhookDelivery)
+            .where(WebhookDelivery.status == WebhookDeliveryStatus.pending)
+            .where(WebhookDelivery.next_retry_at.is_(None) | (WebhookDelivery.next_retry_at <= now))
+            .order_by(WebhookDelivery.created_at.asc())  # type: ignore[arg-type]
+            .limit(limit)
+        )
+        return list(result.all())
 
 
 def _json_list(payload: str) -> list[str]:

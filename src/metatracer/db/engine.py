@@ -40,11 +40,19 @@ def _enable_sqlite_foreign_keys(dbapi_connection: Any, _connection_record: Any) 
 async def init_db(engine: AsyncEngine) -> None:
     """Create all tables, indexes and constraints declared by the models.
 
-    Existing tables get any *nullable* column the models declare but the
-    database lacks (``ALTER TABLE ... ADD COLUMN``). That keeps a local
-    database created by an earlier version usable without Alembic (out of
-    scope for the MVP); non-nullable or constrained changes still need a real
-    migration and are deliberately not handled here.
+    Existing tables get any missing *nullable* column (or NOT NULL column that
+    carries a Python default) declared by the models but absent from the
+    database (``ALTER TABLE ... ADD COLUMN``). That keeps a local database
+    created by an earlier version usable without Alembic (out of scope for the
+    MVP); non-nullable/constrained changes without a default still need a real
+    migration and are deliberately not handled here (TASK-13 posture).
+
+    ``Run.run_ref`` (TASK-15) is the notable case: it is NOT NULL in the model
+    with a Python ``default_factory``, but SQLite cannot ALTER-add a NOT NULL
+    column without a constant default (and has no ``nanoid()`` SQL). The
+    hook therefore adds it as **nullable**, leaving the Python default to fill
+    every new insert; an optional offline backfill normalizes pre-existing
+    NULL rows (see TASK-15 docs).
     """
     # Imported here so every model is registered in SQLModel.metadata before
     # create_all runs, without a package-level import cycle.
@@ -52,16 +60,30 @@ async def init_db(engine: AsyncEngine) -> None:
 
     async with engine.begin() as connection:
         await connection.run_sync(models.SQLModel.metadata.create_all)
-        await connection.run_sync(_add_missing_nullable_columns, models.SQLModel.metadata)
+        await connection.run_sync(_add_missing_columns, models.SQLModel.metadata)
 
 
-def _add_missing_nullable_columns(sync_connection: Any, metadata: Any) -> None:
+def _add_missing_columns(sync_connection: Any, metadata: Any) -> None:
+    """Add missing columns: nullable ones, plus NOT NULL with a Python default.
+
+    A missing **nullable** column is added directly (standard ALTER). A missing
+    **NOT NULL** column with a ``default_factory`` (TASK-15 ``Run.run_ref``)
+    needs a constant server-side default for the ALTER on a non-empty table;
+    SQLite has no nanoid() SQL function, so instead the column is added as a
+    **nullable** column here — the Python ``default_factory`` covers every new
+    insert, and an optional offline backfill (see the task docs) can normalize
+    the pre-existing NULL values. Keeping existing databases upgradeable
+    without Alembic is the documented posture (TASK-13); a NOT NULL column
+    without any default is skipped entirely.
+    """
     inspector = inspect(sync_connection)
     dialect = sync_connection.dialect
     for table in metadata.sorted_tables:
         existing = {column["name"] for column in inspector.get_columns(table.name)}
         for column in table.columns:
-            if column.name in existing or not column.nullable or column.primary_key:
+            if column.name in existing or column.primary_key:
+                continue
+            if not column.nullable and column.default is None:
                 continue
             column_type = column.type.compile(dialect=dialect)
             ddl = (

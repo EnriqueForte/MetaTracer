@@ -24,8 +24,11 @@ from metatracer import __version__
 from metatracer.agents.knowledge import KnowledgeRetriever
 from metatracer.agents.pipeline import AgentPipeline
 from metatracer.api import feedback, knowledge, notifications, pages, runs, scopes, stats
+from metatracer.api.webhooks import WebhookDispatcher
+from metatracer.api.webhooks import register_routes as register_webhook_routes
 from metatracer.core.config import Settings
 from metatracer.core.logging import configure_logging
+from metatracer.core.safety.guard import NetworkSafetyGuard
 from metatracer.db.engine import create_db_engine, create_session_factory, init_db
 from metatracer.reports.builder import DEFAULT_REPORTS_DIR
 from metatracer.services.notifications import NotificationBus
@@ -68,15 +71,28 @@ def create_app(
             settings,
             knowledge=app.state.knowledge_retriever,
         )
+        # TASK-15 (v2.2): outbound webhook dispatcher. Shared with the
+        # orchestrator exactly like the notification bus: it only reads
+        # terminal run events and never blocks the scan on remote endpoints.
+        # Carries the same anti-SSRF NetworkSafetyGuard as the ingestion
+        # pipeline: egress obeys invariant rule 7 (loopback/private/link-local
+        # blocked) just like ingress does.
+        app.state.webhook_dispatcher = WebhookDispatcher(
+            app.state.session_factory,
+            guard=NetworkSafetyGuard(settings.allow_loopback),
+        )
         app.state.orchestrator = ScanOrchestratorService(
             app.state.session_factory,
             settings,
             notifications=app.state.notifications_bus,
+            webhooks=app.state.webhook_dispatcher,
             agents=agents,
         )
+        register_webhook_routes(app, app.state.session_factory)
         app.state.reports_dir = reports_dir
         app.state.templates = Jinja2Templates(directory=TEMPLATES_DIR)
         yield
+        await app.state.webhook_dispatcher.shutdown()
         await app.state.orchestrator.shutdown()
         await engine.dispose()
 

@@ -59,6 +59,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -226,6 +227,7 @@ class ScanOrchestratorService:
         classification: ClassificationPipeline | None = None,
         agents: AgentPipeline | None = None,
         notifications: NotificationBus | None = None,
+        webhooks: Any | None = None,
         knowledge: KnowledgeRetriever | None = None,
     ) -> None:
         self._session_factory = session_factory
@@ -249,6 +251,10 @@ class ScanOrchestratorService:
         # on_progress: the pipeline never knows it exists and a broken bus
         # never kills the scan (inviolable rule 5).
         self._notifications = notifications
+        # TASK-15 (v2.2): optional outbound webhook dispatcher, injected like
+        # the notification bus. ``None`` is a strict no-op — the pipeline never
+        # knows it exists and a broken dispatcher never fails a scan.
+        self._webhooks = webhooks
         self._lock = asyncio.Lock()
         self._active_run_id: str | None = None
         self._background_tasks: set[asyncio.Task[None]] = set()
@@ -619,10 +625,10 @@ class ScanOrchestratorService:
             run.completed_at = datetime.now(UTC)
             run.error_message = error_message
             finished = await repo.update(run)
-        self._notify_run_finished(finished, status, error_message)
+        await self._notify_run_finished(finished, status, error_message)
         return finished
 
-    def _notify_run_finished(
+    async def _notify_run_finished(
         self, run: Run, status: RunStatus, error_message: str | None
     ) -> None:
         """Publish one terminal-run notification; a broken bus never kills the scan.
@@ -631,7 +637,7 @@ class ScanOrchestratorService:
         outcome on screen (the run is synchronous and terminal), so it wires no
         bus and this is a no-op. ``pending``/``running`` never notify.
         """
-        if self._notifications is None:
+        if self._notifications is None and self._webhooks is None:
             return
         try:
             targets = (
@@ -639,18 +645,40 @@ class ScanOrchestratorService:
                 if run.target_input
                 else []
             )
-            self._notifications.publish(
-                NotificationEvent(
-                    id=0,  # the bus assigns the queue index on append
-                    kind=status,
-                    run_id=run.id,
-                    target=targets[0] if targets else "unknown",
-                    total_assets=run.total_assets,
-                    total_findings=run.total_findings,
-                    error_message=error_message,
-                    created_at=run.completed_at or datetime.now(UTC),
+            target = targets[0] if targets else "unknown"
+            if self._notifications is not None:
+                self._notifications.publish(
+                    NotificationEvent(
+                        id=0,  # the bus assigns the queue index on append
+                        kind=status,
+                        run_id=run.id,
+                        target=target,
+                        total_assets=run.total_assets,
+                        total_findings=run.total_findings,
+                        error_message=error_message,
+                        created_at=run.completed_at or datetime.now(UTC),
+                    )
                 )
-            )
+            # TASK-15 (v2.2): enqueue outbound webhooks for the same terminal
+            # event. The dispatcher's HTTP sends run as background tasks, so
+            # this never blocks or fails the scan (inviolable rule 5).
+            if self._webhooks is not None:
+                # The dispatcher exposes the same signature as the bus; an
+                # unexpected error must not kill the finalize path.
+                try:
+                    await self._webhooks.enqueue_terminal(
+                        run.id,
+                        status,
+                        target=target,
+                        total_assets=run.total_assets,
+                        total_findings=run.total_findings,
+                        executive_summary=run.executive_summary,
+                        error_message=error_message,
+                    )
+                except Exception:
+                    logger.warning(
+                        "webhook enqueue failed; continuing scan", exc_info=True
+                    )
         except Exception:
             logger.warning("notification publish failed; continuing scan", exc_info=True)
 
