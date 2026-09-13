@@ -1,0 +1,1 @@
+"""Portable scopes: import/export of named scope sets (TASK-19, v2.2)."""

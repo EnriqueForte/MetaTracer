@@ -40,6 +40,7 @@ from metatracer.db.repositories import RunRepository
 from metatracer.knowledge.portable import export_kb, import_kb
 from metatracer.reports.builder import DEFAULT_REPORTS_DIR, ReportBuilder, ReportData
 from metatracer.reports.filters import filter_findings
+from metatracer.scopes.portable import ScopeImportResult, export_scopes, import_scopes
 from metatracer.services.orchestrator import (
     ExportFormat,
     ProgressEvent,
@@ -333,6 +334,88 @@ def kb_import(
         raise typer.Exit(1) from exc
     noun = "entry" if n == 1 else "entries"
     console.print(f"[green]Imported[/green] {n} knowledge {noun} from {input}")
+
+
+scope_app = typer.Typer(help="Portable scopes: import/export named scope sets (TASK-19, v2.2).")
+# Register the nested group so ``metatracer scope import|export`` resolves.
+app.add_typer(scope_app, name="scope")
+
+
+@scope_app.command("import")
+def scope_import(
+    input: Annotated[
+        Path,
+        typer.Argument(help="Path to a portable scopes JSON file (TASK-19, v2.2)."),
+    ],
+) -> None:
+    """Import named scopes from a portable JSON file (idempotent).
+
+    Scopes whose name already exists are skipped; nothing is deleted or
+    overwritten. The file format is the portable-scopes contract: a JSON
+    object with ``format_version`` 1 and a ``scopes`` list of ``{name,
+    description?, domains: [..]}``. Domains are normalized on import.
+    """
+    if not input.exists() or not input.is_file():
+        err_console.print(f"[red]Error:[/red] file not found: {input}")
+        raise typer.Exit(1)
+    try:
+        result = asyncio.run(_execute_scope_import(input))
+    except ValueError as exc:
+        # Invalid / unsupported / malformed portable file: report and exit 1.
+        err_console.print(f"[red]Import failed:[/red] {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+    console.print(
+        f"[green]Imported[/green] {result.imported} scope(s) "
+        f"([yellow]{result.skipped} skipped[/yellow]: already exist) from {input}"
+    )
+
+
+@scope_app.command("export")
+def scope_export(
+    output: Annotated[
+        Path,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Destination path for the portable scopes JSON file.",
+        ),
+    ] = Path("scopes.json"),
+) -> None:
+    """Export all persisted scopes to a portable JSON file.
+
+    The complement of ``metatracer scope import``: the file contains only the
+    portable-scopes contract fields (name, description, domains) — never ids
+    or timestamps.
+    """
+    n = asyncio.run(_execute_scope_export(output))
+    noun = "scope" if n == 1 else "scopes"
+    console.print(f"[green]Exported[/green] {n} {noun} to {output}")
+
+
+async def _execute_scope_import(source: Path) -> ScopeImportResult:
+    """Single async boundary of ``scope import``: engine up, import, engine down."""
+    settings = Settings()
+    configure_logging(settings.log_level)
+    engine = create_db_engine(settings.database_url)
+    try:
+        await init_db(engine)
+        session_factory = create_session_factory(engine)
+        return await import_scopes(session_factory, source)
+    finally:
+        await engine.dispose()
+
+
+async def _execute_scope_export(dest: Path) -> int:
+    """Single async boundary of ``scope export``: engine up, export, engine down."""
+    settings = Settings()
+    configure_logging(settings.log_level)
+    engine = create_db_engine(settings.database_url)
+    try:
+        await init_db(engine)
+        session_factory = create_session_factory(engine)
+        return await export_scopes(session_factory, dest)
+    finally:
+        await engine.dispose()
 
 
 async def _execute_kb_export(dest: Path, limit: int) -> int:

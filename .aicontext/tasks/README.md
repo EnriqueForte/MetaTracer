@@ -3,7 +3,7 @@
 **Proyecto:** MetaTracer  
 **Versión:** 2.2 (Integraciones)  
 **PRD:** [Volver al PRD](../PRD.md)  
-**Estado:** MVP v1.0–v1.2 cerradas — v2.0 completada (TASK-10/11/12 ✅) — v2.1 completada (TASK-13 feedback ✅, TASK-14 RAG ligero ✅) — v2.2 "Integraciones" en curso: **TASK-15 webhooks cerrada 2026-09-13** (✅ `pytest` 435 passed + `ruff` limpio); **TASK-16 CI guardrail cerrada 2026-09-13** (✅ workflow `ci.yml` + scripts locales + cobertura ≥85%); **TASK-17 KB portable cerrada 2026-09-13** (✅ export/import JSON + CLI `kb` + API + `pytest` 451 passed); **TASK-18 exports bounty cerrada 2026-09-13** (✅ exportador CSV + plantilla bounty + `--format csv\|bounty` + API + `pytest` 453 passed + cobertura 89.30%); pendiente de descomponer: import scope  
+**Estado:** MVP v1.0–v1.2 cerradas — v2.0 completada (TASK-10/11/12 ✅) — v2.1 completada (TASK-13 feedback ✅, TASK-14 RAG ligero ✅) — v2.2 "Integraciones" en curso: **TASK-15 webhooks cerrada 2026-09-13** (✅ `pytest` 435 passed + `ruff` limpio); **TASK-16 CI guardrail cerrada 2026-09-13** (✅ workflow `ci.yml` + scripts locales + cobertura ≥85%); **TASK-17 KB portable cerrada 2026-09-13** (✅ export/import JSON + CLI `kb` + API + `pytest` 451 passed); **TASK-18 exports bounty cerrada 2026-09-13** (✅ exportador CSV + plantilla bounty + `--format csv\|bounty` + API + `pytest` 453 passed + cobertura 89.30%); **TASK-19 import scope implementada 2026-09-13** (✅ archivo JSON + CLI `scope import/export` + API `POST /api/scopes/import` + `pytest` 475 passed + ruff limpio + cobertura ≥85%)  
 
 Este directorio descompone el MVP en tareas implementables. Cada archivo es un contrato: objetivo, subtareas, contratos de datos, fuera de alcance, tests mínimos y criterios de aceptación verificables.
 
@@ -80,6 +80,7 @@ Aplican a **todas** las tasks. Un PR que las viole no está done.
 | **TASK-16** | [16-ci-guardrail.md](16-ci-guardrail.md) | CI guardrail: GitHub Actions (PR rápido + main con e2e y cobertura), scripts locales, umbral coverage (v2.2) | TASK-00 a TASK-15 |
 | **TASK-17** | [17-kb-portable.md](17-kb-portable.md) | KB portable: export/import JSON del corpus de precedentes, CLI `kb`, API (v2.2) | TASK-00 a TASK-16 |
 | **TASK-18** | [18-exports-bounty.md](18-exports-bounty.md) | Exports bounty: exportador CSV + plantilla bounty en texto plano, `--format csv\|bounty`, API (v2.2) — **cerrada 2026-09-13** | TASK-00 a TASK-17 |
+| **TASK-19** | [19-scope-import.md](19-scope-import.md) | Import scope: archivo JSON portable → CLI `scope import` + API `POST /api/scopes/import`, idempotente (v2.2) | TASK-00 a TASK-18 |
 
 `TASK-04` **no** depende de `TASK-05`: el motor de reportes debe funcionar con clasificaciones heurísticas (campos de explicación vacíos o plantilla). `TASK-05` rellena justificación, impacto, remediación y repro. `TASK-06` orquesta el pipeline completo.
 
@@ -140,6 +141,7 @@ Alineado con [Timeline y roadmap](../features/10-timeline-and-roadmap.md).
 | 14 | v2.2 | `TASK-16` | CI guardrail: GitHub Actions + scripts locales + cobertura ≥85% |
 | 15 | v2.2 | `TASK-17` | KB portable: JSON export/import del corpus RAG + CLI `kb` + API |
 | 16 | v2.2 | `TASK-18` | Exports bounty: exportador CSV + plantilla bounty en texto plano + `--format csv\|bounty` + API |
+| 17 | v2.2 | `TASK-19` | Import scope: archivo JSON portable → CLI `scope import` + API `POST /api/scopes/import` (idempotente) |
 
 Si hay que recortar, proteger los [criterios de éxito](../features/09-success-criteria.md) antes que pulido de UI.
 

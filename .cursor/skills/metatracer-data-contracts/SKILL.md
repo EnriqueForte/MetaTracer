@@ -62,6 +62,15 @@ Unique constraint `(asset_id, dedup_signature)`. Insertar ignorando conflictos; 
 
 `FeedbackRepository` (TASK-13): `create`, `get_by_finding`, `upsert_by_finding`, `list_recent`, `delete` — mismo estilo CRUD mínimo.
 
+## Scopes portables (TASK-19, v2.2)
+
+`metatracer/scopes/portable.py` — import de scopes desde archivo JSON, espejo de `knowledge/portable.py`:
+
+- **Formato del archivo**: `{"format_version": 1, "scopes": [{"name", "description", "domains"}]}`. Solo `format_version` 1; campos extra fuera del contrato → rechazo con error.
+- **Normalización**: cada dominio con `normalize_host` (minúsculas, sin scheme/puerto/path, comodines `*.`); entradas vacías se descartan; entrada sin dominios válidos → `ValueError` (nunca reasignar).
+- **Semántica**: idempotente por `name` case-insensitive — si el scope ya existe **se omite** (no se pisa, no se actualiza). No borra nada, no hay red, no hay bytes (solo `name`/`description`/`domains`).
+- **Superficies**: CLI `scope import --file` + API `POST /api/scopes/import` (UploadFile → temp → import) con respuesta `{"imported": n, "skipped": m}`. `ValueError` del parser → exit 1 / 422, nunca un insert a medias.
+
 ## RAG ligero (TASK-14, v2.1+)
 
 `metatracer/agents/knowledge.py`:

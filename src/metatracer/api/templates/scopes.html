@@ -13,6 +13,25 @@
     <a href="/" class="text-sm text-emerald-400 hover:text-emerald-300 font-medium">New scan</a>
   </div>
 
+  <!-- Import portable scopes (TASK-19, v2.2) -->
+  <div class="bg-slate-900/60 border border-slate-800 rounded-lg p-5 mb-6">
+    <h2 class="text-sm font-semibold text-slate-300 mb-3">Import scopes from a file</h2>
+    <p class="text-sm text-slate-400 mb-3">
+      Upload a portable scopes JSON (see <span class="font-mono text-slate-500">metatracer scope export</span>
+      or the TASK-19 format). Existing names are skipped — nothing is overwritten.
+    </p>
+<input id="scope-import-file" type="file" accept="application/json,.json"
+       class="block w-full text-sm text-white rounded-md"
+       style="color: #ffffff; background-color: #0f172a; border: 1px solid #334155">
+    <p x-show="importMessage" x-text="importMessage" x-cloak class="text-sm text-slate-400 mt-2"></p>
+    <p x-show="importError" x-text="importError" x-cloak class="text-sm text-red-400 mt-2"></p>
+    <button type="button" @click="importFile"
+            class="rounded-md bg-emerald-600 hover:bg-emerald-500 font-semibold px-4 py-2 text-sm transition-colors mt-3"
+            style="color: #ffffff">
+      Import file
+    </button>
+  </div>
+
   <!-- Save / edit form -->
   <div class="bg-slate-900/60 border border-slate-800 rounded-lg p-5 mb-6">
     <h2 class="text-sm font-semibold text-slate-300 mb-3"
@@ -100,6 +119,8 @@ document.addEventListener('alpine:init', () => {
     editing: null,
     form: { name: '', description: '', domainsText: '' },
     formError: '',
+    importMessage: '',
+    importError: '',
 
     async load() {
       try {
@@ -115,6 +136,36 @@ document.addEventListener('alpine:init', () => {
 
     domainList() {
       return this.form.domainsText.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
+    },
+
+    async importFile() {
+      this.importMessage = '';
+      this.importError = '';
+      const fileInput = document.getElementById('scope-import-file');
+      const file = fileInput && fileInput.files && fileInput.files[0];
+      if (!file) {
+        this.importError = 'Choose a JSON file first.';
+        return;
+      }
+      try {
+        const text = await file.text();
+        const response = await fetch('/api/scopes/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: text,
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          this.importError = 'Import failed: ' + (data.detail || ('HTTP ' + response.status));
+          return;
+        }
+        this.importMessage = 'Imported ' + data.imported + ' scope(s), ' +
+          data.skipped + ' skipped (already exist).';
+        fileInput.value = '';
+        await this.load();
+      } catch (err) {
+        this.importError = 'Network error: the API is unreachable.';
+      }
     },
 
     async save() {

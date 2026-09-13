@@ -4,12 +4,19 @@ Storage only: normalization and wildcard matching stay in ``ScopeValidator``;
 this router persists a named, reusable set of authorized domains. Deleting or
 editing a Scope never alters persisted runs — a scan copies the resolved
 ``domains`` onto ``Run.allowed_scope`` (TASK-10, subtask 10.4).
+
+TASK-19 (v2.2) adds ``POST /api/scopes/import``: bring scopes from a portable
+JSON file (the format of :mod:`metatracer.scopes.portable`) in one step,
+idempotently — existing names are skipped, nothing is deleted.
 """
 
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from datetime import UTC, datetime
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -17,6 +24,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from metatracer.core.safety.scope import normalize_host
 from metatracer.db.models import Scope
 from metatracer.db.repositories import ScopeRepository
+from metatracer.scopes.portable import import_scopes
 
 router = APIRouter(prefix="/api/scopes", tags=["scopes"])
 
@@ -173,3 +181,41 @@ async def delete_scope(scope_id: str, request: Request) -> Response:
     if not deleted:
         raise HTTPException(status_code=404, detail="scope not found")
     return Response(status_code=204)
+
+
+class ScopeImportResponse(BaseModel):
+    """TASK-19 (v2.2): outcome of a portable-scopes import."""
+
+    imported: int
+    skipped: int
+
+
+@router.post("/import", status_code=201, response_model=ScopeImportResponse)
+async def import_scope_file(request: Request) -> ScopeImportResponse:
+    """Import scopes from a portable JSON file (idempotent, non-destructive).
+
+    The body is the raw portable-scopes JSON (no multipart, keeping the
+    dependency list closed, same postura as ``import_kb_endpoint`` in TASK-17).
+    The file format is the portable scopes contract of
+    :mod:`metatracer.scopes.portable` (``format_version`` 1, ``scopes`` list).
+    Existing names are skipped — importing the same file twice creates nothing
+    new. Invalid files are rejected with 422 (never partially inserted, never
+    reassigned).
+    """
+    factory = getattr(request.app.state, "session_factory", None)
+    if factory is None:
+        raise HTTPException(status_code=503, detail="database is not configured")
+    body = await request.body()
+    if not body:
+        raise HTTPException(status_code=422, detail="empty body: send a portable scopes JSON")
+    fd, tmp_name = tempfile.mkstemp(suffix=".json")
+    os.close(fd)
+    try:
+        Path(tmp_name).write_bytes(body)
+        try:
+            result = await import_scopes(factory, Path(tmp_name))
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return ScopeImportResponse(imported=result.imported, skipped=result.skipped)
+    finally:
+        Path(tmp_name).unlink(missing_ok=True)
