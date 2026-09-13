@@ -172,6 +172,14 @@
            class="rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-4 py-2 text-sm font-medium transition-colors">
           Download HTML
         </a>
+        <a :href="'/api/runs/' + runId + '/export?format=csv'" download
+           class="rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-4 py-2 text-sm font-medium transition-colors">
+          Download CSV
+        </a>
+        <a :href="'/api/runs/' + runId + '/export?format=bounty'" download
+           class="rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-4 py-2 text-sm font-medium transition-colors">
+          Download Bounty TXT
+        </a>
         <a href="/runs" class="ml-auto text-sm text-slate-400 hover:text-slate-200 font-medium">History</a>
         <a href="/" class="text-sm text-emerald-400 hover:text-emerald-300 font-medium">
           New scan

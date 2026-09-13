@@ -90,7 +90,11 @@ def scan(
     ] = DEFAULT_REPORTS_DIR,
     export_format: Annotated[
         ExportFormat,
-        typer.Option("--format", "-f", help="Report format to export."),
+        typer.Option(
+            "--format",
+            "-f",
+            help="Report format to export (md, json, html, csv, bounty, all).",
+        ),
     ] = ExportFormat.all,
 ) -> None:
     """Scan in-scope targets for sensitive metadata (authorized use only)."""
@@ -155,10 +159,14 @@ def report(
     ] = DEFAULT_REPORTS_DIR,
     export_format: Annotated[
         ExportFormat,
-        typer.Option("--format", "-f", help="Report format to export (md, json, html, all)."),
+        typer.Option(
+            "--format",
+            "-f",
+            help="Report format to export (md, json, html, csv, bounty, all).",
+        ),
     ] = ExportFormat.all,
 ) -> None:
-    """Re-export the Markdown/JSON/HTML reports of a persisted run."""
+    """Re-export the Markdown/JSON/HTML/CSV/bounty reports of a persisted run."""
     try:
         paths = asyncio.run(_execute_report(run_id, export_format, output_dir))
     except MetaTracerError as exc:

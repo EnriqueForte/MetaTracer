@@ -82,7 +82,9 @@ from metatracer.db.models import ReasoningDepth, Run, RunStatus
 from metatracer.db.repositories import RunRepository
 from metatracer.detectors.pipeline import DetectionPipeline
 from metatracer.extractors.ingest import IngestionPipeline
+from metatracer.reports.bounty import BountyExporter
 from metatracer.reports.builder import DEFAULT_REPORTS_DIR, ReportBuilder
+from metatracer.reports.csv_exporter import CsvReportExporter
 from metatracer.reports.html import HtmlReportExporter
 from metatracer.reports.json_exporter import JsonReportExporter
 from metatracer.reports.markdown import MarkdownReportExporter
@@ -137,11 +139,13 @@ class ProgressEvent(BaseModel):
 
 
 class ExportFormat(StrEnum):
-    """Report formats the orchestrator can write (``all`` = md + json + html)."""
+    """Report formats the orchestrator can write (``all`` = md + json + html + csv + bounty)."""
 
     md = "md"
     json = "json"
     html = "html"
+    csv = "csv"
+    bounty = "bounty"
     all = "all"
 
 
@@ -524,6 +528,10 @@ class ScanOrchestratorService:
             paths["json"] = JsonReportExporter(output_dir).export(data)
         if formats in (ExportFormat.html, ExportFormat.all):
             paths["html"] = HtmlReportExporter(output_dir).export(data)
+        if formats in (ExportFormat.csv, ExportFormat.all):
+            paths["csv"] = CsvReportExporter(output_dir).export(data)
+        if formats in (ExportFormat.bounty, ExportFormat.all):
+            paths["bounty"] = BountyExporter(output_dir).export(data)
         return paths
 
     async def _fail(

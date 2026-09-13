@@ -209,7 +209,7 @@ async def test_happy_path_completes_with_reports(
     assert result.error_message is None
     assert result.total_assets == 2
     assert result.total_findings > 0
-    assert set(result.report_paths) == {"md", "json", "html"}
+    assert set(result.report_paths) == {"md", "json", "html", "csv", "bounty"}
     for path in result.report_paths.values():
         assert path.exists()
         assert path.parent == tmp_path
@@ -259,7 +259,7 @@ async def test_zero_findings_is_a_valid_completed_run(
     # The HTML page itself is a v1.2 asset; it just has no findings.
     assert result.total_assets == 1
     assert result.total_findings == 0
-    assert set(result.report_paths) == {"md", "json", "html"}
+    assert set(result.report_paths) == {"md", "json", "html", "csv", "bounty"}
     markdown = result.report_paths["md"].read_text(encoding="utf-8")
     assert "No sensitive metadata" in markdown
 
@@ -307,7 +307,7 @@ async def test_export_report_reexports_persisted_run(
 
     other_dir = tmp_path / "reexport"
     paths = await orchestrator.export_report(result.run_id, output_dir=other_dir)
-    assert set(paths) == {"md", "json", "html"}
+    assert set(paths) == {"md", "json", "html", "csv", "bounty"}
     for path in paths.values():
         assert path.exists()
         assert path.parent == other_dir

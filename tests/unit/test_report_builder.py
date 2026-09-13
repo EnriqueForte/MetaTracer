@@ -36,7 +36,10 @@ from metatracer.db.models import (
 from metatracer.db.repositories import AssetRepository, FindingRepository, RunRepository
 from metatracer.reports import (
     COMPLIANCE_NOTICE,
+    CSV_COLUMNS,
     PROSE_PLACEHOLDER,
+    BountyExporter,
+    CsvReportExporter,
     HtmlReportExporter,
     JsonReportExporter,
     MarkdownReportExporter,
@@ -619,3 +622,139 @@ async def test_html_export_escapes_evidence_and_includes_compliance(
     assert COMPLIANCE_NOTICE in text
     assert "MetaTracer Security Report" in text
     assert data.findings[0].evidence in snippet or "Users" in text
+
+
+# --- CSV exporter (TASK-18, subtask 18.2) ---
+
+
+async def test_csv_export_has_contract_header_and_lowercase_rows(
+    session_factory: SessionFactory,
+    tmp_path,
+) -> None:
+    run = _run()
+    asset = _asset(run.id, "http://target.com/a.pdf")
+    findings = [
+        _finding(run.id, asset.id, "sig-crit", severity=Severity.critical),
+        _finding(run.id, asset.id, "sig-none", severity=None, confidence=Confidence.low),
+    ]
+    await _seed(session_factory, run, [asset], findings)
+
+    data = await _build(session_factory, run.id)
+    path = CsvReportExporter(tmp_path).export(data)
+
+    assert path.suffix == ".csv"
+    import csv as _csv
+
+    with path.open(encoding="utf-8-sig", newline="") as handle:
+        rows = list(_csv.DictReader(handle))
+    assert list(rows[0]) == CSV_COLUMNS  # header order
+    assert len(rows) == len(findings)
+    # lowercase enums, empty severity for the unclassified finding
+    assert rows[0]["severity"] == "critical"
+    assert rows[0]["finding_type"] == "internal_path"
+    assert rows[0]["confidence"] == "high"
+    assert rows[1]["severity"] == ""
+    assert rows[1]["confidence"] == "low"
+    assert rows[0]["evidence"] == _DEFAULT_SNIPPET.strip()
+
+
+async def test_csv_export_empty_run_has_header_and_zero_rows(
+    session_factory: SessionFactory,
+    tmp_path,
+) -> None:
+    run = _run()
+    await _seed(session_factory, run, [], [])
+
+    data = await _build(session_factory, run.id)
+    path = CsvReportExporter(tmp_path).export(data)
+
+    import csv as _csv
+
+    with path.open(encoding="utf-8-sig", newline="") as handle:
+        reader = _csv.DictReader(handle)
+        rows = list(reader)
+    assert reader.fieldnames == CSV_COLUMNS  # header present even when empty
+    assert len(rows) == 0
+
+
+async def test_csv_export_evidence_is_byte_for_byte_trimmed(
+    session_factory: SessionFactory,
+    tmp_path,
+) -> None:
+    run = _run()
+    asset = _asset(run.id, "http://target.com/a.pdf")
+    finding = _finding(run.id, asset.id, "sig-ev", snippet="  C:\\Users\\x\\doc.pdf  ")
+    await _seed(session_factory, run, [asset], [finding])
+
+    data = await _build(session_factory, run.id)
+    text = CsvReportExporter(tmp_path).export(data).read_text(encoding="utf-8-sig")
+    assert "C:\\Users\\x\\doc.pdf" in text
+
+
+# --- Bounty exporter (TASK-18, subtask 18.3) ---
+
+
+async def test_bounty_exporter_plain_text_card_has_all_ficha_fields(
+    session_factory: SessionFactory,
+    tmp_path,
+) -> None:
+    run = _run()
+    asset = _asset(run.id, "http://target.com/a.pdf")
+    finding = _finding(run.id, asset.id, "sig-1", severity=Severity.high)
+    await _seed(session_factory, run, [asset], [finding])
+
+    data = await _build(session_factory, run.id)
+    path = BountyExporter(tmp_path).export(data)
+
+    assert path.suffix == ".txt"
+    text = path.read_text(encoding="utf-8")
+    assert "=== Finding 1/1 ===" in text
+    assert "Title: Internal Path Disclosure in Public PDF" in text
+    assert "Severity: High" in text
+    assert "Finding type: Internal Path" in text
+    assert "Affected asset: http://target.com/a.pdf" in text
+    assert "Metadata field: XMP:CreatorTool" in text
+    assert f"Evidence: {_DEFAULT_SNIPPET}" in text
+    assert "Impact: Template impact." in text
+    assert "Explanation: Template justification." in text
+    assert "Reproduction (non-exploitative):" in text
+    assert "1. Fetch the public asset and save it locally." in text
+    assert "\nRemediation:\n  1. Strip metadata.\n" in text
+    # plain text only: no markdown fences/headings leak through (backticks
+    # inside reproduction steps are data from the agent, not formatting)
+    assert text.startswith("MetaTracer Security Report\n")  # plain title, no '#'
+    assert "```text" not in text
+
+
+async def test_bounty_exporter_handles_unclassified_and_placeholders(
+    session_factory: SessionFactory,
+    tmp_path,
+) -> None:
+    run = _run()
+    asset = _asset(run.id, "http://target.com/a.pdf")
+    finding = _finding(run.id, asset.id, "sig-none", severity=None, with_prose=False)
+    await _seed(session_factory, run, [asset], [finding])
+
+    data = await _build(session_factory, run.id)
+    text = BountyExporter(tmp_path).export(data).read_text(encoding="utf-8")
+
+    assert "Severity: Unclassified" in text
+    assert f"Impact: {PROSE_PLACEHOLDER}" in text
+    assert f"Explanation: {PROSE_PLACEHOLDER}" in text
+    # Remediation is an indented block, so the placeholder starts with 2 spaces
+    assert f"\nRemediation:\n  {PROSE_PLACEHOLDER}\n" in text
+
+
+async def test_bounty_exporter_empty_run_is_valid(
+    session_factory: SessionFactory,
+    tmp_path,
+) -> None:
+    run = _run()
+    await _seed(session_factory, run, [], [])
+
+    data = await _build(session_factory, run.id)
+    text = BountyExporter(tmp_path).export(data).read_text(encoding="utf-8")
+
+    assert text.strip()
+    assert "No findings." in text
+    assert "No sensitive metadata was identified in the 0 document(s) analyzed." in text

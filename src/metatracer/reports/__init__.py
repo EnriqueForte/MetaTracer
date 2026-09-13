@@ -6,6 +6,7 @@ opens the original asset files and never calls the LLM; it only reads the
 database and writes report files.
 """
 
+from metatracer.reports.bounty import BountyExporter, render_bounty
 from metatracer.reports.builder import (
     COMPLIANCE_NOTICE,
     DEFAULT_REPORTS_DIR,
@@ -20,6 +21,7 @@ from metatracer.reports.builder import (
     run_id_short,
     slugify_target,
 )
+from metatracer.reports.csv_exporter import CSV_COLUMNS, CsvReportExporter
 from metatracer.reports.filters import filter_findings
 from metatracer.reports.html import HtmlReportExporter, render_html
 from metatracer.reports.json_exporter import JsonReportExporter
@@ -33,7 +35,10 @@ from metatracer.reports.schemas import (
 )
 
 __all__ = [
+    "BountyExporter",
+    "CSV_COLUMNS",
     "COMPLIANCE_NOTICE",
+    "CsvReportExporter",
     "DEFAULT_REPORTS_DIR",
     "PROSE_PLACEHOLDER",
     "REPORT_TITLE",
@@ -41,6 +46,7 @@ __all__ = [
     "JsonReportExporter",
     "MarkdownReportExporter",
     "filter_findings",
+    "render_bounty",
     "render_html",
     "ReportBuilder",
     "ReportData",

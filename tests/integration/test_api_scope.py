@@ -253,6 +253,17 @@ async def test_happy_path_scan_findings_export_and_stream(
     assert "attachment" in response.headers["content-disposition"]
     assert "MetaTracer Security Report" in response.text
     assert "<script>" not in response.text
+    # TASK-18: CSV and bounty (plain text) are downloadable too.
+    response = await client.get(f"/api/runs/{run_id}/export", params={"format": "csv"})
+    assert response.status_code == 200
+    assert "attachment" in response.headers["content-disposition"]
+    assert response.headers["content-type"].startswith("text/csv")
+    assert "severity,finding_type,confidence" in response.text
+    response = await client.get(f"/api/runs/{run_id}/export", params={"format": "bounty"})
+    assert response.status_code == 200
+    assert "attachment" in response.headers["content-disposition"]
+    assert response.headers["content-type"].startswith("text/plain")
+    assert "=== Finding 1/" in response.text
 
     listed = await client.get("/api/runs")
     assert listed.status_code == 200

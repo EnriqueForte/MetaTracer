@@ -44,6 +44,8 @@ _EXPORT_MEDIA_TYPES = {
     "md": "text/markdown; charset=utf-8",
     "json": "application/json",
     "html": "text/html; charset=utf-8",
+    "csv": "text/csv; charset=utf-8",
+    "bounty": "text/plain; charset=utf-8",
 }
 
 _MAX_HISTORY = 200
@@ -178,7 +180,9 @@ async def list_findings(
 async def export_run(
     run_id: str,
     request: Request,
-    format: Annotated[Literal["md", "json", "html"], Query(description="Report format")],
+    format: Annotated[
+        Literal["md", "json", "html", "csv", "bounty"], Query(description="Report format")
+    ],
 ) -> FileResponse:
     """Regenerate the report from the database and serve it as an attachment.
 
