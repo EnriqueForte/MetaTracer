@@ -66,7 +66,7 @@ jobs:
             -m 'not e2e' -q
       - name: Upload coverage artifact
         if: always()
-        uses: actions/upload-artifact@65c4c4a1ddee5b7f34f2757f9f2b8d2e5f5a6c0a # v4.4.3
+        uses: actions/upload-artifact@1746f4ab65b179e0ea60a494b83ceead3d61d5c7 # v4.4.3
         with:
           name: coverage-and-reports
           path: |
