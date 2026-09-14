@@ -6,6 +6,7 @@ Every test points ``METATRACER_DATABASE_URL`` at a tmp_path so the real user
 database is never touched.
 """
 
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -16,6 +17,15 @@ from typer.testing import CliRunner
 from metatracer.cli.main import app
 
 runner = CliRunner()
+
+# Rich/Typer emit ANSI colour codes on non-Windows runners; the string-precise
+# help asserts must compare against the colour-stripped output.
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _plain(output: str) -> str:
+    """Help text without ANSI colour escape sequences (CI/Linux safe)."""
+    return _ANSI_RE.sub("", output)
 
 
 def test_python_dash_m_entry_point_matches_readme() -> None:
@@ -40,7 +50,7 @@ def _isolated_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 def test_scan_help_lists_scope_option() -> None:
     result = runner.invoke(app, ["scan", "--help"])
     assert result.exit_code == 0
-    assert "--scope-domain" in result.output
+    assert "--scope-domain" in _plain(result.output)
 
 
 def test_scan_without_scope_domain_fails() -> None:
@@ -63,15 +73,15 @@ def test_list_runs_empty_database() -> None:
 def test_list_runs_status_and_limit_flags() -> None:
     result = runner.invoke(app, ["list-runs", "--help"])
     assert result.exit_code == 0
-    assert "--status" in result.output
-    assert "--limit" in result.output
+    assert "--status" in _plain(result.output)
+    assert "--limit" in _plain(result.output)
 
 
 def test_show_help_lists_filters() -> None:
     result = runner.invoke(app, ["show", "--help"])
     assert result.exit_code == 0
-    assert "--severity" in result.output
-    assert "--type" in result.output
+    assert "--severity" in _plain(result.output)
+    assert "--type" in _plain(result.output)
 
 
 def test_show_unknown_run_fails() -> None:
