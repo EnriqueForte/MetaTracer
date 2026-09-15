@@ -140,6 +140,17 @@ async def import_kb_endpoint(request: Request) -> ImportResponse:
     factory = getattr(request.app.state, "session_factory", None)
     if factory is None:
         raise HTTPException(status_code=503, detail="knowledge index is not configured")
+
+    # Defense in depth: the API-edge middleware already rejects oversized
+    # Content-Length, but re-check here so a chunked/streamed body is bounded
+    # even if the middleware wiring changes (v2.3 perf slice).
+    from metatracer.core.ratelimit import enforce_body_limit
+
+    content_length = request.headers.get("content-length")
+    if content_length is not None and content_length.isdigit():
+        enforce_body_limit(
+            int(content_length), int(getattr(request.app.state, "max_request_body_bytes", 0))
+        )
     body = await request.body()
     if not body:
         raise HTTPException(status_code=422, detail="empty body: send the portable KB JSON")

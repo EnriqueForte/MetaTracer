@@ -55,7 +55,7 @@
       class="w-full rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2 text-sm transition-colors">
       Start scan
     </button>
-    <p x-show="error" x-text="error" x-cloak class="text-sm text-red-400"></p>
+    <p x-show="error" x-text="error" x-cloak role="alert" class="text-sm text-red-400"></p>
   </form>
 
   <!-- Blocking scope-confirmation modal: the POST never leaves without the check. -->
@@ -80,7 +80,8 @@
       </p>
       <label class="flex items-start gap-2 text-sm text-slate-200 mb-5 cursor-pointer">
         <input type="checkbox" x-model="confirmed"
-          class="mt-1 rounded border-slate-600 bg-slate-950 text-emerald-600 focus:ring-emerald-500">
+          class="mt-1 rounded border-slate-600 bg-slate-950 text-emerald-600 focus:ring-emerald-500"
+          aria-label="I confirm I have explicit authorization to audit these targets and that they are inside the stated scope">
         <span>I confirm I have explicit authorization to audit these targets and that
           they are inside the stated scope.</span>
       </label>
@@ -89,10 +90,9 @@
           class="flex-1 rounded-md border border-slate-700 text-slate-300 py-2 text-sm hover:bg-slate-800 transition-colors">
           Cancel
         </button>
-        <button type="button" @click="startScan" :disabled="!confirmed"
-          class="flex-1 rounded-md bg-emerald-600 text-white font-semibold py-2 text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:bg-emerald-500 disabled:hover:bg-emerald-600">
-          Confirm and start scan
-        </button>
+        <button type="button" @click="startScan" :disabled="!confirmed || starting"
+          class="flex-1 rounded-md bg-emerald-600 text-white font-semibold py-2 text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:bg-emerald-500 disabled:hover:bg-emerald-600"
+          x-text="starting ? 'Starting scan…' : 'Confirm and start scan'"></button>
       </div>
     </div>
   </div>
@@ -106,6 +106,7 @@ document.addEventListener('alpine:init', () => {
     depth: 'standard',
     modalOpen: false,
     confirmed: false,
+    starting: false,
     error: '',
     savedScopes: [],
     selectedScopeId: '',
@@ -159,6 +160,8 @@ document.addEventListener('alpine:init', () => {
     },
     async startScan() {
       if (!this.confirmed) return; // defense in depth: the button is also disabled
+      this.starting = true;
+      this.error = '';
       const body = {
         targets: this.targetList(),
         scope_confirmed: true,
@@ -188,12 +191,17 @@ document.addEventListener('alpine:init', () => {
           this.error = 'The scope confirmation was rejected by the server.';
         } else if (response.status === 404) {
           this.error = 'The selected saved scope no longer exists; choose or enter domains manually.';
+        } else if (response.status === 429) {
+          this.error = 'Too many requests: the API asked us to slow down; retry in a few seconds.';
+        } else if (response.status >= 500) {
+          this.error = 'The API failed internally; retry, or check the server logs.';
         } else {
           this.error = 'The scan could not be started (HTTP ' + response.status + ').';
         }
       } catch (err) {
         this.error = 'Network error: the API is unreachable.';
       }
+      this.starting = false;
       this.modalOpen = false;
     },
   }));

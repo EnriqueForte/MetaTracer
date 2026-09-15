@@ -10,8 +10,8 @@
   </div>
 
   <!-- Unknown run: a dignified state, not a blank screen -->
-  <div x-show="loadError" x-cloak class="bg-slate-900/60 border border-slate-800 rounded-lg p-8 text-center">
-    <p class="text-lg font-semibold text-slate-200 mb-2">Run not found</p>
+  <div x-show="loadError" x-cloak class="bg-slate-900/60 border border-slate-800 rounded-lg p-8 text-center" role="alert">
+    <p class="text-lg font-semibold text-slate-200 mb-2" x-text="loadErrorMessage || 'Run not found'"></p>
     <p class="text-sm text-slate-400 mb-4">
       This run id does not exist in the local database. It may belong to another
       MetaTracer installation or the database may have been reset.
@@ -67,13 +67,15 @@
       <div class="flex flex-wrap gap-2 mb-3">
         <button @click="severityFilter = 'all'"
                 class="px-3 py-1 rounded-full text-xs font-semibold border transition-colors"
-                :class="severityFilter === 'all' ? 'border-emerald-500 text-emerald-300' : 'border-slate-700 text-slate-400 hover:border-slate-500'">
+                :class="severityFilter === 'all' ? 'border-emerald-500 text-emerald-300' : 'border-slate-700 text-slate-400 hover:border-slate-500'"
+                :aria-pressed="severityFilter === 'all' ? 'true' : 'false'">
           All (<span x-text="findings.length"></span>)
         </button>
         <template x-for="sev in severityOrder" :key="sev">
           <button @click="severityFilter = (severityFilter === sev ? 'all' : sev)"
                   class="px-3 py-1 rounded-full text-xs font-semibold border transition-colors"
-                  :class="severityFilter === sev ? 'border-emerald-500 text-emerald-300' : 'border-slate-700 text-slate-400 hover:border-slate-500'">
+                  :class="severityFilter === sev ? 'border-emerald-500 text-emerald-300' : 'border-slate-700 text-slate-400 hover:border-slate-500'"
+                  :aria-pressed="severityFilter === sev ? 'true' : 'false'">
             <span x-text="sev"></span> (<span x-text="counts[sev] || 0"></span>)
           </button>
         </template>
@@ -81,21 +83,31 @@
       <div class="flex flex-wrap gap-2 mb-3">
         <button @click="typeFilter = 'all'"
                 class="px-3 py-1 rounded-full text-xs font-semibold border transition-colors"
-                :class="typeFilter === 'all' ? 'border-emerald-500 text-emerald-300' : 'border-slate-700 text-slate-400 hover:border-slate-500'">
+                :class="typeFilter === 'all' ? 'border-emerald-500 text-emerald-300' : 'border-slate-700 text-slate-400 hover:border-slate-500'"
+                :aria-pressed="typeFilter === 'all' ? 'true' : 'false'">
           All types
         </button>
         <template x-for="type in typeOptions" :key="type.value">
           <button @click="typeFilter = (typeFilter === type.value ? 'all' : type.value)"
                   class="px-3 py-1 rounded-full text-xs font-semibold border transition-colors"
                   :class="typeFilter === type.value ? 'border-emerald-500 text-emerald-300' : 'border-slate-700 text-slate-400 hover:border-slate-500'"
+                  :aria-pressed="typeFilter === type.value ? 'true' : 'false'"
                   x-text="type.label"></button>
         </template>
       </div>
-      <input type="search" x-model="query" placeholder="Search evidence, title, field or URL"
+      <label for="findings-search" class="sr-only">Search findings</label>
+      <input id="findings-search" type="search" x-model="query" placeholder="Search evidence, title, field or URL"
              class="w-full mb-4 rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none">
 
+      <!-- Findings load failure: distinct from an honest zero-findings result -->
+      <div x-show="findingsError" x-cloak role="alert"
+           class="bg-red-950/50 border border-red-800 rounded-lg p-5 mb-4">
+        <p class="text-sm font-semibold text-red-300 mb-1">Findings unavailable</p>
+        <p class="text-sm text-red-200/90" x-text="findingsError"></p>
+      </div>
+
       <!-- Zero findings: a valid result, rendered as such -->
-      <div x-show="findingsLoaded && findings.length === 0"
+      <div x-show="findingsLoaded && !findingsError && findings.length === 0"
            class="bg-slate-900/60 border border-emerald-900 rounded-lg p-8 text-center">
         <p class="text-lg font-semibold text-emerald-300 mb-1">No findings</p>
         <p class="text-sm text-slate-400">
@@ -107,12 +119,13 @@
       <!-- Findings table -->
       <div x-show="findings.length > 0" class="overflow-x-auto bg-slate-900/60 border border-slate-800 rounded-lg">
         <table class="min-w-full text-sm">
+          <caption class="sr-only">Findings of this scan, ordered by severity</caption>
           <thead class="border-b border-slate-800 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
-              <th class="px-4 py-3">Severity</th>
-              <th class="px-4 py-3">Type</th>
-              <th class="px-4 py-3">Evidence</th>
-              <th class="px-4 py-3">Asset</th>
+              <th class="px-4 py-3" scope="col">Severity</th>
+              <th class="px-4 py-3" scope="col">Type</th>
+              <th class="px-4 py-3" scope="col">Evidence</th>
+              <th class="px-4 py-3" scope="col">Asset</th>
             </tr>
           </thead>
           <tbody>
@@ -196,7 +209,7 @@
         <div class="p-6">
           <div class="flex items-start justify-between gap-4 mb-4">
             <h2 class="text-base font-bold text-slate-100" x-text="selected.title"></h2>
-            <button @click="selected = null"
+            <button @click="selected = null" aria-label="Close finding details"
                     class="text-slate-400 hover:text-slate-200 text-xl leading-none">&times;</button>
           </div>
           <div class="flex items-center gap-2 mb-4">
@@ -255,8 +268,8 @@
                  x-text="'Current feedback: ' + feedback.vote + ' → ' + feedback.severity_after"></p>
             </template>
             <div class="flex flex-wrap items-center gap-2">
-              <label class="text-xs text-slate-400">Corrected severity</label>
-              <select x-model="feedbackSeverity"
+              <label for="feedback-severity" class="text-xs text-slate-400">Corrected severity</label>
+              <select id="feedback-severity" x-model="feedbackSeverity"
                       class="rounded-md bg-slate-950 border border-slate-700 px-2 py-1.5 text-xs text-slate-200 focus:border-emerald-500 focus:outline-none">
                 <template x-for="sev in severityOrder" :key="sev">
                   <option :value="sev" x-text="sev"></option>
@@ -271,10 +284,11 @@
                   Remove
                 </button>
               </template>
-              <span class="text-xs text-slate-500" x-text="feedbackBusy ? 'Saving…' : ''"></span>
-              <span class="text-xs text-red-400" x-text="feedbackError"></span>
+              <span class="text-xs text-slate-500" aria-live="polite" x-text="feedbackBusy ? 'Saving…' : ''"></span>
+              <span class="text-xs text-red-400" role="alert" x-text="feedbackError"></span>
             </div>
-            <input type="text" x-model="feedbackReason"
+            <label for="feedback-reason" class="block text-xs font-medium text-slate-400 mb-1">Reason (optional)</label>
+            <input id="feedback-reason" type="text" x-model="feedbackReason"
                    placeholder="Optional: why (stored locally, never sent to the model)"
                    class="mt-2 w-full rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-xs text-slate-300 focus:border-emerald-500 focus:outline-none">
           </div>
@@ -306,8 +320,10 @@ document.addEventListener('alpine:init', () => {
     runId: '',
     run: null,
     loadError: false,
+    loadErrorMessage: '',
     findings: [],
     findingsLoaded: false,
+    findingsError: '',
     severityFilter: 'all',
     typeFilter: 'all',
     query: '',
@@ -401,10 +417,16 @@ document.addEventListener('alpine:init', () => {
           this.loadError = true;
           return;
         }
+        if (!response.ok) {
+          this.loadError = true;
+          this.loadErrorMessage = 'Could not load this run (HTTP ' + response.status + ').';
+          return;
+        }
         this.run = await response.json();
         if (this.run.status === 'completed') this.loadFindings();
       } catch (err) {
         this.loadError = true;
+        this.loadErrorMessage = 'Network error: the API is unreachable.';
       }
     },
 
@@ -461,11 +483,18 @@ document.addEventListener('alpine:init', () => {
     },
 
     async loadFindings() {
-      const response = await fetch('/api/runs/' + encodeURIComponent(this.runId) + '/findings');
-      if (response.ok) {
-        const data = await response.json();
-        this.findings = data.findings;
-        this.findingsLoaded = true;
+      try {
+        const response = await fetch('/api/runs/' + encodeURIComponent(this.runId) + '/findings');
+        if (response.ok) {
+          const data = await response.json();
+          this.findings = data.findings;
+          this.findingsLoaded = true;
+          this.findingsError = '';
+        } else {
+          this.findingsError = 'Findings could not be loaded (HTTP ' + response.status + ').';
+        }
+      } catch (err) {
+        this.findingsError = 'Network error: findings could not be loaded.';
       }
     },
 

@@ -1,9 +1,9 @@
 # Backlog Técnico de Tareas a Bajo Nivel (Tasks)
 
 **Proyecto:** MetaTracer  
-**Versión:** 2.2 (Integraciones)  
+**Versión:** 2.3 (Performance & UI polish)  
 **PRD:** [Volver al PRD](../PRD.md)  
-**Estado:** MVP v1.0–v1.2 cerradas — v2.0 completada (TASK-10/11/12 ✅) — v2.1 completada (TASK-13 feedback ✅, TASK-14 RAG ligero ✅) — **v2.2 "Integraciones" completada 2026-09-13**: TASK-15 webhooks ✅, TASK-16 CI guardrail ✅, TASK-17 KB portable ✅, TASK-18 exports bounty ✅, TASK-19 import scope ✅ (todas cerradas; `pytest` 475 passed + ruff limpio + cobertura ≥85%) — **todas las fases del roadmap actual hasta v2.2 están cerradas**  
+**Estado:** MVP v1.0–v1.2 cerradas — v2.0 completada (TASK-10/11/12 ✅) — v2.1 completada (TASK-13 feedback ✅, TASK-14 RAG ligero ✅) — v2.2 "Integraciones" completada 2026-09-13 (TASK-15 a TASK-19 ✅; `pytest` 475 passed + ruff limpio + cobertura ≥85%) — **v2.3 "Performance & UI polish" en progreso (2026-09-15)**: rate limit a nivel de API HTTP (`ApiRateLimiter` en `core/ratelimit.py`, middleware en `api/app.py`, exento health/static/SSE) + límite de tamaño de body en peticiones (`max_request_body_bytes`, 413 en import de scopes/KB) + pulido de UI (accesibilidad, estados de carga, empty states, consistencia de errores). Tests: `test_api_performance.py` 6 passed + integración completa 101 passed.  
 
 Este directorio descompone el MVP en tareas implementables. Cada archivo es un contrato: objetivo, subtareas, contratos de datos, fuera de alcance, tests mínimos y criterios de aceptación verificables.
 

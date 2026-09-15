@@ -12,9 +12,29 @@
     <a href="/" class="text-sm text-emerald-400 hover:text-emerald-300 font-medium">New scan</a>
   </div>
 
-  <p x-show="loadError" x-cloak class="text-sm text-red-400">Could not load the dashboard data.</p>
+  <!-- Loading state -->
+  <div x-show="!stats && !loadError" class="flex items-center gap-3 text-slate-400" aria-live="polite">
+    <span class="inline-block h-5 w-5 animate-spin rounded-full border-2 border-slate-600 border-t-emerald-500"></span>
+    <span>Loading dashboard…</span>
+  </div>
+
+  <p x-show="loadError" x-cloak role="alert" class="text-sm text-red-400">
+    <span x-text="errorMessage || 'Could not load the dashboard data.'"></span>
+    <button type="button" @click="load()" class="underline text-red-300 hover:text-red-200">Retry</button>
+  </p>
 
   <template x-if="stats">
+    <!-- Global empty state: zero runs is a valid dashboard, rendered as such -->
+    <div x-show="stats.runs.total === 0"
+         class="bg-slate-900/60 border border-slate-800 rounded-lg p-8 text-center mb-6">
+      <p class="text-lg font-semibold text-slate-200 mb-1">No data yet</p>
+      <p class="text-sm text-slate-400 mb-4">
+        Run a scan to start building the dashboard — runs, findings, domains and
+        agent usage will appear here.
+      </p>
+      <a href="/" class="text-emerald-400 hover:text-emerald-300 text-sm font-medium">New scan</a>
+    </div>
+
     <!-- KPI cards -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
       <div class="bg-slate-900/60 border border-slate-800 rounded-lg p-4">
@@ -72,10 +92,11 @@
     <div class="bg-slate-900/60 border border-slate-800 rounded-lg p-5 mb-6">
       <h2 class="text-sm font-semibold text-slate-300 mb-4">Top domains</h2>
       <table class="min-w-full text-sm">
+        <caption class="sr-only">Top domains by asset mentions</caption>
         <thead class="border-b border-slate-800 text-left text-xs uppercase tracking-wide text-slate-500">
           <tr>
-            <th class="px-4 py-2">Domain</th>
-            <th class="px-4 py-2">Mentions</th>
+            <th class="px-4 py-2" scope="col">Domain</th>
+            <th class="px-4 py-2" scope="col">Mentions</th>
           </tr>
         </thead>
         <tbody>
@@ -94,11 +115,12 @@
     <div class="bg-slate-900/60 border border-slate-800 rounded-lg p-5 mb-6">
       <h2 class="text-sm font-semibold text-slate-300 mb-4">Most repeated evidence</h2>
       <table class="min-w-full text-sm">
+        <caption class="sr-only">Most repeated evidence snippets</caption>
         <thead class="border-b border-slate-800 text-left text-xs uppercase tracking-wide text-slate-500">
           <tr>
-            <th class="px-4 py-2">Evidence</th>
-            <th class="px-4 py-2">Type</th>
-            <th class="px-4 py-2">Assets</th>
+            <th class="px-4 py-2" scope="col">Evidence</th>
+            <th class="px-4 py-2" scope="col">Type</th>
+            <th class="px-4 py-2" scope="col">Assets</th>
           </tr>
         </thead>
         <tbody>
@@ -151,16 +173,30 @@ document.addEventListener('alpine:init', () => {
   Alpine.data('dashboard', () => ({
     stats: null,
     loadError: false,
+    errorMessage: '',
     severityOrder: ['critical', 'high', 'medium', 'low', 'info'],
 
     async load() {
       try {
         const response = await fetch('/api/stats');
-        if (!response.ok) { this.loadError = true; return; }
+        if (!response.ok) {
+          this.errorMessage = await this.readError(response);
+          this.loadError = true;
+          return;
+        }
         this.stats = await response.json();
+        this.errorMessage = '';
       } catch (err) {
+        this.errorMessage = 'Network error: the API is unreachable.';
         this.loadError = true;
       }
+    },
+    async readError(response) {
+      try {
+        const payload = await response.json();
+        if (payload && payload.detail) return String(payload.detail);
+      } catch (err) { /* non-JSON body */ }
+      return 'Could not load the dashboard data (HTTP ' + response.status + ').';
     },
 
     statusCount(status) {

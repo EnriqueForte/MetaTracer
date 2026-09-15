@@ -16,9 +16,11 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.exceptions import HTTPException
 
 from metatracer import __version__
 from metatracer.agents.knowledge import KnowledgeRetriever
@@ -28,6 +30,7 @@ from metatracer.api.webhooks import WebhookDispatcher
 from metatracer.api.webhooks import register_routes as register_webhook_routes
 from metatracer.core.config import Settings
 from metatracer.core.logging import configure_logging
+from metatracer.core.ratelimit import ApiRateLimiter, enforce_body_limit
 from metatracer.core.safety.guard import NetworkSafetyGuard
 from metatracer.db.engine import create_db_engine, create_session_factory, init_db
 from metatracer.reports.builder import DEFAULT_REPORTS_DIR
@@ -38,6 +41,29 @@ from metatracer.services.progress import ProgressBus
 _PACKAGE_DIR = Path(__file__).parent
 TEMPLATES_DIR = _PACKAGE_DIR / "templates"
 STATIC_DIR = _PACKAGE_DIR / "static"
+
+# Paths that are exempt from the API-edge rate limit (they are either
+# liveness probes consumed by the Docker HEALTHCHECK or bounded, short-lived
+# server resources):
+# - /api/health is deliberately stateless and cheap; rate-limiting it would
+#   make the container's OWN healthcheck fail under load.
+# - /static/* is served from memory by Starlette, no database, no pipeline;
+#   the browser legitimately issues many parallel requests for it.
+# - /api/runs/*/stream is the SSE stream: the browser holds it open for the
+#   whole scan, so counting keep-alives against a client's budget would break
+#   the dashboard under a normal single scan. The stream endpoint is itself
+#   bounded: one subscriber per run id and it closes on terminal events.
+_RATE_LIMIT_EXEMPT_PREFIXES: tuple[str, ...] = (
+    "/api/health",
+    "/static/",
+)
+
+
+def _is_rate_limit_exempt(path: str) -> bool:
+    """True for health, static assets and SSE streams (see above)."""
+    if path.startswith(_RATE_LIMIT_EXEMPT_PREFIXES):
+        return True
+    return path.startswith("/api/runs/") and path.endswith("/stream")
 
 
 def create_app(
@@ -91,6 +117,11 @@ def create_app(
         register_webhook_routes(app, app.state.session_factory)
         app.state.reports_dir = reports_dir
         app.state.templates = Jinja2Templates(directory=TEMPLATES_DIR)
+        # v2.3 performance slice: API-edge rate limit + body-size cap. Shared
+        # with the fastapi routes created below; HEALTH and STATIC are exempt
+        # (see _is_rate_limit_exempt).
+        app.state.rate_limiter = ApiRateLimiter(settings.api_rate_limit_per_minute)
+        app.state.max_request_body_bytes = settings.max_request_body_bytes
         yield
         await app.state.webhook_dispatcher.shutdown()
         await app.state.orchestrator.shutdown()
@@ -105,6 +136,34 @@ def create_app(
         ),
         lifespan=lifespan,
     )
+
+    @app.middleware("http")
+    async def api_edge_guards(request: Request, call_next):
+        """Rate-limit the API edge and cap request bodies (v2.3 perf slice).
+
+        Runs before any route handler: a 413/429 here never touches the
+        database, the pipeline or the LLM. Exempted paths (health, static,
+        SSE streams) are defined in :func:`_is_rate_limit_exempt` — the SSE
+        stream must not consume a client's budget while a scan runs.
+        """
+        limiter: ApiRateLimiter | None = getattr(request.app.state, "rate_limiter", None)
+        max_body: int = getattr(request.app.state, "max_request_body_bytes", 0)
+        try:
+            if limiter is not None and not _is_rate_limit_exempt(request.url.path):
+                await limiter.check(request)
+            if not _is_rate_limit_exempt(request.url.path):
+                length = request.headers.get("content-length")
+                if length is not None and length.isdigit():
+                    enforce_body_limit(int(length), max_body)
+            return await call_next(request)
+        except HTTPException as exc:
+            # Middleware-raised HTTPExceptions do not flow through FastAPI's
+            # exception handlers outside the router, so render the JSON here.
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={"detail": exc.detail},
+                headers=exc.headers,
+            )
 
     @app.get("/api/health")
     async def health() -> dict[str, str]:

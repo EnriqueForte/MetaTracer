@@ -36,6 +36,23 @@ class Settings(BaseSettings):
     # TEST ONLY: lets the test suite reach a local mock server. Never enable elsewhere.
     allow_loopback: bool = False
     bind_host: str = "127.0.0.1"
+    # --- Performance & request hygiene (v2.3) -------------------------------
+    # Per-client-IP HTTP rate limit at the API edge. The service is localhost-
+    # bound by default, but the Docker image binds 0.0.0.0 (TASK-07), so the
+    # API still needs a guard against accidental load / resource exhaustion.
+    # 0 disables this guard (e.g. behind a trusted reverse proxy that already
+    # rate-limits upstream).
+    api_rate_limit_per_minute: int = 120
+    # Cap on request bodies at the API edge. The webhooks/import endpoints
+    # already stream payloads to disk when needed; this guard stops a
+    # megabyte-scale body from being read into memory before validation.
+    # Generous defaults: the KB/scopes imports are the only legitimate
+    # consumers and both are meant to be small operational JSON files.
+    max_request_body_bytes: int = 5 * 1024 * 1024  # 5242880 bytes = 5 MiB
+
+    @property
+    def api_rate_limit_enabled(self) -> bool:
+        return self.api_rate_limit_per_minute > 0
 
 
 @lru_cache

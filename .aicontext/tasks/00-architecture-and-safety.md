@@ -183,6 +183,8 @@ Docker **no** se implementa aquí (TASK-07). Sí dejar `data/` y `reports/` list
   | `MAX_ASSETS_PER_RUN` | `50` | Tope de descargas |
   | `MAX_FILE_BYTES` | `52428800` (50 MB) | Tope por archivo |
   | `RATE_LIMIT_RPS` | `2` | Req/s por dominio |
+  | `API_RATE_LIMIT_PER_MINUTE` | `120` | Req/min por IP en el borde de la API; `0` lo desactiva (v2.3) |
+  | `MAX_REQUEST_BODY_BYTES` | `5242880` (5 MB) | Tope del body de peticiones HTTP a la API (v2.3) |
   | `ALLOW_LOOPBACK` | `false` | Solo tests |
   | `BIND_HOST` | `127.0.0.1` | API local; Docker usará `0.0.0.0` |
 
