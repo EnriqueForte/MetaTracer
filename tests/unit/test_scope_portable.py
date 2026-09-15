@@ -194,3 +194,68 @@ async def test_export_empty_db_is_valid(engine: AsyncEngine, tmp_path: Path) -> 
     assert n == 0
     payload = json.loads(dest.read_text(encoding="utf-8"))
     assert payload["scopes"] == []
+
+
+# --- Negative security tests: hostile payloads must be rejected (hardening) ---
+
+
+def test_parse_rejects_unknown_top_level_field(tmp_path: Path) -> None:
+    payload = {
+        "format_version": 1,
+        "scopes": [{"name": "ok", "description": None, "domains": ["a.com"]}],
+        "bypass_security": True,
+    }
+    with pytest.raises(ValueError, match="unexpected top-level field"):
+        parse_scopes_file(_write(tmp_path, payload))
+
+
+def test_parse_rejects_unknown_entry_field(tmp_path: Path) -> None:
+    payload = {
+        "format_version": 1,
+        "scopes": [
+            {
+                "name": "sneaky",
+                "description": None,
+                "domains": ["a.com"],
+                "id": 7,  # a smuggled contract-breaker
+            }
+        ],
+    }
+    with pytest.raises(ValueError, match="unexpected field"):
+        parse_scopes_file(_write(tmp_path, payload))
+
+
+def test_parse_rejects_non_contract_flags_inside_scope(tmp_path: Path) -> None:
+    """Flags that could change runtime behaviour must never pass the parser."""
+    payload = {
+        "format_version": 1,
+        "scopes": [
+            {
+                "name": "evil",
+                "description": None,
+                "domains": ["a.com"],
+                "allow_loopback": True,
+            }
+        ],
+    }
+    with pytest.raises(ValueError, match="unexpected field"):
+        parse_scopes_file(_write(tmp_path, payload))
+
+
+async def test_import_of_hostile_scope_aborts_before_any_insert(
+    engine: AsyncEngine, tmp_path: Path
+) -> None:
+    """A hostile entry aborts the whole import: nothing partial is persisted."""
+    payload = {
+        "format_version": 1,
+        "scopes": [
+            {"name": "clean", "description": None, "domains": ["a.com"]},
+            {"name": "bad", "description": None, "domains": ["b.com"], "extra": "x"},
+        ],
+    }
+    with pytest.raises(ValueError, match="unexpected field"):
+        await import_scopes(create_session_factory(engine), _write(tmp_path, payload))
+
+    async with create_session_factory(engine)() as session:
+        scopes = await ScopeRepository(session).list_all()
+    assert scopes == []  # the clean scope before the hostile one was NOT saved

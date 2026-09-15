@@ -22,6 +22,9 @@ Safety posture (invariant rules):
 - **The import never invents**: names and every domain are validated with the
   same rules as ``ScopeCreate`` (TASK-10); invalid entries raise
   ``ValueError`` (never reassigned, never guessed).
+- **Strict contract**: unknown fields anywhere in the file are rejected with a
+  ``ValueError`` — a hostile or malformed payload can never smuggle extra keys
+  (e.g. ids, flags) past validation.
 - **Idempotent and non-destructive**: importing the same file twice never
   duplicates (a scope whose name already exists is skipped) and never deletes
   or overwrites an existing scope.
@@ -43,6 +46,11 @@ from metatracer.db.repositories import ScopeRepository
 logger = logging.getLogger("metatracer.scopes.portable")
 
 FORMAT_VERSION = 1
+
+# The only keys the portable contract accepts. Anything else is rejected
+# (hardening): a scope import must never silently carry unknown payload.
+_ROOT_KEYS = frozenset({"format_version", "exported_at", "scopes"})
+_ENTRY_KEYS = frozenset({"name", "description", "domains"})
 
 
 @dataclass(slots=True, frozen=True)
@@ -109,6 +117,12 @@ def _entry_from_dict(raw: object, index: int) -> ScopeEntry:
     """Validate one scope entry; never reassigns and never invents values."""
     if not isinstance(raw, dict):
         raise ValueError(f"entry {index}: must be an object")
+    extra = set(raw) - _ENTRY_KEYS
+    if extra:
+        raise ValueError(
+            f"entry {index}: unexpected field(s) {sorted(extra)}; "
+            f"allowed: {sorted(_ENTRY_KEYS)}"
+        )
     name = _parse_name(raw.get("name"), index)
     description = raw.get("description")
     if description is not None and not isinstance(description, str):
@@ -130,6 +144,12 @@ def parse_scopes_file(source: Path) -> list[ScopeEntry]:
         raise ValueError(f"cannot read scopes file {source}: {exc}") from exc
     if not isinstance(raw, dict):
         raise ValueError("scopes file must be a JSON object")
+    extra = set(raw) - _ROOT_KEYS
+    if extra:
+        raise ValueError(
+            f"unexpected top-level field(s) {sorted(extra)}; "
+            f"allowed: {sorted(_ROOT_KEYS)}"
+        )
     if raw.get("format_version") != FORMAT_VERSION:
         raise ValueError(
             f"unsupported format_version {raw.get('format_version')!r}; "
