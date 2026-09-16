@@ -66,7 +66,7 @@ Al cerrar esta task el repo debe ser instalable (`pip install -e .`) y el safety
   - Dev: `pytest>=8.0.0`, `pytest-asyncio>=0.23.0`, `pytest-cov>=5.0`, `ruff>=0.4.0`, `reportlab>=4.2` (fixtures de PDF en TASK-07; se puede declarar ya en dev).
   - Entry point: `[project.scripts] metatracer = "metatracer.cli.main:app"` (el módulo CLI puede ser un stub que imprima “not implemented” hasta TASK-06).
 - **0.1.4. Ruff:** reglas `E`, `F`, `B`, `I`, `UP`. Line length 100.
-- **0.1.5. `.gitignore`:** `.env`, `data/*.db`, `reports/*.md`, `reports/*.json`, `__pycache__/`, `.venv/`, `.pytest_cache/`.
+- **0.1.5. `.gitignore`:** `.env`, `data/*.db`, `reports/*.md`, `reports/*.json`, `reports/*.html`, `__pycache__/`, `.venv/`, `.pytest_cache/` (el `.gitignore` real además excluye `.ruff_cache/`, `.coverage`, `*.egg-info/` y `validation/results/`, `validation/ground-truths/`).
 - **0.1.6. `.env.example`:** ver subtarea 0.4. No copiar secretos.
 
 Docker **no** se implementa aquí (TASK-07). Sí dejar `data/` y `reports/` listos.
@@ -76,6 +76,7 @@ Docker **no** se implementa aquí (TASK-07). Sí dejar `data/` y `reports/` list
 ### Subtarea 0.2: Modelado de Datos y Persistencia
 
 - **0.2.1. Modelos (SQLModel).** UUIDs como `str` (UUID4) salvo `RawMetadataItem.id` autoincrement. Timestamps timezone-aware UTC.
+  - **Modelos posteriores añadidos fuera de TASK-00** (especificados en sus propias tasks): `Scope` (TASK-10), `FindingFeedback` + enum `FeedbackVote` + helper `severity_rank` (TASK-13), `WebhookConfig` + `WebhookDelivery` + enum `WebhookDeliveryStatus` (TASK-15). El campo `Run.run_ref` (TASK-15) tampoco está en la tabla de abajo.
 
   **`Run`**
   - `id` PK
@@ -143,8 +144,9 @@ Docker **no** se implementa aquí (TASK-07). Sí dejar `data/` y `reports/` list
   - `raw_response` Text (salida estructurada; no guardar el PDF ni el prompt completo si contiene secretos de API)
   - `created_at` DateTime UTC
 
-- **0.2.2. Engine asíncrono:** `sqlite+aiosqlite:///./data/metatracer.db` (overridable). `init_db()` crea tablas con `PRAGMA foreign_keys=ON`. `create_db_engine()` crea el directorio padre del archivo SQLite si no existe (`data/` está en `.gitignore`; un clone fresco no lo trae). Schema listo para migrar a PostgreSQL más adelante (no usar tipos exclusivos de SQLite en los modelos).
-- **0.2.3. Repositorios:** `RunRepository`, `AssetRepository`, `RawMetadataRepository`, `FindingRepository`, `AgentLogRepository`. CRUD mínimo + `list_by_run`. No lógica de negocio aquí.
+- **0.2.2. Engine asíncrono:** `sqlite+aiosqlite:///./data/metatracer.db` (overridable). `init_db()` crea tablas con `PRAGMA foreign_keys=ON` (escuchada por evento en **cada** conexión, no solo al iniciar). `create_db_engine()` crea el directorio padre del archivo SQLite si no existe (`data/` está en `.gitignore`; un clone fresco no lo trae). Schema listo para migrar a PostgreSQL más adelante (no usar tipos exclusivos de SQLite en los modelos).
+  - `init_db()` además aplica **ALTER TABLE ... ADD COLUMN** para columnas ausentes (nullable, o NOT NULL con default Python como `Run.run_ref` de TASK-15, que se añade nullable para poder migrar una tabla no vacía). Postura explícita: sin Alembic en el MVP; columnas NOT NULL sin default no se migran automáticamente (TASK-13).
+- **0.2.3. Repositorios:** `RunRepository`, `AssetRepository`, `RawMetadataRepository`, `FindingRepository`, `AgentLogRepository`. CRUD mínimo + `list_by_run`. No lógica de negocio aquí. Repositorios añadidos en versiones posteriores: `ScopeRepository` (TASK-10), `FeedbackRepository` (TASK-13), `DashboardRepository` (TASK-11, agregaciones de solo lectura), `WebhookConfigRepository` + `WebhookDeliveryRepository` (TASK-15).
 
 ---
 
@@ -175,7 +177,8 @@ Docker **no** se implementa aquí (TASK-07). Sí dejar `data/` y `reports/` list
   - Si `scope_confirmed` es `False`, el orquestador (y cualquier API pública de scan) aborta con `ScopeNotConfirmedError`.
   - `METATRACER_ALLOW_LOOPBACK` default `false`. Solo tests (TASK-07) pueden activarlo. No existe flag de CLI `--insecure` en la distribución por defecto.
 
-- **0.3.4. Wrapper HTTP:** todo cliente HTTP del proyecto (incluido el crawler) debe pasar por un único helper (`safe_httpx_request` o equivalente) que ejecute scope + guarda. Prohibido usar `httpx` crudo desde extractores/servicios. `core/safety/http.py` es el **único** módulo que importa `httpx`; re-exporta `HttpTransportError` para que los llamadores capturen errores de transporte sin importar la librería.
+- **0.3.4. Wrapper HTTP:** todo cliente HTTP del proyecto (incluido el crawler) debe pasar por un único helper (`safe_httpx_request` o equivalente) que ejecute scope + guarda. Prohibido usar `httpx` crudo desde extractores/servicios. `core/safety/http.py` es el **único** módulo con cliente HTTP de ingesta; re-exporta `HttpTransportError` para que los llamadores capturen errores de transporte sin importar la librería.
+  - **Única excepción aprobada (TASK-15, v2.2):** `api/webhooks.py` importa `httpx` localmente para el envío **de salida** a endpoints de webhook (Slack/Discord/Teams). Ese cliente es un egress de operador hacia terceros, no un asset del scope del run, por lo que **no** pasa por `safe_httpx_request` (que exigiría scope confirmado y rechazaría el host). En su lugar usa su propio cliente restringido: HTTPS-only, sin redirects, timeouts cortos, body nunca leído, y re-validación anti-SSRF con el mismo `NetworkSafetyGuard` antes del socket (regla 7 aplicada también al egress).
 
 ---
 
@@ -201,13 +204,8 @@ Docker **no** se implementa aquí (TASK-07). Sí dejar `data/` y `reports/` list
 
 - **0.4.2. Logging:** `logging` stdlib. Formato con timestamp UTC, nivel, logger, mensaje. Si hay `run_id` en el contexto, incluirlo. Sin `print` en librería.
 - **0.4.3. Excepciones** (todas subclase de `MetaTracerError`):
-  - `OutOfScopeError`
-  - `RedirectOutOfScopeError`
-  - `SecurityViolationError`
-  - `ScopeNotConfirmedError`
-  - `ExtractionError`
-  - `UnsupportedAssetError`
-  - `AgentUnavailableError`
+  - De TASK-00: `OutOfScopeError`, `RedirectOutOfScopeError`, `SecurityViolationError`, `ScopeNotConfirmedError`, `ExtractionError`, `UnsupportedAssetError`, `AgentUnavailableError`.
+  - Añadidas en versiones posteriores: `RunNotFoundError` (TASK-08), `ScopeNotFoundError` + `AmbiguousRunError` (TASK-10, CLI show/API), `ScanAlreadyRunningError` (TASK-06, lock de un solo scan; API la mapea a 409).
 
 ---
 
