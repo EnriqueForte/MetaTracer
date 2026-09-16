@@ -180,6 +180,12 @@ class ScanRequest(BaseModel):
     # named scopes, resolved by the orchestrator into one deduplicated
     # allowed_scope snapshot. Never mixed with scope_domains/scope_id.
     scope_ids: list[str] | None = None
+    # TASK-22 (v3.0, Eje A): marks this scan as a headless watch iteration.
+    # The orchestrator then computes the deterministic finding delta (vs.
+    # earlier runs of the same scope) and carries ``new_findings`` on the
+    # terminal webhook payload. Pipeline stages and safety gates are
+    # identical; only the notification gains the delta counter.
+    watch: bool = False
 
     @field_validator("targets", "scope_domains")
     @classmethod
@@ -269,6 +275,7 @@ class ScanOrchestratorService:
         notifications: NotificationBus | None = None,
         webhooks: Any | None = None,
         knowledge: KnowledgeRetriever | None = None,
+        delta_reporter: Any | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._settings = settings
@@ -295,8 +302,17 @@ class ScanOrchestratorService:
         # the notification bus. ``None`` is a strict no-op — the pipeline never
         # knows it exists and a broken dispatcher never fails a scan.
         self._webhooks = webhooks
+        # TASK-22 (v3.0, Eje A): optional deterministic delta reporter. When a
+        # watch scan finishes, the orchestrator asks it for ``new_findings``
+        # and forwards the count on the terminal webhook payload. A missing
+        # reporter (all non-watch runs) never touches the pipeline.
+        self._delta_reporter = delta_reporter
         self._lock = asyncio.Lock()
         self._active_run_id: str | None = None
+        # TASK-22 (v3.0, Eje A): the current scan is a watch iteration when
+        # set. Held only for one scan's lifetime (single-writer lock), used by
+        # _notify_run_finished to attach the delta counter.
+        self._active_watch = False
         self._background_tasks: set[asyncio.Task[None]] = set()
 
     @property
@@ -317,6 +333,7 @@ class ScanOrchestratorService:
         See the module docstring for the failure semantics; the single-scan
         lock is held for the whole run and released before returning.
         """
+        self._active_watch = request.watch
         run = await self._begin_scan(request)
         try:
             return await self._execute_pipeline(
@@ -328,6 +345,7 @@ class ScanOrchestratorService:
             )
         finally:
             self._end_scan()
+            self._active_watch = False
 
     async def start_scan(
         self,
@@ -346,6 +364,7 @@ class ScanOrchestratorService:
         and published through ``on_progress`` exactly like the CLI path.
         """
         run = await self._begin_scan(request)
+        self._active_watch = request.watch
         task = asyncio.create_task(
             self._run_background(run, request, formats, Path(output_dir), on_progress)
         )
@@ -431,6 +450,7 @@ class ScanOrchestratorService:
     def _end_scan(self) -> None:
         """Release the single-scan lock and clear the active-run marker."""
         self._active_run_id = None
+        self._active_watch = False
         self._lock.release()
 
     async def _execute_pipeline(
@@ -722,6 +742,22 @@ class ScanOrchestratorService:
             # event. The dispatcher's HTTP sends run as background tasks, so
             # this never blocks or fails the scan (inviolable rule 5).
             if self._webhooks is not None:
+                # TASK-22 (v3.0, Eje A): for a watch iteration, compute the
+                # deterministic finding delta before enqueueing, so the
+                # terminal payload carries ``new_findings``. A failure here
+                # degrades to 0 (nothing new to report), never fails the scan
+                # (inviolable rule 5).
+                new_findings = 0
+                if self._active_watch and self._delta_reporter is not None:
+                    try:
+                        delta = await self._delta_reporter.compute_delta(run.id)
+                        new_findings = delta.new_findings
+                    except Exception:
+                        logger.warning(
+                            "watch delta computation failed; webhook without "
+                            "new_findings",
+                            exc_info=True,
+                        )
                 # The dispatcher exposes the same signature as the bus; an
                 # unexpected error must not kill the finalize path.
                 try:
@@ -731,6 +767,7 @@ class ScanOrchestratorService:
                         target=target,
                         total_assets=run.total_assets,
                         total_findings=run.total_findings,
+                        new_findings=new_findings,
                         executive_summary=run.executive_summary,
                         error_message=error_message,
                     )

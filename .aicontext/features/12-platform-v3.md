@@ -2,7 +2,7 @@
 
 **Proyecto:** MetaTracer
 **PRD:** [volver al índice](../PRD.md)
-**Estado:** **Visión (no planificada)** — formalizada a partir de la auditoría completa del proyecto (2026-09-16). Nada de esta fase está implementado.
+**Estado:** **Visión formalizada 2026-09-16; Eje A (watch/headless) implementado el mismo día ([TASK-22](../tasks/22-watch-headless.md))** — Ejes B y C aún no planificados.
 
 ---
 
@@ -23,6 +23,8 @@ Tres ejes, en orden de dependencia:
 ## 2. Eje A — Modo watch (headless continuo)
 
 **Objetivo:** un comando/daemon que re-escanea un scope con cadencia configurable y solo notifica **deltas** (nuevos findings, findings que desaparecen, severidad que sube).
+
+> **Estado 2026-09-16:** implementado como [TASK-22](../tasks/22-watch-headless.md). `metatracer watch` con `--once`/`--interval`/`--webhook`, lock por scope, delta determinista por `dedup_signature` (sin LLM) y `new_findings` en el payload de webhook. Pendiente del Eje A: `--cron` real (requiere aprobación supply-chain), daemon systemd, y "findings que desaparecen / severidad que sube" (hoy el delta solo reporta nuevos).
 
 Entregables:
 

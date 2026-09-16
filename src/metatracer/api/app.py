@@ -37,6 +37,7 @@ from metatracer.reports.builder import DEFAULT_REPORTS_DIR
 from metatracer.services.notifications import NotificationBus
 from metatracer.services.orchestrator import ScanOrchestratorService
 from metatracer.services.progress import ProgressBus
+from metatracer.services.watch import DeltaReporter
 
 _PACKAGE_DIR = Path(__file__).parent
 TEMPLATES_DIR = _PACKAGE_DIR / "templates"
@@ -107,12 +108,18 @@ def create_app(
             app.state.session_factory,
             guard=NetworkSafetyGuard(settings.allow_loopback),
         )
+        # TASK-22 (v3.0, Eje A): deterministic delta reporter shared with the
+        # orchestrator. A run launched with ``watch=True`` (the headless watch
+        # loop) computes ``new_findings`` before the terminal webhook payload,
+        # from either surface (CLI or API) — same reporter, both lifespans.
+        app.state.delta_reporter = DeltaReporter(app.state.session_factory)
         app.state.orchestrator = ScanOrchestratorService(
             app.state.session_factory,
             settings,
             notifications=app.state.notifications_bus,
             webhooks=app.state.webhook_dispatcher,
             agents=agents,
+            delta_reporter=app.state.delta_reporter,
         )
         register_webhook_routes(app, app.state.session_factory)
         app.state.reports_dir = reports_dir

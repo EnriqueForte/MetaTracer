@@ -2,7 +2,7 @@
 
 **Proyecto:** MetaTracer  
 **Audiencia:** entrevista técnica o demo del MVP  
-**Estado del producto:** v1.0–v1.2, v2.0, v2.1+, v2.2, v2.3 y v2.4 cerrados. Próxima fase: [Plataforma v3.0](features/12-platform-v3.md) (watch/headless, PostgreSQL+pgvector, auth).
+**Estado del producto:** v1.0–v1.2, v2.0, v2.1+, v2.2, v2.3 y v2.4 cerrados. **v3.0 en curso** — [Eje A watch/headless](tasks/22-watch-headless.md) cerrado; pendientes [Ejes B/C](features/12-platform-v3.md) (PostgreSQL+pgvector, auth).
 
 Este recorrido no abre `src/`. Las tasks son la fuente de verdad; aquí solo el *por qué*.
 
@@ -123,6 +123,8 @@ las cabeceras de recon de cualquier descarga `ok` van al namespace `http`
 ```bash
 python -m metatracer scan example.com -s example.com -y
 python -m metatracer serve
+python -m metatracer watch <scope-id> --once                      # v3.0: una iteración
+python -m metatracer watch <scope-id> --interval 21600 --webhook <id>  # v3.0: deltas continuos
 ```
 
 Scope nunca se infiere. `-y` confirma autorización. Docker: `docker compose up --build`.

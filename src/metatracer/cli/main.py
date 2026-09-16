@@ -16,6 +16,8 @@ command owns exactly one ``asyncio.run`` boundary and disposes its engine.
 """
 
 import asyncio
+import json
+import logging
 from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
@@ -48,6 +50,8 @@ from metatracer.services.orchestrator import (
     ScanRequest,
     ScanResult,
 )
+
+logger = logging.getLogger("metatracer.cli.main")
 
 app = typer.Typer(
     name="metatracer",
@@ -255,6 +259,74 @@ def list_runs(
         console.print("No runs recorded yet.")
         return
     console.print(formatters.runs_table(runs))
+
+
+@app.command()
+def watch(
+    scope_id: Annotated[
+        str,
+        typer.Argument(help="The saved scope id to re-scan (the single scope source)."),
+    ],
+    interval: Annotated[
+        float,
+        typer.Option(
+            "--interval",
+            help="Seconds between scans (default 6h = 21600s).",
+        ),
+    ] = 21600.0,
+    once: Annotated[
+        bool,
+        typer.Option(
+            "--once",
+            help="Run a single iteration and exit (CI / smoke tests).",
+        ),
+    ] = False,
+    webhook_id: Annotated[
+        str | None,
+        typer.Option(
+            "--webhook",
+            help="Webhook id to notify with deltas (reuses TASK-15 deliveries).",
+        ),
+    ] = None,
+    output_dir: Annotated[
+        Path,
+        typer.Option("--output-dir", "-o", help="Directory for exported reports."),
+    ] = DEFAULT_REPORTS_DIR,
+) -> None:
+    """Re-scan a saved scope on a cadence, reporting only new findings.
+
+    Platform v3.0, Eje A (TASK-22): headless continuous recon. The scope is
+    never inferred — ``scope_id`` is the single source of authorization, and
+    every iteration goes through the exact same ``ScanOrchestratorService``
+    gate. ``--once`` runs a single iteration and exits; without it, the
+    command loops forever with ``asyncio.sleep`` (a real ``--cron`` requires
+    supply-chain approval and is out of scope).
+
+    Deltas: each iteration compares the run's ``dedup_signature`` set against
+    the historical same-scope baseline (deterministic, no LLM). ``--webhook``
+    forwards the run's terminal event plus ``new_findings`` to the configured
+    endpoint via the TASK-15 relay buffer.
+    """
+    formatters.print_banner(console)
+    try:
+        results = asyncio.run(
+            _execute_watch(
+                scope_id=scope_id,
+                # ``--once``: a single iteration, signalled to the loop as a
+                # zero interval (exit after the first scan). The user-supplied
+                # ``--interval`` is only meaningful when looping.
+                interval=0 if once else interval,
+                once=once,
+                webhook_id=webhook_id,
+                output_dir=output_dir,
+            )
+        )
+    except MetaTracerError as exc:
+        err_console.print(f"[red]Watch error:[/red] {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+    if once:
+        for result in results:
+            _render_watch_result(result)
 
 
 @app.command()
@@ -560,3 +632,248 @@ async def _fetch_runs(
             )
     finally:
         await engine.dispose()
+
+
+async def _execute_watch(
+    *,
+    scope_id: str,
+    interval: float,
+    once: bool,
+    webhook_id: str | None,
+    output_dir: Path,
+) -> list[ScanResult]:
+    """Single async boundary of the watch command.
+
+    Engine up per process (one-shot for ``--once``), lock by scope, then
+    iterate scans with backoff on consecutive failures. Returns the list of
+    per-iteration results (one for ``--once``).
+    """
+    settings = Settings()
+    configure_logging(settings.log_level)
+    engine = create_db_engine(settings.database_url)
+    try:
+        await init_db(engine)
+        session_factory = create_session_factory(engine)
+        # TASK-22: one watch per scope — a second concurrent watch must fail
+        # cleanly instead of double-scanning (a real scope lock, not just the
+        # in-process single-scan lock).
+        from metatracer.db.repositories import ScopeRepository
+
+        async with session_factory() as session:
+            scope = await ScopeRepository(session).get(scope_id)
+        if scope is None:
+            raise MetaTracerError(f"scope not found: {scope_id}")
+
+        lock = None if once else _scope_lock(scope_id)
+        if not once and lock is None:
+            raise MetaTracerError(
+                f"another watch is already running for scope {scope_id}"
+            )
+        try:
+            return await _watch_loop(
+                session_factory,
+                settings,
+                scope_id,
+                interval,
+                webhook_id,
+                output_dir,
+            )
+        finally:
+            if lock is not None:
+                _release_scope_lock(lock)
+    finally:
+        await engine.dispose()
+
+
+async def _watch_loop(
+    session_factory,
+    settings: Settings,
+    scope_id: str,
+    interval: float,
+    webhook_id: str | None,
+    output_dir: Path,
+) -> list[ScanResult]:
+    """Run one scan, then keep running every ``interval`` seconds.
+
+    ``--once`` is signalled by ``interval <= 0`` and runs a single iteration.
+    On a failure the loop backs off (doubling, capped) instead of hammering.
+
+    ``webhook_id`` resolves to a ``WebhookDispatcher`` wired exactly like the
+    API lifespan (same anti-SSRF guard) so the watch loop can notify the
+    scope's deltas outbound; the dispatcher is shut down when the loop exits.
+    """
+    from metatracer.services.orchestrator import ScanOrchestratorService
+    from metatracer.services.watch import DeltaReporter
+
+    delta_reporter = DeltaReporter(session_factory)
+    dispatcher = None
+    if webhook_id:
+        from metatracer.api.webhooks import WebhookDispatcher
+        from metatracer.core.safety.guard import NetworkSafetyGuard
+
+        dispatcher = WebhookDispatcher(
+            session_factory, guard=NetworkSafetyGuard(settings.allow_loopback)
+        )
+    orchestrator = ScanOrchestratorService(
+        session_factory,
+        settings,
+        delta_reporter=delta_reporter,
+        webhooks=dispatcher,
+    )
+    results: list[ScanResult] = []
+    consecutive_failures = 0
+    base_backoff = 5.0
+    max_backoff = 300.0
+    try:
+        while True:
+            result = await _watch_iteration(
+                session_factory,
+                orchestrator,
+                delta_reporter,
+                scope_id,
+                webhook_id,
+                output_dir,
+            )
+            results.append(result)
+            if result.status is not RunStatus.completed:
+                consecutive_failures += 1
+            else:
+                consecutive_failures = 0
+            if interval <= 0:
+                return results  # --once
+            delay = interval
+            if consecutive_failures > 1:
+                delay = min(max_backoff, base_backoff * (2 ** (consecutive_failures - 1)))
+            console.print(
+                f"[dim]Next scan in {_format_delay(delay)}[/dim] (consecutive failures: "
+                f"{consecutive_failures})"
+            )
+            await asyncio.sleep(delay)
+    finally:
+        if dispatcher is not None:
+            await dispatcher.shutdown()
+
+
+async def _watch_iteration(
+    session_factory,
+    orchestrator,
+    delta_reporter,
+    scope_id: str,
+    webhook_id: str | None,
+    output_dir: Path,
+) -> ScanResult:
+    """One watch iteration: scan the scope (watch flag on, delta auto-reported).
+
+    ``delta_reporter`` is kept for the loop's own console line; the webhook
+    delta travels through the orchestrator's notification path (it already
+    knows the reporter).
+    """
+    from metatracer.db.repositories import ScopeRepository
+    from metatracer.services.orchestrator import ScanRequest
+
+    async with session_factory() as session:
+        scope = await ScopeRepository(session).get(scope_id)
+    if scope is None:
+        return ScanResult(
+            run_id="",
+            status=RunStatus.failed,
+            total_assets=0,
+            total_findings=0,
+            error_message=f"scope not found: {scope_id}",
+        )
+    domains = json.loads(scope.domains)
+    request = ScanRequest(
+        targets=[domains[0]] if domains else [],  # a watch scans the scope root
+        scope_domains=domains,
+        scope_confirmed=True,
+        watch=True,
+    )
+    result = await orchestrator.scan(
+        request, output_dir=output_dir, on_progress=None
+    )
+    if result.status is RunStatus.completed and result.run_id:
+        try:
+            delta = await delta_reporter.compute_delta(result.run_id)
+            console.print(f"[green]Delta:[/green] {delta.new_findings} new finding(s)")
+        except Exception:
+            logger.warning("delta computation failed; continuing watch", exc_info=True)
+    return result
+
+
+def _scope_lock(scope_id: str) -> object | None:
+    """Exclusive lock for one watch scope.
+
+    POSIX uses ``fcntl.flock``; Windows falls back to ``os.open(O_CREAT|O_EXCL)``
+    so the lock file itself is the marker. Returns ``None`` when another
+    process holds the watch.
+    """
+    import os
+    import tempfile
+
+    lock_dir = Path(tempfile.gettempdir()) / "metatracer-watch"
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    lock_path = lock_dir / f"watch-{scope_id}.lock"
+    try:
+        import fcntl  # POSIX
+
+        fd = os.open(lock_path, os.O_CREAT | os.O_RDWR)
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return {"fd": fd, "path": lock_path}
+    except ImportError:
+        # Windows: O_EXCL creates the file only if it does not exist.
+        try:
+            fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_RDWR)
+            return {"fd": fd, "path": lock_path}
+        except FileExistsError:
+            return None
+    except BlockingIOError:
+        return None
+
+
+def _release_scope_lock(lock: object) -> None:
+    """Release a lock file acquired by :func:`_scope_lock`."""
+    import os
+
+    if not isinstance(lock, dict):
+        return
+    try:
+        if "fd" in lock:
+            try:
+                import fcntl
+
+                fcntl.flock(lock["fd"], fcntl.LOCK_UN)
+            except ImportError:
+                pass
+            os.close(lock["fd"])
+        Path(lock["path"]).unlink(missing_ok=True)
+    except OSError:
+        pass  # best-effort: a stale lock file is harmless (fcntl re-locks)
+
+
+def _format_delay(seconds: float) -> str:
+    """Human-readable delay, e.g. '6h 0m' or '2m 5s'."""
+    seconds = int(seconds)
+    hours, rem = divmod(seconds, 3600)
+    minutes, secs = divmod(rem, 60)
+    parts = []
+    if hours:
+        parts.append(f"{hours}h")
+    if minutes:
+        parts.append(f"{minutes}m")
+    if secs or not parts:
+        parts.append(f"{secs}s")
+    return " ".join(parts)
+
+
+def _render_watch_result(result: ScanResult) -> None:
+    """Render one iteration's outcome (``--once``)."""
+    if result.status is RunStatus.completed:
+        console.print(
+            f"[green]Watch iteration completed[/green] — run {result.run_id}: "
+            f"{result.total_findings} finding(s) across {result.total_assets} asset(s)."
+        )
+        return
+    err_console.print(
+        f"[red]Watch iteration failed[/red] — run {result.run_id}: "
+        f"{escape(result.error_message or 'unknown error')}"
+    )

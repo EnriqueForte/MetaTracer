@@ -18,7 +18,9 @@ notifications) → **v2.1+** (feedback loop, light RAG) → **v2.2** integration
 webhooks, portable KB, bounty exports, CI guardrail, scope import) → **v2.3**
 performance & UI polish (API rate limiting, request body cap, accessibility, shared UI
 helpers, consistent states) → **v2.4** multi-engagement (union of saved scopes per run,
-keyset-paginated run history). Full suite green, `ruff` clean, coverage ≥85%.
+keyset-paginated run history). In progress: **v3.0** platform (headless watch with
+deterministic deltas — `metatracer watch`; PostgreSQL+pgvector and basic auth are the
+next Ejes). Full suite green, `ruff` clean, coverage ≥85%.
 
 See `.aicontext/tasks/`. Architecture tour (Spanish): `.aicontext/walkthrough.md`.
 
@@ -70,6 +72,11 @@ python -m venv .venv
 
 # Web UI + API on http://127.0.0.1:8000
 .venv\Scripts\python.exe -m metatracer serve
+
+# v3.0: headless watch — continuously re-scan a saved scope, reporting deltas.
+# Scope-id first; --once runs one iteration and exits; --interval is the cadence.
+.venv\Scripts\python.exe -m metatracer watch <scope-id> --once
+.venv\Scripts\python.exe -m metatracer watch <scope-id> --interval 21600 --webhook <webhook-id>
 ```
 
 ## Docker
@@ -87,6 +94,9 @@ docker compose up --build
 # Ephemeral CLI: reports land in .\reports and the container is deleted on exit
 .\scripts\docker-metatracer.ps1 scan example.com -s example.com -y
 # bash equivalent: ./scripts/docker-metatracer.sh scan example.com -s example.com -y
+
+# v3.0 watch as a long-running container command (one watch per scope):
+.\scripts\docker-metatracer.ps1 watch <scope-id> --interval 21600
 ```
 
 The container keeps the default safety posture: `METATRACER_ALLOW_LOOPBACK` is a

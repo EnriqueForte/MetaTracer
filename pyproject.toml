@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "metatracer"
-version = "0.3.0"
+version = "0.4.0"
 description = "AI-powered sensitive metadata discovery for authorized bug bounty and red team engagements"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"

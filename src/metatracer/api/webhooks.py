@@ -61,6 +61,10 @@ PAYLOAD_KEYS = (
     "target",
     "total_assets",
     "total_findings",
+    # TASK-22 (v3.0, Eje A): number of findings new to this scope in a watch
+    # iteration. Scalar like the rest; 0 when the run produced no deltas or
+    # when the run was not a watch iteration (None is allowed, not sent).
+    "new_findings",
     "executive_summary",
     "error_message",
 )
@@ -280,6 +284,7 @@ class WebhookDispatcher:
         target: str | None = None,
         total_assets: int = 0,
         total_findings: int = 0,
+        new_findings: int = 0,
         executive_summary: str | None = None,
         error_message: str | None = None,
     ) -> None:
@@ -304,6 +309,7 @@ class WebhookDispatcher:
             target,
             total_assets,
             total_findings,
+            new_findings,
             executive_summary,
             error_message,
         )
@@ -344,6 +350,7 @@ class WebhookDispatcher:
         target: str | None,
         total_assets: int,
         total_findings: int,
+        new_findings: int,
         executive_summary: str | None,
         error_message: str | None,
     ) -> dict[str, Any]:
@@ -362,6 +369,7 @@ class WebhookDispatcher:
             "target": target,
             "total_assets": total_assets,
             "total_findings": total_findings,
+            "new_findings": max(new_findings, 0),
             "executive_summary": (executive_summary or "")[:300],
             "error_message": sanitize_for_log(error_message or "", max_length=300) or None,
         }

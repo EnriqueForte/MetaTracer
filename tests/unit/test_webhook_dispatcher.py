@@ -350,6 +350,33 @@ async def test_payload_keys_never_leak_metadata(session_factory) -> None:
     assert "headers" not in payload
 
 
+async def test_watch_delta_counter_travels_in_payload(session_factory) -> None:
+    """TASK-22 (v3.0, Eje A): ``new_findings`` is a fixed scalar payload key
+    and defaults to 0 for non-watch runs (the contract stays flat and closed)."""
+    run = await _seed_run(session_factory)
+    await _seed_webhook(session_factory)
+    transport = _FakeTransport()
+    dispatcher = _dispatcher(session_factory, transport)
+    # Non-watch run: key present, zero.
+    await dispatcher.enqueue_terminal(run.id, RunStatus.completed, target="t.com")
+    await asyncio.sleep(0.05)
+    _, payload, _ = transport.calls[0]
+    assert payload["new_findings"] == 0
+    assert set(payload) == set(PAYLOAD_KEYS)
+    # Watch run (different run id -> new, non-duplicate delivery): the
+    # count travels on the exact same key set.
+    run2 = await _seed_run(session_factory)
+    transport2 = _FakeTransport()
+    dispatcher2 = _dispatcher(session_factory, transport2)
+    await dispatcher2.enqueue_terminal(
+        run2.id, RunStatus.completed, target="t.com", new_findings=3
+    )
+    await asyncio.sleep(0.05)
+    _, payload2, _ = transport2.calls[0]
+    assert payload2["new_findings"] == 3
+    assert set(payload2) == set(PAYLOAD_KEYS)
+
+
 async def test_send_rejects_loopback_target_even_with_https(session_factory) -> None:
     """Invariant rule 7 applies to egress: a webhook URL on loopback is refused.
 
