@@ -144,6 +144,49 @@ def test_email_tool_domains_are_ignored() -> None:
         assert EmailDetector().detect([_item("pdfinfo", "Author", value)]) == []
 
 
+def test_email_opensource_author_domains_are_ignored() -> None:
+    """gitlab-shell run regression: bundle attribution is not a leak.
+
+    The Sortable (rubaxa.org) and ieee754/buffer (feross.org) authors shipping
+    inside GitLab's own webpack bundles are third-party credit, not target
+    data — they must not surface as email findings.
+    """
+    cases = (
+        (
+            " * @author\tRubaXa   <trash@rubaxa.org>\n"
+            " * @author\towenm    <owen23355@gmail.com>\n"
+            " * @license MIT"
+        ),
+        "! * ieee754. BSD-3-Clause License. Feross Aboukhadijeh <https://feross.org/opensource>",
+    )
+    for value in cases:
+        assert EmailDetector().detect([_item("js", "comment", value)]) == [], value
+
+
+def test_email_attribution_line_is_ignored() -> None:
+    """Author/credit lines (even with a non-blacklisted domain) are not a leak."""
+    cases = (
+        "@author   Feross Aboukhadijeh <feross@feross.org> <http://feross.org>",
+        "@license MIT (c) 2022 Foo Bar <dev@example.net>",
+        "Copyright 2024 Acme Corp <dev@acme.test>",
+        "Contributors: jane@example.net, john@example.org",
+    )
+    for value in cases:
+        assert EmailDetector().detect([_item("js", "comment", value)]) == [], value
+
+
+def test_email_attribution_line_does_not_cancel_real_leak() -> None:
+    """The attribution marker must be on the email's line, not the document."""
+    value = (
+        " * @author\tRubaXa   <trash@rubaxa.org>\n"
+        " * (c) 2021 RubaXa\n"
+        " * Fixed a bug in the internal build; contact jane.doe@target.corp"
+    )
+    drafts = EmailDetector().detect([_item("js", "comment", value)])
+    assert len(drafts) == 1
+    assert drafts[0].evidence_snippet == "jane.doe@target.corp"
+
+
 def test_email_end_to_end_from_pdf(tmp_path: Path) -> None:
     items = _pdf_items(tmp_path, author="jane.doe@target.corp")
     drafts = EmailDetector().detect(items)

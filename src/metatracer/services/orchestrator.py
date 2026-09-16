@@ -453,6 +453,24 @@ class ScanOrchestratorService:
         self._active_watch = False
         self._lock.release()
 
+    @staticmethod
+    def _authorized_domains(run: Run, request: ScanRequest) -> list[str]:
+        """The operator-confirmed authorized domains for this run, for messaging.
+
+        The persisted ``Run.allowed_scope`` is the single source of truth: it
+        already holds the resolved union when the scan used saved scopes
+        (``request.scope_ids``), where ``request.scope_domains`` is ``None`` by
+        contract. Falls back to the request for the legacy manual path and
+        degrades to ``[]`` on a corrupt row (inviolable rule 5).
+        """
+        if request.scope_domains is not None:
+            return request.scope_domains
+        try:
+            domains = json.loads(run.allowed_scope or "[]")
+        except json.JSONDecodeError:  # pragma: no cover - corrupt allowed_scope
+            return []
+        return [str(domain) for domain in domains] if domains else []
+
     async def _execute_pipeline(
         self,
         run: Run,
@@ -470,7 +488,7 @@ class ScanOrchestratorService:
                 run.id,
                 ProgressStage.scope_validation,
                 f"Scope confirmed by the operator: {len(request.targets)} target(s), "
-                f"{len(request.scope_domains)} authorized domain(s)",
+                f"{len(self._authorized_domains(run, request))} authorized domain(s)",
             )
             await self._set_running(run.id)
 

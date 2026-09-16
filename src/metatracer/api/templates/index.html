@@ -16,8 +16,14 @@
         placeholder="One target per line: domains or URLs of public documents, e.g.&#10;example.com&#10;https://example.com/investor-report.pdf"></textarea>
     </div>
     <div>
-      <label for="scope" class="block text-sm font-medium text-slate-300 mb-1">Authorized scope domains</label>
-      <input id="scope" type="text" x-model="scopeDomains" required
+      <!-- TASK-21 (v2.4): saved scopes (checkboxes) replace this manual field
+           as the primary scope source. The manual input remains as the v1.x
+           fallback inside the <details> below; no `required` here because
+           picking saved scopes is a valid explicit scope source and the
+           browser-native required attribute would block the submit before
+           Alpine's own validation (which understands both sources). -->
+      <label for="scope" class="block text-sm font-medium text-slate-300 mb-1">Authorized scope domains (only if not using saved scopes below)</label>
+      <input id="scope" type="text" x-model="scopeDomains"
         class="w-full rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none"
         placeholder="One per line or comma-separated, e.g. example.com, static.example.com">
       <p class="text-xs text-slate-500 mt-1">
@@ -50,7 +56,7 @@
       </div>
       <details class="mt-2">
         <summary class="text-xs text-slate-500 cursor-pointer">Or enter manual scope domains</summary>
-        <input id="scope" type="text" x-model="scopeDomains"
+        <input id="manual-scope" type="text" x-model="scopeDomains"
           class="mt-2 w-full rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none"
           placeholder="One per line or comma-separated, e.g. example.com, static.example.com">
         <p class="text-xs text-slate-500 mt-1">

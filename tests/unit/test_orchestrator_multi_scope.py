@@ -97,6 +97,41 @@ async def test_scope_ids_unknown_id_raises_before_any_row(session_factory, tmp_p
         assert await RunRepository(session).list_all() == []
 
 
+async def test_authorized_domains_resolves_saved_scope_union(session_factory, tmp_path) -> None:
+    """TASK-21/v2.4 regression: the scope-validation progress message must not
+    crash when the scan uses saved scopes (``scope_domains=None`` by contract).
+    ``_authorized_domains`` reads the persisted ``Run.allowed_scope`` union
+    instead of calling len() on the None request field."""
+    scope_a = await _create_scope(session_factory, "a", ["target.com", "static.target.com"])
+    scope_b = await _create_scope(session_factory, "b", ["api.target.com"])
+
+    request = ScanRequest(
+        targets=["http://target.com/doc.pdf"],
+        scope_ids=[scope_a.id, scope_b.id],
+        scope_confirmed=True,
+    )
+    orchestrator = ScanOrchestratorService(session_factory, _settings())
+    run = await orchestrator._create_run(request)
+
+    domains = orchestrator._authorized_domains(run, request)
+    assert domains == ["target.com", "static.target.com", "api.target.com"]
+    # The exact expression used by the progress message no longer raises.
+    assert len(domains) == 3
+
+
+async def test_authorized_domains_manual_fallback(session_factory, tmp_path) -> None:
+    """The legacy manual path keeps using the request field directly."""
+    request = ScanRequest(
+        targets=["http://target.com/doc.pdf"],
+        scope_domains=["target.com"],
+        scope_confirmed=True,
+    )
+    orchestrator = ScanOrchestratorService(session_factory, _settings())
+    run = await orchestrator._create_run(request)
+
+    assert orchestrator._authorized_domains(run, request) == ["target.com"]
+
+
 async def test_scan_request_scope_id_normalizes_to_scope_ids() -> None:
     """The v2.0 wire contract (scope_id) keeps working as a 1-element union."""
     request = ScanRequest(

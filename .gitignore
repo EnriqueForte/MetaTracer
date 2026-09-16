@@ -6,6 +6,11 @@ data/*.db
 reports/*.md
 reports/*.json
 reports/*.html
+reports/*.txt
+reports/*.csv
+
+# Local scope imports (may contain third-party program scope data)
+data/*.json
 
 # Validation records of real targets (may reference third-party metadata)
 validation/results/

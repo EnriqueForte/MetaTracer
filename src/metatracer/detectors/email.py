@@ -31,8 +31,37 @@ TOOL_DOMAIN_BLACKLIST = frozenset(
         "example.com",
         "localhost",
         "example.org",
+        # Open-source ecosystems: authors, registries and CDNs whose emails
+        # are attribution, never a target leak (issue @ gitlab-shell run).
+        "github.com",
+        "githubusercontent.com",
+        "gitlab.com",  # meta-domain of the scanning target itself
+        "jsdelivr.com",
+        "cdnjs.com",
+        "unpkg.com",
+        "npmjs.com",
+        "rubaxa.org",  # Sortable/Vue.Draggable author
+        "feross.org",  # ieee754/buffer author
+        "snowplowanalytics.com",
+        "vuejs.org",
+        "cloudflare.com",
     }
 )
+
+# Attribution markers that cancel an email: license/credit lines in bundles
+# and documents quote third-party authors whose email is not a leak of the
+# audited asset. The marker must be on the *line* that contains the email
+# (``collapse_whitespace`` keeps newlines only at the start/end, so the raw
+# line check uses a per-line split before collapsing).
+_ATTRIBUTION_LINE_RE = re.compile(
+    r"\b(?:author|authors?|license|licence|copyright|©|\(c\)|\(C\)|"
+    r"maintainer|contributors?|credits?|<https?://)",
+    re.IGNORECASE,
+)
+
+# When the marker is a bare domain-in-brackets (``<feross.org>``, ``<https://…>``)
+# it appears at the *token boundary* just before the email, not inside it.
+_ATTRIBUTION_BRACKET_EMAIL_RE = re.compile(r"<https?://[^>\s]+>", re.IGNORECASE)
 
 # Wrappers tolerated around a "bare" email: <jane@x.com>, "jane@x.com", ...
 _WRAPPER_CHARS = "<>()[]{}\"' "
@@ -49,11 +78,16 @@ class EmailDetector:
             text = collapse_whitespace(normalize_text(item.value))
             if not text:
                 continue
+            # Per-line attribution context, checked before collapsing newlines
+            # so a license header cannot cancel a real leak in later prose.
+            lines = normalize_text(item.value).splitlines()
             seen_in_field: set[str] = set()
             for match in EMAIL_RE.finditer(text):
                 email = match.group(0)
                 domain = email.rpartition("@")[2].lower()
                 if _is_tool_domain(domain) or email.lower() in seen_in_field:
+                    continue
+                if _is_attribution_line(lines, email):
                     continue
                 seen_in_field.add(email.lower())
                 confidence = (
@@ -75,3 +109,23 @@ def _is_tool_domain(domain: str) -> bool:
     return any(
         domain == blocked or domain.endswith(f".{blocked}") for blocked in TOOL_DOMAIN_BLACKLIST
     )
+
+
+def _is_attribution_line(lines: list[str], email: str) -> bool:
+    """True when the email sits in a license/credit/attribution line.
+
+    JS bundles and library docs carry ``@author <dev@example.org>``,
+    ``@license MIT``, ``(c) 2022 Company <dev@example.org>`` or a bare
+    ``<https://…>`` credit; those emails identify a *third-party author*, not a
+    leak of the audited asset. Markers are matched on the raw line (before
+    whitespace collapsing) so ``@author`` next to the email is recognised.
+    """
+    needle = email.lower()
+    for raw_line in lines:
+        line = collapse_whitespace(normalize_text(raw_line)).lower()
+        if needle not in line:
+            continue
+        # License/credit markers, or a bracketed URL on the same line.
+        if _ATTRIBUTION_LINE_RE.search(line) or _ATTRIBUTION_BRACKET_EMAIL_RE.search(line):
+            return True
+    return False
