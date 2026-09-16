@@ -26,21 +26,38 @@
       </p>
     </div>
     <div>
-      <label for="saved-scope" class="block text-sm font-medium text-slate-300 mb-1">… or reuse a saved scope</label>
-      <div class="flex gap-2">
-        <select id="saved-scope" x-model="selectedScopeId" @change="chooseScope(selectedScopeId)"
-          class="flex-1 rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none">
-          <option value="">Manual scope (enter domains above)</option>
-          <template x-for="scope in savedScopes" :key="scope.id">
-            <option :value="scope.id" x-text="scope.name"></option>
-          </template>
-        </select>
-        <a href="/scopes" class="rounded-md border border-slate-700 text-slate-300 px-3 py-2 text-sm hover:bg-slate-800 transition-colors">Manage…</a>
+      <label for="saved-scope" class="block text-sm font-medium text-slate-300 mb-1">… or reuse saved scopes</label>
+      <div class="space-y-2 mb-2" x-show="savedScopes.length > 0">
+        <!-- TASK-21 (v2.4): multi-engagement — pick any number of saved
+             scopes; their domains are unioned (deduplicated) by the server.
+             The manual field below stays as the fallback v1.x flow. -->
+        <template x-for="scope in savedScopes" :key="scope.id">
+          <label class="flex items-start gap-2 text-sm text-slate-300 cursor-pointer hover:bg-slate-800/40 rounded px-2 py-1">
+            <input type="checkbox" :value="scope.id" x-model="selectedScopeIds"
+                   class="mt-0.5 rounded border-slate-600 bg-slate-950 text-emerald-600 focus:ring-emerald-500">
+            <span>
+              <span class="font-medium text-slate-200" x-text="scope.name"></span>
+              <span class="text-xs text-slate-500" x-text="'— ' + scope.total_domains + ' domain(s)'"></span>
+              <span class="block text-xs text-slate-500" x-text="scope.domains.join(', ')"></span>
+            </span>
+          </label>
+        </template>
+        <a href="/scopes" class="inline-block text-xs text-emerald-400 hover:text-emerald-300 font-medium mt-1">Manage scopes…</a>
       </div>
-      <p class="text-xs text-slate-500 mt-1">
-        Choosing a saved scope fills the manual field with its domains. You can
-        still edit the text before the scan.
-      </p>
+      <div x-show="savedScopes.length === 0" class="text-xs text-slate-500 mb-2">
+        No saved scopes yet —
+        <a href="/scopes" class="text-emerald-400 hover:text-emerald-300 font-medium">create one</a>.
+      </div>
+      <details class="mt-2">
+        <summary class="text-xs text-slate-500 cursor-pointer">Or enter manual scope domains</summary>
+        <input id="scope" type="text" x-model="scopeDomains"
+          class="mt-2 w-full rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none"
+          placeholder="One per line or comma-separated, e.g. example.com, static.example.com">
+        <p class="text-xs text-slate-500 mt-1">
+          The scope is never inferred from the targets: only documents on these
+          domains are ever requested.
+        </p>
+      </details>
     </div>
     <div>
       <label for="depth" class="block text-sm font-medium text-slate-300 mb-1">Reasoning depth</label>
@@ -112,12 +129,13 @@ document.addEventListener('alpine:init', () => {
     starting: false,
     error: '',
     savedScopes: [],
-    selectedScopeId: '',
+    selectedScopeIds: [],
     lastFocused: null,
 
     init() {
-      // TASK-10 (v2.0): the wizard offers saved scopes, but they never
-      // bypass the manual confirmation below.
+      // TASK-10 (v2.0) + TASK-21 (v2.4): the wizard offers saved scopes
+      // (now a multi-select union), but they never bypass the manual
+      // confirmation below.
       this.loadSavedScopes();
     },
 
@@ -127,6 +145,9 @@ document.addEventListener('alpine:init', () => {
         if (response.ok) {
           const data = await response.json();
           this.savedScopes = data.scopes;
+          // Drop any stale selection if a scope was deleted meanwhile.
+          const valid = new Set(this.savedScopes.map((s) => s.id));
+          this.selectedScopeIds = this.selectedScopeIds.filter((id) => valid.has(id));
         }
         // A broken scopes fetch must not block the manual scan flow.
       } catch (err) {
@@ -146,9 +167,9 @@ document.addEventListener('alpine:init', () => {
         this.error = 'Enter at least one target.';
         return;
       }
-      // A saved scope counts as an explicit scope source; without one we
-      // still need at least one manual domain.
-      if (!this.scopeList().length && !this.selectedScopeId) {
+      // One or more saved scopes count as an explicit scope source; without
+      // them we still need at least one manual domain.
+      if (!this.scopeList().length && this.selectedScopeIds.length === 0) {
         this.error = 'Enter at least one authorized scope domain or choose a saved scope; ' +
           'the scope is never inferred from the target.';
         return;
@@ -169,12 +190,6 @@ document.addEventListener('alpine:init', () => {
         this.lastFocused.focus();
       }
     },
-    chooseScope(scopeId) {
-      // Filling the manual field keeps the exact same wire contract as v1.x:
-      // scope_domains, scope_confirmed=true, no scope_id needed.
-      const scope = this.savedScopes.find((s) => s.id === scopeId);
-      this.scopeDomains = scope ? scope.domains.join('\n') : '';
-    },
     async startScan() {
       if (!this.confirmed) return; // defense in depth: the button is also disabled
       this.starting = true;
@@ -184,10 +199,11 @@ document.addEventListener('alpine:init', () => {
         scope_confirmed: true,
         reasoning_depth: this.depth,
       };
-      if (this.selectedScopeId && !this.scopeList().length) {
-        // Operator picked a saved scope and did not override it manually:
-        // send scope_id and let the server resolve the domains.
-        body.scope_id = this.selectedScopeId;
+      // TASK-21 (v2.4): saved scopes (one or many) are sent as scope_ids and
+      // the server resolves/deduplicates the union. Manual domains stay as
+      // the v1.x fallback contract (scope_domains).
+      if (this.selectedScopeIds.length > 0) {
+        body.scope_ids = this.selectedScopeIds;
       } else {
         body.scope_domains = this.scopeList();
       }

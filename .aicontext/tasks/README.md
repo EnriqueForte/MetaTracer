@@ -1,9 +1,9 @@
 # Backlog Técnico de Tareas a Bajo Nivel (Tasks)
 
 **Proyecto:** MetaTracer  
-**Versión:** 2.3 (Performance & UI polish) — **cerrada 2026-09-16**  
+**Versión:** 2.4 (Multi-engagement & paginación) — **cerrada 2026-09-16**  
 **PRD:** [Volver al PRD](../PRD.md)  
-**Estado:** MVP v1.0–v1.2 cerradas — v2.0 completada (TASK-10/11/12 ✅) — v2.1 completada (TASK-13 feedback ✅, TASK-14 RAG ligero ✅) — v2.2 "Integraciones" completada 2026-09-13 (TASK-15 a TASK-19 ✅; `pytest` 475 passed + ruff limpio + cobertura ≥85%) — **v2.3 "Performance & UI polish" cerrada 2026-09-16**: rate limit a nivel de API HTTP (`ApiRateLimiter` en `core/ratelimit.py`, middleware en `api/app.py`, exento health/static/SSE) + límite de tamaño de body en peticiones (`max_request_body_bytes`, 413 en import de scopes/KB) + pulido de UI (TASK-20: helpers `MetaTracerUI` compartidos, accesibilidad modal/drawer, tests a11y). Suite completa en verde + ruff limpio + cobertura ≥85% (guardrail TASK-16). Próxima fase: **v2.4** — [TASK-21 multi-engagement + paginación](../tasks/21-multi-engagement.md) (propuesta). Visión futura: [Plataforma v3.0](../features/12-platform-v3.md).  
+**Estado:** MVP v1.0–v1.2 cerradas — v2.0 completada (TASK-10/11/12 ✅) — v2.1 completada (TASK-13 feedback ✅, TASK-14 RAG ligero ✅) — v2.2 "Integraciones" completada 2026-09-13 (TASK-15 a TASK-19 ✅; `pytest` 475 passed + ruff limpio + cobertura ≥85%) — v2.3 "Performance & UI polish" cerrada 2026-09-16 (TASK-20 ✅; rate limit + body cap + accesibilidad; `pytest` 528 passed) — **v2.4 "Multi-engagement & paginación" cerrada 2026-09-16 (TASK-21 ✅)**: `scope_ids` (unión multi-scope en `ScanRequest`, resuelta al snapshot `Run.allowed_scope` sin red), paginación keyset de `GET /api/runs` por cursor `<started_at>_<run_id>` con `has_more`/`next_cursor`, `total` global sin truncar, wizard multi-scope en la Web UI (checkboxes → `scope_ids`) y History con Older/Newer; `scope_id` singular se conserva como alias (compatibilidad v2.0–v2.3). Suite: 528 passed + ruff limpio + cobertura ≥85%. Próxima fase: **Plataforma v3.0** — [visión](../features/12-platform-v3.md) (watch/headless, PostgreSQL+pgvector, auth).  
 
 Este directorio descompone el MVP en tareas implementables. Cada archivo es un contrato: objetivo, subtareas, contratos de datos, fuera de alcance, tests mínimos y criterios de aceptación verificables.
 
@@ -82,7 +82,7 @@ Aplican a **todas** las tasks. Un PR que las viole no está done.
 | **TASK-18** | [18-exports-bounty.md](18-exports-bounty.md) | Exports bounty: exportador CSV + plantilla bounty en texto plano, `--format csv\|bounty`, API (v2.2) — **cerrada 2026-09-13** | TASK-00 a TASK-17 |
 | **TASK-19** | [19-scope-import.md](19-scope-import.md) | Import scope: archivo JSON portable → CLI `scope import` + API `POST /api/scopes/import`, idempotente (v2.2) | TASK-00 a TASK-18 |
 | **TASK-20** | [20-ui-polish.md](20-ui-polish.md) | UI polish y accesibilidad: matriz de estados por página, `readError`/Retry compartidos, focus/ARIA/teclado, tests a11y (v2.3) — **cerrada 2026-09-16** | TASK-00 a TASK-19 |
-| **TASK-21** | [21-multi-engagement.md](21-multi-engagement.md) | Multi-engagement: unión de varios scopes guardados por run (`scope_ids`) + paginación por cursor del historial (v2.4) — **propuesta** | TASK-00 a TASK-20 |
+| **TASK-21** | [21-multi-engagement.md](21-multi-engagement.md) | Multi-engagement: unión de varios scopes guardados por run (`scope_ids`) + paginación por cursor del historial (v2.4) — **cerrada 2026-09-16** | TASK-00 a TASK-20 |
 
 `TASK-04` **no** depende de `TASK-05`: el motor de reportes debe funcionar con clasificaciones heurísticas (campos de explicación vacíos o plantilla). `TASK-05` rellena justificación, impacto, remediación y repro. `TASK-06` orquesta el pipeline completo.
 
@@ -145,7 +145,7 @@ Alineado con [Timeline y roadmap](../features/10-timeline-and-roadmap.md).
 | 16 | v2.2 | `TASK-18` | Exports bounty: exportador CSV + plantilla bounty en texto plano + `--format csv\|bounty` + API |
 | 17 | v2.2 | `TASK-19` | Import scope: archivo JSON portable → CLI `scope import` + API `POST /api/scopes/import` (idempotente) |
 | 18 | v2.3 | `TASK-20` | UI polish y accesibilidad: estados consistentes, `readError`/Retry únicos, focus/ARIA/teclado, tests a11y — **cerrada 2026-09-16** |
-| 19 | v2.4 | `TASK-21` | Multi-engagement: unión de scopes por run + paginación por cursor del historial (propuesta) |
+| 19 | v2.4 | `TASK-21` | Multi-engagement: unión de scopes por run + paginación por cursor del historial — **cerrada 2026-09-16** |
 
 Si hay que recortar, proteger los [criterios de éxito](../features/09-success-criteria.md) antes que pulido de UI.
 

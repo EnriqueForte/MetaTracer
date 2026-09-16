@@ -120,3 +120,92 @@ async def test_deleting_scope_after_run_leaves_run_intact(app, client) -> None:
         run = await RunRepository(session).get(run_id)
     assert run is not None
     assert run.allowed_scope == '["target.com"]'
+
+
+async def test_scope_ids_union_resolves_deduplicated_allowed_scope(app, client) -> None:
+    """TASK-21 (v2.4): several saved scopes become one deduplicated union."""
+    first = await _create_scope(client, name="acme")
+    await client.post(
+        "/api/scopes",
+        json={
+            "name": "acme-cdn",
+            "description": "e2e",
+            "domains": ["cdn.acme.com", "target.com"],  # target.com already in first
+        },
+    )
+    second = (await client.get("/api/scopes")).json()
+    second = next(s for s in second["scopes"] if s["name"] == "acme-cdn")
+
+    response = await client.post(
+        "/api/runs",
+        json={
+            "targets": ["http://target.com/doc.pdf"],
+            "scope_ids": [first["id"], second["id"]],
+            "scope_confirmed": True,
+        },
+    )
+    assert response.status_code == 202
+    run_id = response.json()["run_id"]
+
+    # The snapshot holds the stable union, deduplicated, normalized order.
+    async with app.state.session_factory() as session:
+        run = await RunRepository(session).get(run_id)
+    assert run is not None
+    assert run.allowed_scope == '["target.com", "cdn.acme.com"]'
+
+
+async def test_scope_ids_unknown_id_is_404_with_name(app, client) -> None:
+    """TASK-21 (v2.4): an unknown id in the union aborts before any row."""
+    known = await _create_scope(client, name="acme")
+    response = await client.post(
+        "/api/runs",
+        json={
+            "targets": ["http://target.com/doc.pdf"],
+            "scope_ids": [known["id"], "00000000-0000-0000-0000-000000000000"],
+            "scope_confirmed": True,
+        },
+    )
+    assert response.status_code == 404
+    assert "scope not found" in response.json()["detail"]
+
+
+async def test_scope_ids_and_scope_domains_together_is_422(client) -> None:
+    """TASK-21 (v2.4): mixing scope sources is rejected by the contract."""
+    first = await _create_scope(client, name="acme")
+    response = await client.post(
+        "/api/runs",
+        json={
+            "targets": ["http://target.com/doc.pdf"],
+            "scope_ids": [first["id"]],
+            "scope_domains": ["other.com"],
+            "scope_confirmed": True,
+        },
+    )
+    assert response.status_code == 422
+
+
+async def test_scope_ids_empty_is_422(client) -> None:
+    """TASK-21 (v2.4): an empty union is not a scope source."""
+    response = await client.post(
+        "/api/runs",
+        json={
+            "targets": ["http://target.com/doc.pdf"],
+            "scope_ids": [],
+            "scope_confirmed": True,
+        },
+    )
+    assert response.status_code == 422
+
+
+async def test_wizard_shell_supports_multi_scope(client) -> None:
+    """TASK-21 (v2.4): the wizard ships the multi-select wired to scope_ids."""
+    response = await client.get("/")
+    assert response.status_code == 200
+    html = response.text
+    # The saved-scope multi-selector renders checkboxes over /api/scopes.
+    assert "selectedScopeIds" in html
+    assert "scope_ids" in html
+    # The manual fallback (v1.x wire contract) stays present.
+    assert "scope_domains" in html
+    # The scope is never inferred: the empty-scope guard message is in the shell.
+    assert "the scope is never inferred from the target" in html

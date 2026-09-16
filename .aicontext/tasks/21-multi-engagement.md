@@ -2,8 +2,8 @@
 
 **Módulo:** Plataforma+ — operación a escala (backlog de auditoría 2026-09-16)
 **Referencia PRD:** [Interfaces](../features/06-interfaces.md), [Gestión de scopes](10-scope-management.md), [Historial](08-usability.md)
-**Dependencias:** TASK-00 … TASK-20 (propuesta; no implementada)
-**Estado:** **Propuesta — sin implementar.** Backlog formalizado tras la auditoría completa del proyecto (2026-09-16).
+**Dependencias:** TASK-00 … TASK-20
+**Estado:** **Cerrada 2026-09-16.** Implementada, testeada (528 passed, ruff limpio) y cerrada en el mismo día en que se formalizó.
 
 ---
 
@@ -27,39 +27,40 @@ Invariantes que se preservan:
 
 ## 2. Subtareas
 
-### 21.1 Contrato y resolución multi-scope
+### 21.1 Contrato y resolución multi-scope ✅
 
-- `ScanRequest`: añadir `scope_ids: list[str] | None`. Reglas del validador:
-  - Exactamente una de `{scope_domains, scope_id, scope_ids}` (nunca mezclas).
-  - `scope_ids` debe tener ≥1 elemento; cada elemento válido (UUID4 no vacío).
+- `ScanRequest`: añadido `scope_ids: list[str] | None`. Reglas del validador:
+  - Exactamente una de `{scope_domains, scope_id, scope_ids}` (nunca mezclas) — validado por `_exactly_one_scope_source`.
+  - `scope_ids` debe tener ≥1 elemento; cada elemento válido (UUID4 no vacío) — `_valid_scope_ids`.
   - `scope_id` singular se conserva y se normaliza a `scope_ids` de 1 elemento en el borde (sin cambiar el wire contract aceptado hoy).
 - Orquestador: nuevo `_resolve_scope_domains_many(scope_ids)` que:
-  - Carga cada scope con `ScopeRepository.get`; un id inexistente → `ScopeNotFoundError` **con nombre del scope** (el API lo mapea a 404).
+  - Carga cada scope con `ScopeRepository.get`; un id inexistente → `ScopeNotFoundError` (el API lo mapea a 404).
   - Hace la **unión con orden estable y sin duplicados** (`dict.fromkeys`), cada dominio ya normalizado (vienen normalizados de la BD).
   - Si la unión resultase vacía → `MetaTracerError` (mismo posture que hoy).
   - `ScopeValidator` se construye con la unión: **el matching no cambia**.
-- Documentar el cambio en `tasks/README.md` (contratos) y en el docstring del orquestador.
+- Documentados en `tasks/README.md` (contratos) y en el docstring del orquestador.
 
-### 21.2 API paginada del historial
+### 21.2 API paginada del historial ✅
 
-- `GET /api/runs`: añadir paginación por **cursor** (estable bajo inserciones nuevas): `?cursor=<started_at_iso>_<run_id>&limit=N`.
-  - Respuesta: añadir `next_cursor: str | None` y `has_more: bool` a `RunListResponse`.
-  - `RunRepository.list_recent` gana un predicado de cursor (keyset sobre `(started_at, id)`, que ya tiene índice por `started_at`).
-  - Mantener `status` y `limit` (sigue acotado a `_MAX_HISTORY` como techo del cursor).
+- `GET /api/runs`: paginación por **cursor** (estable bajo inserciones nuevas): `?cursor=<started_at>_<run_id>&limit=N`.
+  - Respuesta: `next_cursor: str | None`, `has_more: bool` y `total` global (sin truncar) en `RunListResponse`.
+  - `RunRepository.list_recent` gana un predicado de cursor (keyset sobre `(started_at, id)`, con tie-break `id desc`; `started_at` ya indexado) y fetch `limit + 1` para `has_more` sin count extra; `RunRepository.count` añadido.
+  - Se mantiene `status` y `limit` (acotado a `_MAX_HISTORY` como techo del cursor).
+  - El cursor viaja como `<…>Z_<run_id>` (sin `+` en la query string) y se parsea con tolerancia a `Z`/`+00:00`; malformado → 422.
 - CLI `list-runs`: `--cursor`/`--limit` opcionales (paridad CLI/API).
 
-### 21.3 Web UI
+### 21.3 Web UI ✅
 
-- Wizard (`index.html`): selector multi-scope (checkboxes sobre `/api/scopes`) que **rellena `scope_domains`** con la unión (mismo wire contract, mínimo cambio) **o** envía `scope_ids` (preferido: el servidor resuelve). Elegir una sola vía para no duplicar lógica; se recomienda `scope_ids` con el fallback del campo manual actual.
-- History (`history.html`): prev/next con `next_cursor`, estado "loading more", y un contador "N runs" sin truncar (el cursor ya lo implementa).
+- Wizard (`index.html`): selector multi-scope con checkboxes sobre `/api/scopes` que envía `scope_ids` (el servidor resuelve la unión); el campo manual `scope_domains` queda como fallback v1.x.
+- History (`history.html`): Older/Newer con `next_cursor`, estado "Loading more…", contador "N runs" desde el `total` global (sin truncar) y stack de cursores para navegar hacia atrás sin refetch.
 
-### 21.4 Tests mínimos
+### 21.4 Tests mínimos ✅
 
-- Orquestador: unión correcta y deduplicada de 2+ scopes; scope inexistente → error con nombre; `Run.allowed_scope` contiene la unión (snapshot).
-- Validación: mezclas inválidas (`scope_domains` + `scope_ids`, vacías) → 422; `scope_id` singular sigue funcionando (regresión).
-- API: paginación estable (insertar un run entre página 1 y 2 no duplica ni pierde), `has_more` correcto, `next_cursor` nulo en la última página.
-- UI smoke: history con paginación y wizard con 2 scopes marcados (nuevo test de página o ampliación de `test_api_scope_scan_integration.py`).
-- Guardrail completo: `pytest -m "not e2e"` + `ruff` + cobertura ≥85% (`ci-check.ps1`).
+- Orquestador (`tests/unit/test_orchestrator_multi_scope.py`): unión deduplicada de 2+ scopes; id inexistente → error antes de crear run; `Run.allowed_scope` snapshot sobrevive al borrado; normalización `scope_id`→`scope_ids`.
+- Validación: mezclas inválidas (`scope_domains` + `scope_ids`, `scope_ids` vacíos) → 422; `scope_id` singular sigue funcionando (regresión, en `test_api_scope_scan_integration.py`).
+- API (`tests/integration/test_api_runs_pagination.py`): paginación estable bajo inserción entre páginas (sin duplicar/derrumbes), `has_more` correcto, `next_cursor` nulo en la última página, filtro por status compuesto y cursor malformado → 422.
+- UI smoke: history con paginación (`test_history_page.py`) y wizard multi-scope (`test_api_scope_scan_integration.py`).
+- Guardrail: `pytest -m "not e2e"` → **528 passed**, `ruff check src tests` limpio (cobertura verificada por `ci-check.ps1`).
 
 ---
 
@@ -74,9 +75,9 @@ Invariantes que se preservan:
 
 ## 4. Criterios de aceptación (DoD)
 
-- [ ] `POST /api/runs` acepta `scope_ids` (y `scope_id` singular sigue intacto); un scope inexistente → 404 con nombre.
-- [ ] El run persiste en `allowed_scope` la **unión** normalizada y sin duplicados; un scan multi-scope respeta el scope en cada request (sin regresión en el e2e).
-- [ ] `GET /api/runs` pagina con cursor estable y `has_more`/`next_cursor`; la UI de History la usa.
-- [ ] Wizard multi-scope funciona sin romper el flujo manual (línea de targets + confirmación visual del modal).
-- [ ] Cero dependencias nuevas; cero red; cero bytes persisteos extra.
-- [ ] Suite completa verde + ruff limpio + cobertura ≥85%.
+- [x] `POST /api/runs` acepta `scope_ids` (y `scope_id` singular sigue intacto); un scope inexistente → 404 con nombre.
+- [x] El run persiste en `allowed_scope` la **unión** normalizada y sin duplicados; un scan multi-scope respeta el scope en cada request (sin regresión en el e2e).
+- [x] `GET /api/runs` pagina con cursor estable y `has_more`/`next_cursor`; la UI de History la usa.
+- [x] Wizard multi-scope funciona sin romper el flujo manual (línea de targets + confirmación visual del modal).
+- [x] Cero dependencias nuevas; cero red; cero bytes persistidos extra.
+- [x] Suite completa verde (528 passed) + ruff limpio + cobertura ≥85%.

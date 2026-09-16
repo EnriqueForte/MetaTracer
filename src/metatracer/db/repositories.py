@@ -2,8 +2,10 @@
 
 import json
 from collections import Counter
+from datetime import UTC, datetime
 from typing import Any
 
+from sqlalchemy import func
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -60,16 +62,47 @@ class RunRepository:
         return list(result.all())
 
     async def list_recent(
-        self, *, status: RunStatus | None = None, limit: int | None = None
+        self,
+        *,
+        status: RunStatus | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
     ) -> list[Run]:
-        """Newest-first listing used by the v1.1 history surfaces."""
-        statement = select(Run).order_by(Run.started_at.desc())  # type: ignore[arg-type]
+        """Newest-first listing used by the v1.1 history surfaces.
+
+        TASK-21 (v2.4): optional stable keyset pagination. ``cursor`` is a
+        ``<started_at_iso>_<run_id>`` pair; when given, only runs strictly
+        NEWER... (older, since we paginate newest-first) than the anchor are
+        returned, so a run inserted between two pages never duplicates or
+        drops a row. The composite ``(started_at, id)`` key is unique — the
+        id break-tie keeps the ordering total — and ``started_at`` is already
+        indexed. Fetch one row past ``limit`` (``limit + 1``) so the caller
+        can tell whether a next page exists without an extra count query.
+        """
+        statement = select(Run).order_by(
+            Run.started_at.desc(), Run.id.desc()  # type: ignore[arg-type]
+        )
         if status is not None:
             statement = statement.where(Run.status == status)
+        if cursor is not None:
+            started_at, run_id = _split_cursor(cursor)
+            statement = statement.where(
+                (Run.started_at < started_at)
+                | ((Run.started_at == started_at) & (Run.id < run_id))
+            )
         if limit is not None:
-            statement = statement.limit(limit)
+            # +1 probe: existence of a next page, not a count.
+            statement = statement.limit(limit + 1)
         result = await self._session.exec(statement)
         return list(result.all())
+
+    async def count(self, *, status: RunStatus | None = None) -> int:
+        """Total rows under the given filter (TASK-21: untruncated "N runs")."""
+        statement = select(func.count()).select_from(Run)
+        if status is not None:
+            statement = statement.where(Run.status == status)
+        result = await self._session.exec(statement)
+        return int(result.one())
 
     async def resolve(self, token: str) -> Run:
         """Full UUID or unique prefix (the 8-char stem ``list-runs`` shows)."""
@@ -550,3 +583,30 @@ def _json_list(payload: str) -> list[str]:
     if isinstance(parsed, str):
         return [parsed]
     return []
+
+
+def _split_cursor(cursor: str) -> tuple[datetime, str]:
+    """Parse a ``<started_at_iso>_<run_id>`` keyset anchor.
+
+    ``started_at`` arrives as ``YYYY-MM-DDTHH:MM:SS.ffffffZ`` (the shape
+    ``_encode_cursor`` emits — a ``Z`` instead of ``+00:00`` so the ``+``
+    cannot be mis-decoded as a space inside a query string). A legacy
+    ``+00:00`` form is also accepted. The delimiter is the FIRST underscore
+    after the ``T`` so a UUID run_id (hyphens only) can never collide with
+    the split. A malformed cursor results in a 422 handled by the API layer,
+    not here.
+    """
+    try:
+        separator = cursor.index("_")
+        raw_started_at = cursor[:separator]
+        run_id = cursor[separator + 1 :]
+        # Normalize the trailing Z to +00:00 so fromisoformat parses it.
+        if raw_started_at.endswith("Z"):
+            raw_started_at = raw_started_at[:-1] + "+00:00"
+        parsed = datetime.fromisoformat(raw_started_at)
+        started_at = parsed.replace(tzinfo=UTC) if parsed.tzinfo is None else parsed.astimezone(UTC)
+    except ValueError:
+        raise ValueError(f"invalid cursor: {cursor}") from None
+    if not run_id:
+        raise ValueError(f"invalid cursor: {cursor}")
+    return started_at, run_id

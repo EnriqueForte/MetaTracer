@@ -6,7 +6,7 @@
 services:
   web:
     build: .
-    image: metatracer:0.2.0
+    image: metatracer:0.3.0
     command: ["web"]
     ports:
       - "8000:8000"

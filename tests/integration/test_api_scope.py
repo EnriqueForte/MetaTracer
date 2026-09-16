@@ -149,7 +149,12 @@ async def test_export_unknown_run_404(client) -> None:
 async def test_list_runs_empty(client) -> None:
     response = await client.get("/api/runs")
     assert response.status_code == 200
-    assert response.json() == {"total": 0, "runs": []}
+    assert response.json() == {
+        "total": 0,
+        "runs": [],
+        "has_more": False,
+        "next_cursor": None,
+    }
 
 
 async def test_history_page_renders(client) -> None:

@@ -20,6 +20,7 @@ from metatracer.api.schemas import (
     RunListItem,
     RunListResponse,
     RunStatusResponse,
+    _encode_cursor,
 )
 from metatracer.core.exceptions import (
     MetaTracerError,
@@ -56,13 +57,40 @@ async def list_runs(
     request: Request,
     status: Annotated[RunStatus | None, Query(description="Filter by run status")] = None,
     limit: Annotated[int, Query(ge=1, le=_MAX_HISTORY, description="Newest N runs")] = 50,
+    cursor: Annotated[
+        str | None,
+        Query(
+            description="Opaque keyset anchor from a previous page's next_cursor "
+            "(<started_at_iso>_<run_id>)"
+        ),
+    ] = None,
 ) -> RunListResponse:
-    """Local run history, newest first (TASK-08). Not a multi-tenant dashboard."""
+    """Local run history, newest first (TASK-08). Not a multi-tenant dashboard.
+
+    TASK-21 (v2.4): cursor pagination. The repo fetches ``limit + 1`` rows so
+    ``has_more`` needs no extra query; ``next_cursor`` is the last row's
+    ``(started_at, id)`` anchor when more rows exist. Keyset stays stable when
+    a new run lands between two pages — nothing is duplicated or dropped.
+    ``limit`` remains bounded by ``_MAX_HISTORY``.
+    """
     session_factory = request.app.state.session_factory
-    async with session_factory() as session:
-        runs = await RunRepository(session).list_recent(status=status, limit=limit)
-    items = [RunListItem.from_run(run) for run in runs]
-    return RunListResponse(total=len(items), runs=items)
+    try:
+        async with session_factory() as session:
+            repo = RunRepository(session)
+            runs = await repo.list_recent(status=status, limit=limit, cursor=cursor)
+            total = await repo.count(status=status)
+    except ValueError as exc:
+        # Malformed cursor (not <started_at_iso>_<run_id>): the keyset anchor
+        # comes back from the API itself, so a client cannot legitimately
+        # invent one — answer 422, not 500.
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    has_more = len(runs) > limit
+    page = runs[:limit]
+    items = [RunListItem.from_run(run) for run in page]
+    next_cursor = _encode_cursor(page[-1].started_at, page[-1].id) if has_more else None
+    return RunListResponse.from_page(
+        total=total, runs=items, has_more=has_more, next_cursor=next_cursor
+    )
 
 
 @router.post("", status_code=202)

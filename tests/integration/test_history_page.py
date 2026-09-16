@@ -67,3 +67,15 @@ async def test_history_page_has_loading_and_error_shells(client) -> None:
     # Error block + retry button (revealed by Alpine on a failed fetch).
     assert "Could not load the local history" in html or "role=\"alert\"" in html
     assert "Retry" in html
+
+
+async def test_history_page_has_pagination_controls(client) -> None:
+    """TASK-21 (v2.4): the prev/next affordances and cursor wiring are present."""
+    response = await client.get("/runs")
+    html = response.text
+    assert "Older" in html
+    assert "Newer" in html
+    assert "next_cursor" in html
+    assert "has_more" in html
+    # The untruncated counter reads the global total from the API.
+    assert "totalRuns" in html

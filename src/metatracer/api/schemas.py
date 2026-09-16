@@ -171,10 +171,24 @@ class RunListItem(BaseModel):
 
 
 class RunListResponse(BaseModel):
-    """GET /api/runs: newest-first local history."""
+    """GET /api/runs: newest-first local history (TASK-08).
 
-    total: int
+    TASK-21 (v2.4): cursor pagination. ``total`` is the GLOBAL count of runs
+    matching the filter (untruncated, so the UI says "N runs" honestly);
+    ``runs`` is the current page; ``has_more``/``next_cursor`` drive the
+    prev/next UI.
+    """
+
+    total: int  # global count matching the filter (never truncated by limit)
     runs: list[RunListItem]
+    has_more: bool = False
+    next_cursor: str | None = None
+
+    @classmethod
+    def from_page(
+        cls, total: int, runs: list[RunListItem], has_more: bool, next_cursor: str | None
+    ) -> RunListResponse:
+        return cls(total=total, runs=runs, has_more=has_more, next_cursor=next_cursor)
 
 
 class DashboardStatsResponse(BaseModel):
@@ -259,3 +273,20 @@ def _as_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=UTC)
     return value.astimezone(UTC)
+
+
+def _encode_cursor(started_at: datetime, run_id: str) -> str:
+    """Build the stable keyset anchor ``<started_at_iso>_<run_id>``.
+
+    ``started_at`` (already UTC-normalized) is serialized with microseconds;
+    the UUID ``run_id`` is the tie-breaker that makes the ``(started_at, id)``
+    composite key total. This is the exact shape ``_split_cursor`` in
+    db/repositories.py parses. Keyset anchors stay stable under new inserts
+    (unlike offset-based pagination).
+    """
+    # Use +00:00 like isoformat, then swap the plus for a %2B-safe ASCII
+    # form: the cursor travels inside a query string where a raw "+" is
+    # decoded as a space by form parsers. The underscore delimiter is
+    # preserved; a hyphen-safe URL sees no ambiguity.
+    iso = _as_utc(started_at).isoformat().replace("+00:00", "Z")
+    return f"{iso}_{run_id}"

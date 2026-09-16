@@ -24,6 +24,13 @@
     </template>
   </div>
 
+  <!-- TASK-21 (v2.4): page state. The API returns has_more/next_cursor; the
+       counter says "N runs" (this page), and older runs load through prev/next
+       with a "loading more" state. -->
+  <div class="mb-4 text-xs text-slate-500" aria-live="polite">
+    <span x-text="totalLabel"></span>
+  </div>
+
   <!-- Loading state -->
   <div x-show="!loaded && !loadError" class="flex items-center gap-3 text-slate-400" aria-live="polite">
     <span class="inline-block h-5 w-5 animate-spin rounded-full border-2 border-slate-600 border-t-emerald-500"></span>
@@ -74,6 +81,23 @@
       </tbody>
     </table>
   </div>
+
+  <!-- Pagination controls (v2.4): next_cursor-driven, keyset-stable. -->
+  <div class="flex items-center justify-between gap-3 mt-4" x-show="loaded && runs.length > 0">
+    <button type="button" @click="loadPrevious()"
+            :disabled="!hasPrevious || loadingMore"
+            :class="hasPrevious && !loadingMore ? 'text-emerald-400 hover:text-emerald-300 border-slate-700 hover:border-slate-500' : 'text-slate-600 cursor-not-allowed'"
+            class="rounded-md border px-3 py-1.5 text-sm transition-colors disabled:opacity-50">
+      ← Newer
+    </button>
+    <span class="text-xs text-slate-500" x-show="loadingMore" aria-live="polite">Loading more…</span>
+    <button type="button" @click="loadNext()"
+            :disabled="!hasMore || loadingMore"
+            :class="hasMore && !loadingMore ? 'text-emerald-400 hover:text-emerald-300 border-slate-700 hover:border-slate-500' : 'text-slate-600 cursor-not-allowed'"
+            class="rounded-md border px-3 py-1.5 text-sm transition-colors disabled:opacity-50">
+      Older →
+    </button>
+  </div>
 </div>
 
 <script>
@@ -85,6 +109,8 @@ document.addEventListener('alpine:init', () => {
     failed: 'bg-red-700 text-white',
     aborted: 'bg-slate-600 text-slate-200',
   };
+  // TASK-21 (v2.4): explicit page size for deterministic cursor anchors.
+  const PAGE_LIMIT = 50;
   Alpine.data('runHistory', () => ({
     runs: [],
     loaded: false,
@@ -92,9 +118,27 @@ document.addEventListener('alpine:init', () => {
     errorMessage: '',
     statusFilter: 'all',
     statuses: ['all', 'completed', 'failed', 'running', 'pending', 'aborted'],
+    // TASK-21 (v2.4): keyset cursor state driven by the API.
+    nextCursor: null,
+    hasMore: false,
+    loadingMore: false,
+    totalRuns: 0, // global count (untruncated "N runs")
+    // Stack of cursors already visited, so "Newer" walks back without
+    // refetching; capped so it cannot grow unbounded.
+    cursorStack: [],
+
+    get hasPrevious() {
+      return this.cursorStack.length > 0;
+    },
+    get totalLabel() {
+      if (!this.loaded || this.loadError) return '';
+      return this.totalRuns + (this.totalRuns === 1 ? ' run' : ' runs');
+    },
 
     async load() {
-      const params = this.statusFilter === 'all' ? '' : ('?status=' + encodeURIComponent(this.statusFilter));
+      // First page (also reused on status filter / retry): reset the stack.
+      this.resetPagination();
+      const params = this.buildQuery();
       try {
         const response = await fetch('/api/runs' + params);
         if (!response.ok) {
@@ -104,12 +148,81 @@ document.addEventListener('alpine:init', () => {
         }
         const data = await response.json();
         this.runs = data.runs;
+        this.totalRuns = data.total;
+        this.nextCursor = data.next_cursor;
+        this.hasMore = data.has_more;
         this.loaded = true;
         this.errorMessage = '';
       } catch (err) {
         this.errorMessage = 'Network error: the API is unreachable.';
         this.loadError = true;
       }
+    },
+    async loadNext() {
+      if (!this.hasMore || this.loadingMore) return;
+      this.loadingMore = true;
+      this.errorMessage = '';
+      try {
+        // Remember the current cursor before moving forward.
+        this.cursorStack.push(this.nextCursor);
+        const params = this.buildQuery(this.nextCursor);
+        const response = await fetch('/api/runs' + params);
+        if (!response.ok) {
+          this.errorMessage = await this.readError(response);
+          this.cursorStack.pop();
+          return;
+        }
+        const data = await response.json();
+        this.runs = data.runs;
+        this.nextCursor = data.next_cursor;
+        this.hasMore = data.has_more;
+        // totalRuns stays from the first page; it never changes per page.
+      } catch (err) {
+        this.errorMessage = 'Network error: the API is unreachable.';
+        this.cursorStack.pop();
+      } finally {
+        this.loadingMore = false;
+      }
+    },
+    async loadPrevious() {
+      if (!this.hasPrevious || this.loadingMore) return;
+      this.loadingMore = true;
+      this.errorMessage = '';
+      // Peek the cursor of the previous page without committing the pop yet.
+      const prevCursor = this.cursorStack[this.cursorStack.length - 1];
+      try {
+        const params = this.buildQuery(prevCursor);
+        const response = await fetch('/api/runs' + params);
+        if (!response.ok) {
+          this.errorMessage = await this.readError(response);
+          return; // stack unchanged on failure
+        }
+        const data = await response.json();
+        this.runs = data.runs;
+        this.nextCursor = data.next_cursor;
+        this.hasMore = data.has_more;
+        this.cursorStack.pop(); // commit only after a successful fetch
+      } catch (err) {
+        this.errorMessage = 'Network error: the API is unreachable.';
+        // stack unchanged on failure
+      } finally {
+        this.loadingMore = false;
+      }
+    },
+    buildQuery(cursor) {
+      const params = new URLSearchParams();
+      if (this.statusFilter !== 'all') params.set('status', this.statusFilter);
+      if (cursor) params.set('cursor', cursor);
+      // Default limit on the API is 50; the page requests it explicitly for
+      // deterministic next/prev anchors.
+      params.set('limit', String(PAGE_LIMIT));
+      const qs = params.toString();
+      return qs ? ('?' + qs) : '';
+    },
+    resetPagination() {
+      this.nextCursor = null;
+      this.hasMore = false;
+      this.cursorStack = [];
     },
     async readError(response) {
       return window.MetaTracerUI.readError(
@@ -118,6 +231,7 @@ document.addEventListener('alpine:init', () => {
     },
     setStatus(status) {
       this.statusFilter = status;
+      this.loaded = false; // show the loading state again
       this.load();
     },
     statusBadge(status) {

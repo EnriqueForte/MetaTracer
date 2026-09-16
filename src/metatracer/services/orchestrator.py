@@ -155,30 +155,39 @@ class ScanRequest(BaseModel):
     At least one target and one confirmed scope source are required, and the
     scope is a deliberate operator input — it is never derived from the
     targets. The scope source is exactly one of: manual `scope_domains`
-    (v1.x) or a saved `scope_id` (TASK-10, v2.0); never both. Export options
-    are NOT part of this contract: they are parameters of
+    (v1.x), a single saved `scope_id` (TASK-10, v2.0) or the union of many
+    saved scopes `scope_ids` (TASK-21, v2.4); never a mix. `scope_id` is
+    kept as an alias of ``scope_ids=[scope_id]`` at the boundary, so none of
+    the v2.0-v2.3 clients break. Export options are NOT part of this
+    contract: they are parameters of
     :meth:`ScanOrchestratorService.scan`, so the API request body stays
     exactly this model.
     """
 
     targets: list[str] = Field(min_length=1)
-    # Optional now: when scope_id is set, scope_domains must be absent, and
-    # the resolver supplies the domains. A request with neither is invalid.
+    # Optional now: when scope_id/scope_ids is set, scope_domains must be
+    # absent, and the resolver supplies the domains. A request with neither
+    # is invalid.
     scope_domains: list[str] | None = None
     scope_confirmed: bool
     reasoning_depth: ReasoningDepth = ReasoningDepth.standard
-    # TASK-10 (v2.0): optional reference to a persisted named scope. When set,
-    # the orchestrator resolves it to its domains and ignores scope_domains;
-    # exactly one of {scope_domains, scope_id} is allowed per request.
+    # TASK-10 (v2.0): optional reference to a single persisted named scope.
+    # When set, the orchestrator resolves it to its domains and ignores
+    # scope_domains; exactly one of {scope_domains, scope_id, scope_ids} is
+    # allowed per request. Kept for wire compatibility with v2.0-v2.3.
     scope_id: str | None = None
+    # TASK-21 (v2.4): multi-engagement — optional union of many persisted
+    # named scopes, resolved by the orchestrator into one deduplicated
+    # allowed_scope snapshot. Never mixed with scope_domains/scope_id.
+    scope_ids: list[str] | None = None
 
     @field_validator("targets", "scope_domains")
     @classmethod
     def _non_blank_entries(cls, values: list[str] | None) -> list[str] | None:
         """Strip entries and reject blank ones (whitespace is not a target).
 
-        ``None`` passes through unchanged: a request that uses ``scope_id``
-        legitimately ships ``scope_domains=None``.
+        ``None`` passes through unchanged: a request that uses ``scope_id``/
+        ``scope_ids`` legitimately ships ``scope_domains=None``.
         """
         if values is None:
             return None
@@ -187,17 +196,44 @@ class ScanRequest(BaseModel):
             raise ValueError("entries must be non-blank strings")
         return cleaned
 
+    @field_validator("scope_ids")
+    @classmethod
+    def _valid_scope_ids(cls, values: list[str] | None) -> list[str] | None:
+        """Reject blank ids; each entry must be a non-empty UUID4-shaped string.
+
+        The actual existence check happens at resolution time in the
+        orchestrator (any unknown id -> 404). Here we only keep the contract
+        strict: no empty list, no blank entries.
+        """
+        if values is None:
+            return None
+        cleaned = [str(value).strip() for value in values]
+        if any(not value for value in cleaned):
+            raise ValueError("scope ids must be non-blank strings")
+        return cleaned or None  # scope_ids=[] normalizes to None = no scope source
+
     @model_validator(mode="after")
     def _exactly_one_scope_source(self) -> "ScanRequest":
-        """The operator chooses the manual `scope_domains` OR a saved `scope_id`, never both.
+        """The operator chooses manual `scope_domains`, one saved `scope_id` or
+        the union `scope_ids`, never a mix.
 
-        Rejects: both set, or neither set (the scope is never inferred from
-        the target, and an absent scope is never silently empty).
+        Rejects: any combination of two or more sources, or none at all (the
+        scope is never inferred from the target, and an absent scope is never
+        silently empty). ``scope_id`` is normalized into ``scope_ids`` so the
+        orchestrator has a single resolution path.
         """
-        if self.scope_domains is not None and self.scope_id is not None:
-            raise ValueError("set either scope_domains or scope_id, not both")
-        if (self.scope_domains is None or not self.scope_domains) and self.scope_id is None:
-            raise ValueError("either scope_domains or scope_id is required")
+        sources = [
+            source
+            for source in (self.scope_domains, self.scope_id, self.scope_ids)
+            if source
+        ]
+        if len(sources) > 1:
+            raise ValueError("set exactly one of scope_domains, scope_id or scope_ids, not a mix")
+        if not sources:
+            raise ValueError("either scope_domains, scope_id or scope_ids is required")
+        if self.scope_id is not None:
+            self.scope_ids = [self.scope_id]
+            self.scope_id = None
         return self
 
 
@@ -561,14 +597,16 @@ class ScanOrchestratorService:
     async def _create_run(self, request: ScanRequest) -> Run:
         """Persist the Run as ``pending`` with the operator-confirmed scope.
 
-        TASK-10: when ``request.scope_id`` is set, the persisted scope's
-        domains are copied onto the Run (never referenced by FK), so later
+        TASK-10 (v2.0) / TASK-21 (v2.4): when ``request.scope_ids`` is set
+        (single id or a multi-engagement union), the persisted scopes' domains
+        are copied onto the Run (never referenced by FK), so later
         edits/deletes of the Scope cannot alter past runs — the Run owns its
-        scope snapshot.
+        scope snapshot. ``scope_id`` was already normalized into one-element
+        ``scope_ids`` by :class:`ScanRequest`.
         """
         scope_domains = request.scope_domains or []
-        if request.scope_id is not None:
-            scope_domains = await self._resolve_scope_domains(request.scope_id)
+        if request.scope_ids is not None:
+            scope_domains = await self._resolve_scope_domains_many(request.scope_ids)
         async with self._session_factory() as session:
             return await RunRepository(session).create(
                 Run(
@@ -579,27 +617,40 @@ class ScanOrchestratorService:
                 )
             )
 
-    async def _resolve_scope_domains(self, scope_id: str) -> list[str]:
-        """Load a persisted scope's domains; unknown scope_id aborts the run.
+    async def _resolve_scope_domains_many(self, scope_ids: list[str]) -> list[str]:
+        """Resolve the union of several persisted scopes into one domain list.
 
-        Raises :class:`MetaTracerError` before any Run row exists, so
-        ``POST /api/runs`` with a bad scope_id answers 500 today — the API
-        layer maps it to an explicit 404 (TASK-10, subtask 10.4 handles the
-        request with a dedicated exception).
+        TASK-21 (v2.4): multi-engagement — the run is authorized against the
+        union of the operator-chosen saved scopes. Each id is loaded
+        individually; an unknown id raises :class:`ScopeNotFoundError` (the
+        message carries the scope name when the row exists, or the token when
+        it doesn't) BEFORE any Run row exists, so ``POST /api/runs`` can
+        answer 404. The union keeps a stable order and drops duplicates
+        (``dict.fromkeys``). Listing/resolving scopes is local only — zero
+        network, zero bytes persisted extra (inviolable rule 1).
         """
         from metatracer.db.repositories import ScopeRepository  # local: avoid import cycle
 
         async with self._session_factory() as session:
-            scope = await ScopeRepository(session).get(scope_id)
-        if scope is None:
-            raise ScopeNotFoundError(sanitize_for_log(scope_id))
-        try:
-            domains = json.loads(scope.domains)
-        except json.JSONDecodeError as exc:  # pragma: no cover - corrupt row
-            raise MetaTracerError("scope database row is corrupt") from exc
-        if not domains:
-            raise MetaTracerError("scope has no domains configured")
-        return [str(domain) for domain in domains]
+            repo = ScopeRepository(session)
+            scopes: list[str] = []
+            for scope_id in scope_ids:
+                scope = await repo.get(scope_id)
+                if scope is None:
+                    raise ScopeNotFoundError(sanitize_for_log(scope_id))
+                try:
+                    domains = json.loads(scope.domains)
+                except json.JSONDecodeError as exc:  # pragma: no cover - corrupt row
+                    raise MetaTracerError("scope database row is corrupt") from exc
+                if not domains:
+                    raise MetaTracerError(f"scope '{scope.name}' has no domains configured")
+                scopes.extend(str(domain) for domain in domains)
+        # Stable deduplicated union: preserves the first occurrence order of
+        # each domain, regardless of the scope that introduced it.
+        union = list(dict.fromkeys(scopes))
+        if not union:  # pragma: no cover - scopes require >=1 domain at write time
+            raise MetaTracerError("scope union is empty")
+        return union
 
     async def _set_running(self, run_id: str) -> None:
         """Transition pending -> running before the first pipeline stage."""

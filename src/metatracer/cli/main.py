@@ -236,9 +236,21 @@ def list_runs(
         int | None,
         typer.Option("--limit", min=1, help="Newest N runs."),
     ] = None,
+    cursor: Annotated[
+        str | None,
+        typer.Option(
+            "--cursor",
+            help="Keyset anchor from a previous page's next_cursor (v2.4 pagination).",
+        ),
+    ] = None,
 ) -> None:
-    """List persisted runs (local history)."""
-    runs = asyncio.run(_fetch_runs(status=status, limit=limit))
+    """List persisted runs (local history).
+
+    TASK-21 (v2.4): pass ``--cursor`` (from the last page's ``next_cursor``)
+    to page through more than the default window; keyset stays stable under
+    new runs.
+    """
+    runs = asyncio.run(_fetch_runs(status=status, limit=limit, cursor=cursor))
     if not runs:
         console.print("No runs recorded yet.")
         return
@@ -533,9 +545,9 @@ async def _execute_show(run_id: str) -> ReportData:
 
 
 async def _fetch_runs(
-    *, status: RunStatus | None = None, limit: int | None = None
+    *, status: RunStatus | None = None, limit: int | None = None, cursor: str | None = None
 ) -> list[Run]:
-    """Load persisted runs, newest first."""
+    """Load persisted runs, newest first (TASK-21: optional keyset cursor)."""
     settings = Settings()
     configure_logging(settings.log_level)
     engine = create_db_engine(settings.database_url)
@@ -543,6 +555,8 @@ async def _fetch_runs(
         await init_db(engine)
         session_factory = create_session_factory(engine)
         async with session_factory() as session:
-            return await RunRepository(session).list_recent(status=status, limit=limit)
+            return await RunRepository(session).list_recent(
+                status=status, limit=limit, cursor=cursor
+            )
     finally:
         await engine.dispose()
