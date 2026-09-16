@@ -192,11 +192,9 @@ document.addEventListener('alpine:init', () => {
       }
     },
     async readError(response) {
-      try {
-        const payload = await response.json();
-        if (payload && payload.detail) return String(payload.detail);
-      } catch (err) { /* non-JSON body */ }
-      return 'Could not load the dashboard data (HTTP ' + response.status + ').';
+      return window.MetaTracerUI.readError(
+        response, 'Could not load the dashboard data (HTTP ' + response.status + ').'
+      );
     },
 
     statusCount(status) {
@@ -226,8 +224,7 @@ document.addEventListener('alpine:init', () => {
     },
 
     truncate(text, limit) {
-      const collapsed = String(text || '').replace(/\s+/g, ' ').trim();
-      return collapsed.length <= limit ? collapsed : collapsed.slice(0, limit - 3) + '...';
+      return window.MetaTracerUI.truncate(text, limit);
     },
   }));
 });

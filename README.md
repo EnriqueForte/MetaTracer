@@ -11,10 +11,14 @@ engagements.
 
 ## Status
 
-v1.2 complete (TASK-00 … TASK-09): safety core, ingestion (crawler + PDF/image
-plus HTML pages, HTTP headers and JS comments), five metadata detectors, heuristic
-risk classification, optional LangGraph agent analysis with heuristic fallback,
-Markdown/JSON/HTML reports, and a CLI + Web UI over one shared orchestrator.
+Closed: **v1.0–v1.2** (safety core, ingestion, five detectors, heuristic risk
+classification, optional LangGraph agent analysis with heuristic fallback, reports,
+CLI + Web UI over one shared orchestrator) → **v2.0** platform (scopes, dashboard,
+notifications) → **v2.1+** (feedback loop, light RAG) → **v2.2** integrations (outbound
+webhooks, portable KB, bounty exports, CI guardrail, scope import) → **v2.3**
+performance & UI polish (API rate limiting, request body cap, accessibility, shared UI
+helpers, consistent states). Full suite green, `ruff` clean, coverage ≥85%.
+
 See `.aicontext/tasks/`. Architecture tour (Spanish): `.aicontext/walkthrough.md`.
 
 ## How it works
@@ -36,7 +40,8 @@ interprets.
 6. **Report** — Markdown, JSON and HTML in English, ordered Critical → Info.
 
 SQLite now (single writer); schema is PostgreSQL-ready for later pgvector/RAG. Next
-product phase is v2.0 (platform dashboard), not new finding types.
+product phase: **v2.4** multi-engagement (see `.aicontext/tasks/21-multi-engagement.md`),
+with a platform v3.0 vision (`.aicontext/features/12-platform-v3.md`).
 
 ## Requirements
 

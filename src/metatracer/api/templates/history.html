@@ -112,11 +112,9 @@ document.addEventListener('alpine:init', () => {
       }
     },
     async readError(response) {
-      try {
-        const payload = await response.json();
-        if (payload && payload.detail) return String(payload.detail);
-      } catch (err) { /* non-JSON body */ }
-      return 'Could not load the local history (HTTP ' + response.status + ').';
+      return window.MetaTracerUI.readError(
+        response, 'Could not load the local history (HTTP ' + response.status + ').'
+      );
     },
     setStatus(status) {
       this.statusFilter = status;
@@ -126,8 +124,7 @@ document.addEventListener('alpine:init', () => {
       return STATUS_BADGES[status] || STATUS_BADGES.pending;
     },
     formatWhen(value) {
-      if (!value) return '';
-      return String(value).replace('T', ' ').replace(/\.\d+/, '').replace('+00:00', '').replace('Z', '');
+      return window.MetaTracerUI.formatWhen(value);
     },
   }));
 });

@@ -96,6 +96,28 @@
     </div>
   </footer>
   <script>
+  // Shared UI helpers (TASK-20, 20.2). Single source of truth for error
+  // rendering, truncation and UTC timestamp formatting; every Alpine
+  // component below and in the page templates delegates here instead of
+  // duplicating the logic. English only (UI/CLI language contract).
+  window.MetaTracerUI = {
+    async readError(response, fallback) {
+      try {
+        const payload = await response.json();
+        if (payload && payload.detail) return String(payload.detail);
+      } catch (err) { /* non-JSON body */ }
+      return fallback || ('Could not load data (HTTP ' + response.status + ').');
+    },
+    truncate(text, limit) {
+      const collapsed = String(text || '').replace(/\s+/g, ' ').trim();
+      return collapsed.length <= limit ? collapsed : collapsed.slice(0, limit - 3) + '...';
+    },
+    formatWhen(value) {
+      if (!value) return '';
+      // UTC timestamps arrive as ISO strings; render as "YYYY-MM-DD HH:MM".
+      return String(value).replace('T', ' ').replace(/\.\d+/, '').replace('+00:00', '').replace('Z', '');
+    },
+  };
   document.addEventListener('alpine:init', () => {
     Alpine.data('notifications_bell', () => ({
       open: false,
@@ -119,11 +141,9 @@
       },
 
       async readError(response) {
-        try {
-          const payload = await response.json();
-          if (payload && payload.detail) return String(payload.detail);
-        } catch (err) { /* non-JSON body */ }
-        return 'Could not load notifications (HTTP ' + response.status + ').';
+        return window.MetaTracerUI.readError(
+          response, 'Could not load notifications (HTTP ' + response.status + ').'
+        );
       },
 
       async remove(id) {
@@ -141,8 +161,7 @@
       close() { this.open = false; },
 
       truncate(text, limit) {
-        const collapsed = String(text || '').replace(/\s+/g, ' ').trim();
-        return collapsed.length <= limit ? collapsed : collapsed.slice(0, limit - 3) + '...';
+        return window.MetaTracerUI.truncate(text, limit);
       },
     }));
   });

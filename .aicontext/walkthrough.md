@@ -2,7 +2,7 @@
 
 **Proyecto:** MetaTracer  
 **Audiencia:** entrevista técnica o demo del MVP  
-**Estado del producto:** v1.0–v1.2 cerrados. Siguiente fase: [v2.0 Plataforma](features/10-timeline-and-roadmap.md).
+**Estado del producto:** v1.0–v1.2, v2.0, v2.1+, v2.2 y v2.3 cerrados. Próximas fases: [v2.4 multi-engagement](features/10-timeline-and-roadmap.md) y [Plataforma v3.0](features/12-platform-v3.md).
 
 Este recorrido no abre `src/`. Las tasks son la fuente de verdad; aquí solo el *por qué*.
 

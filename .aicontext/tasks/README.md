@@ -1,9 +1,9 @@
 # Backlog Técnico de Tareas a Bajo Nivel (Tasks)
 
 **Proyecto:** MetaTracer  
-**Versión:** 2.3 (Performance & UI polish)  
+**Versión:** 2.3 (Performance & UI polish) — **cerrada 2026-09-16**  
 **PRD:** [Volver al PRD](../PRD.md)  
-**Estado:** MVP v1.0–v1.2 cerradas — v2.0 completada (TASK-10/11/12 ✅) — v2.1 completada (TASK-13 feedback ✅, TASK-14 RAG ligero ✅) — v2.2 "Integraciones" completada 2026-09-13 (TASK-15 a TASK-19 ✅; `pytest` 475 passed + ruff limpio + cobertura ≥85%) — **v2.3 "Performance & UI polish" en progreso (2026-09-15)**: rate limit a nivel de API HTTP (`ApiRateLimiter` en `core/ratelimit.py`, middleware en `api/app.py`, exento health/static/SSE) + límite de tamaño de body en peticiones (`max_request_body_bytes`, 413 en import de scopes/KB) + pulido de UI (accesibilidad, estados de carga, empty states, consistencia de errores). Tests: `test_api_performance.py` 6 passed + integración completa 101 passed.  
+**Estado:** MVP v1.0–v1.2 cerradas — v2.0 completada (TASK-10/11/12 ✅) — v2.1 completada (TASK-13 feedback ✅, TASK-14 RAG ligero ✅) — v2.2 "Integraciones" completada 2026-09-13 (TASK-15 a TASK-19 ✅; `pytest` 475 passed + ruff limpio + cobertura ≥85%) — **v2.3 "Performance & UI polish" cerrada 2026-09-16**: rate limit a nivel de API HTTP (`ApiRateLimiter` en `core/ratelimit.py`, middleware en `api/app.py`, exento health/static/SSE) + límite de tamaño de body en peticiones (`max_request_body_bytes`, 413 en import de scopes/KB) + pulido de UI (TASK-20: helpers `MetaTracerUI` compartidos, accesibilidad modal/drawer, tests a11y). Suite completa en verde + ruff limpio + cobertura ≥85% (guardrail TASK-16). Próxima fase: **v2.4** — [TASK-21 multi-engagement + paginación](../tasks/21-multi-engagement.md) (propuesta). Visión futura: [Plataforma v3.0](../features/12-platform-v3.md).  
 
 Este directorio descompone el MVP en tareas implementables. Cada archivo es un contrato: objetivo, subtareas, contratos de datos, fuera de alcance, tests mínimos y criterios de aceptación verificables.
 
@@ -81,6 +81,8 @@ Aplican a **todas** las tasks. Un PR que las viole no está done.
 | **TASK-17** | [17-kb-portable.md](17-kb-portable.md) | KB portable: export/import JSON del corpus de precedentes, CLI `kb`, API (v2.2) | TASK-00 a TASK-16 |
 | **TASK-18** | [18-exports-bounty.md](18-exports-bounty.md) | Exports bounty: exportador CSV + plantilla bounty en texto plano, `--format csv\|bounty`, API (v2.2) — **cerrada 2026-09-13** | TASK-00 a TASK-17 |
 | **TASK-19** | [19-scope-import.md](19-scope-import.md) | Import scope: archivo JSON portable → CLI `scope import` + API `POST /api/scopes/import`, idempotente (v2.2) | TASK-00 a TASK-18 |
+| **TASK-20** | [20-ui-polish.md](20-ui-polish.md) | UI polish y accesibilidad: matriz de estados por página, `readError`/Retry compartidos, focus/ARIA/teclado, tests a11y (v2.3) — **cerrada 2026-09-16** | TASK-00 a TASK-19 |
+| **TASK-21** | [21-multi-engagement.md](21-multi-engagement.md) | Multi-engagement: unión de varios scopes guardados por run (`scope_ids`) + paginación por cursor del historial (v2.4) — **propuesta** | TASK-00 a TASK-20 |
 
 `TASK-04` **no** depende de `TASK-05`: el motor de reportes debe funcionar con clasificaciones heurísticas (campos de explicación vacíos o plantilla). `TASK-05` rellena justificación, impacto, remediación y repro. `TASK-06` orquesta el pipeline completo.
 
@@ -142,6 +144,8 @@ Alineado con [Timeline y roadmap](../features/10-timeline-and-roadmap.md).
 | 15 | v2.2 | `TASK-17` | KB portable: JSON export/import del corpus RAG + CLI `kb` + API |
 | 16 | v2.2 | `TASK-18` | Exports bounty: exportador CSV + plantilla bounty en texto plano + `--format csv\|bounty` + API |
 | 17 | v2.2 | `TASK-19` | Import scope: archivo JSON portable → CLI `scope import` + API `POST /api/scopes/import` (idempotente) |
+| 18 | v2.3 | `TASK-20` | UI polish y accesibilidad: estados consistentes, `readError`/Retry únicos, focus/ARIA/teclado, tests a11y — **cerrada 2026-09-16** |
+| 19 | v2.4 | `TASK-21` | Multi-engagement: unión de scopes por run + paginación por cursor del historial (propuesta) |
 
 Si hay que recortar, proteger los [criterios de éxito](../features/09-success-criteria.md) antes que pulido de UI.
 
@@ -155,3 +159,4 @@ Si hay que recortar, proteger los [criterios de éxito](../features/09-success-c
 4. **GPS Critical:** el heurístico no puede saber si unas coordenadas son “casa de un ejecutivo”. Tope heurístico de GPS = `high`.
 5. **Producer genérico:** `Microsoft Word` sin versión **no** es finding. Se queda en metadata cruda.
 6. **SQLite + async API:** un solo writer. Los scans de la API van en serie (lock por run), no en un pool de workers concurrentes en el MVP.
+7. **Multi-scope (TASK-21):** la unión de scopes guardados se resuelve en el orquestador y se copia a `Run.allowed_scope` (snapshot, TASK-10). El `ScopeValidator` usa la unión: el matching no cambia. Nunca mezclar `scope_domains` con `scope_ids` en un mismo request.

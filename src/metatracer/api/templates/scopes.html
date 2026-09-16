@@ -152,11 +152,9 @@ document.addEventListener('alpine:init', () => {
       }
     },
     async readError(response) {
-      try {
-        const payload = await response.json();
-        if (payload && payload.detail) return String(payload.detail);
-      } catch (err) { /* non-JSON body */ }
-      return 'Could not load the scopes (HTTP ' + response.status + ').';
+      return window.MetaTracerUI.readError(
+        response, 'Could not load the scopes (HTTP ' + response.status + ').'
+      );
     },
 
     domainList() {
@@ -270,8 +268,7 @@ document.addEventListener('alpine:init', () => {
     },
 
     formatWhen(value) {
-      if (!value) return '';
-      return String(value).replace('T', ' ').replace(/\.\d+/, '').replace('+00:00', '').replace('Z', '');
+      return window.MetaTracerUI.formatWhen(value);
     },
   }));
 });

@@ -60,3 +60,20 @@ async def test_feedback_router_is_mounted(client) -> None:
     )
     assert response.status_code == 404
     assert response.json()["detail"] == "finding not found"
+
+
+async def test_run_page_distinguishes_zero_findings_from_error(client) -> None:
+    """TASK-20 (20.4): 'no findings' and 'findings unavailable' are distinct.
+
+    A valid zero-findings result renders a dedicated emerald state; a failed
+    findings fetch renders a red 'Findings unavailable' block. The two must
+    never be conflated.
+    """
+    response = await client.get("/runs/00000000-0000-4000-8000-000000000000")
+    html = response.text
+    # The zero-findings state (revealed when findings is an empty list).
+    assert "No findings" in html
+    assert "No sensitive metadata was identified" in html
+    # The findings-failure state (revealed when the /findings fetch fails).
+    assert "Findings unavailable" in html
+    assert "findingsError" in html

@@ -58,9 +58,12 @@
     <p x-show="error" x-text="error" x-cloak role="alert" class="text-sm text-red-400"></p>
   </form>
 
-  <!-- Blocking scope-confirmation modal: the POST never leaves without the check. -->
+  <!-- Blocking scope-confirmation modal: the POST never leaves without the check.
+       TASK-20 (20.3): focus is moved into the dialog on open and restored to the
+       trigger on close; Escape closes; aria-modal announces the modal to AT. -->
   <div x-show="modalOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80"
-       role="dialog" aria-modal="true" aria-labelledby="scope-modal-title">
+       role="dialog" aria-modal="true" aria-labelledby="scope-modal-title"
+       @keydown.escape.window="closeModal()">
     <div class="bg-slate-900 border border-slate-700 rounded-lg max-w-lg w-full mx-4 p-6 shadow-2xl">
       <h2 id="scope-modal-title" class="text-lg font-bold text-slate-100 mb-3">
         Confirm authorized scope
@@ -86,7 +89,7 @@
           they are inside the stated scope.</span>
       </label>
       <div class="flex gap-3">
-        <button type="button" @click="modalOpen = false"
+        <button type="button" @click="closeModal" id="scope-modal-cancel"
           class="flex-1 rounded-md border border-slate-700 text-slate-300 py-2 text-sm hover:bg-slate-800 transition-colors">
           Cancel
         </button>
@@ -110,6 +113,7 @@ document.addEventListener('alpine:init', () => {
     error: '',
     savedScopes: [],
     selectedScopeId: '',
+    lastFocused: null,
 
     init() {
       // TASK-10 (v2.0): the wizard offers saved scopes, but they never
@@ -151,6 +155,19 @@ document.addEventListener('alpine:init', () => {
       }
       this.confirmed = false; // the checkbox is never pre-checked
       this.modalOpen = true;
+      // TASK-20 (20.3): remember the trigger and move focus into the dialog.
+      this.lastFocused = document.activeElement;
+      this.$nextTick(() => {
+        const cancel = document.getElementById('scope-modal-cancel');
+        if (cancel) cancel.focus();
+      });
+    },
+    closeModal() {
+      this.modalOpen = false;
+      // Restore focus to the element that opened the dialog (a11y).
+      if (this.lastFocused && typeof this.lastFocused.focus === 'function') {
+        this.lastFocused.focus();
+      }
     },
     chooseScope(scopeId) {
       // Filling the manual field keeps the exact same wire contract as v1.x:
@@ -202,7 +219,7 @@ document.addEventListener('alpine:init', () => {
         this.error = 'Network error: the API is unreachable.';
       }
       this.starting = false;
-      this.modalOpen = false;
+      this.closeModal();
     },
   }));
 });
