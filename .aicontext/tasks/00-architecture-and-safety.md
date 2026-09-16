@@ -19,22 +19,27 @@ Al cerrar esta task el repo debe ser instalable (`pip install -e .`) y el safety
 
 ### Subtarea 0.1: Estructura del Repositorio y Configuración del Proyecto
 
-- **0.1.1. Layout del proyecto:**
+- **0.1.1. Layout del proyecto (estado final v2.3, 2026-09-16):**
 
   ```text
   metatracer/
     ├── src/
     │   └── metatracer/
     │       ├── __init__.py
-    │       ├── core/          # config, logging, safety, exceptions
-    │       ├── db/            # engine, modelos, repositorios
-    │       ├── extractors/    # (vacío hasta TASK-01)
-    │       ├── detectors/     # (vacío hasta TASK-02)
-    │       ├── agents/        # (vacío hasta TASK-05)
-    │       ├── reports/       # (vacío hasta TASK-04)
-    │       ├── services/      # (vacío hasta TASK-06)
-    │       ├── cli/           # (vacío hasta TASK-06)
-    │       └── api/           # (vacío hasta TASK-06)
+    │       ├── __main__.py        # entry point Python -m metatracer
+    │       ├── core/              # config, logging, safety/, ratelimit (v2.3)
+    │       │   └── safety/        # scope, guard, http (gateway único de red)
+    │       ├── db/                # engine, modelos, repositorios
+    │       ├── extractors/        # ingesta, crawler, PDF/EXIF/HTML/JS/HTTP
+    │       ├── detectors/         # 5 detectores + pipeline + consolidación
+    │       ├── classification/    # rúbrica + clasificador heurístico (TASK-03)
+    │       ├── agents/            # LangGraph, prompts versionados, guard (TASK-05)
+    │       ├── reports/           # builders + exportadores md/json/html/csv/bounty
+    │       ├── services/          # orchestrator, progress, notifications, dashboard
+    │       ├── scopes/            # scopes persistentes + formato portable (TASK-10/19)
+    │       ├── knowledge/         # RAG ligero FTS5 + KB portable (TASK-14/17)
+    │       ├── cli/               # Typer + Rich (TASK-06)
+    │       └── api/               # FastAPI: routers + templates/ + static/ (TASK-06)
     ├── tests/
     │   ├── unit/
     │   ├── integration/
@@ -42,6 +47,12 @@ Al cerrar esta task el repo debe ser instalable (`pip install -e .`) y el safety
     │   └── fixtures/
     ├── data/                  # SQLite en runtime; gitignore del .db
     ├── reports/               # exportaciones; gitignore del contenido
+    ├── .aicontext/            # PRD, features, tasks, ADRs, validación
+    ├── .cursor/               # reglas, skills y agentes del ecosistema Cursor
+    ├── scripts/               # check local de CI (ci-check.sh)
+    ├── docker/                # entrypoint de la imagen
+    ├── .github/workflows/     # CI guardrail (TASK-16)
+    ├── Dockerfile, docker-compose.yml
     ├── pyproject.toml
     ├── .env.example
     ├── .gitignore
