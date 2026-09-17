@@ -31,9 +31,10 @@ Failure semantics:
 - ``scope_confirmed=False`` raises :class:`ScopeNotConfirmedError` BEFORE the
   Run row exists: no database write, no network traffic (inviolable rule 1).
   The scope is never inferred from the targets.
-- A second concurrent scan raises :class:`ScanAlreadyRunningError`
-  (``asyncio.Lock`` with non-blocking acquisition; SQLite has a single writer,
-  tasks README known trap 6). The API maps it to HTTP 409.
+- A scan when every concurrency slot is busy raises
+  :class:`ScanAlreadyRunningError` (default limit 1 = the historical single
+  lock; since TASK-23 Eje B the limit is ``METATRACER_MAX_CONCURRENT_RUNS``).
+  The API maps it to HTTP 409.
 - Once the Run exists, safety exceptions (``ScopeNotConfirmedError``,
   ``SecurityViolationError``) and any unexpected orchestration error do NOT
   propagate: the run is finalized as ``failed`` with a sanitized
@@ -307,13 +308,20 @@ class ScanOrchestratorService:
         # and forwards the count on the terminal webhook payload. A missing
         # reporter (all non-watch runs) never touches the pipeline.
         self._delta_reporter = delta_reporter
-        self._lock = asyncio.Lock()
         self._active_run_id: str | None = None
-        # TASK-22 (v3.0, Eje A): the current scan is a watch iteration when
-        # set. Held only for one scan's lifetime (single-writer lock), used by
-        # _notify_run_finished to attach the delta counter.
-        self._active_watch = False
+        # TASK-22 (v3.0, Eje A): ids of the scans currently running as watch
+        # iterations. Per-run (TASK-23) so concurrent runs cannot clobber each
+        # other's flag; used by _notify_run_finished to attach the delta
+        # counter to the terminal webhook payload.
+        self._watch_run_ids: set[str] = set()
         self._background_tasks: set[asyncio.Task[None]] = set()
+        # TASK-23 (Eje B): bounded concurrency. max_concurrent_runs=1 (the
+        # default) degrades to the exact v1-v2.4 single-scan lock; >1 allows
+        # several scans in parallel (Postgres backend recommended; with SQLite
+        # the writers serialize at the database level anyway).
+        limit = max(1, settings.max_concurrent_runs)
+        self._run_slots = asyncio.Semaphore(limit)
+        self._active_run_ids: set[str] = set()
 
     @property
     def active_run_id(self) -> str | None:
@@ -330,11 +338,12 @@ class ScanOrchestratorService:
     ) -> ScanResult:
         """Execute the full pipeline to completion (the CLI path).
 
-        See the module docstring for the failure semantics; the single-scan
-        lock is held for the whole run and released before returning.
+        See the module docstring for the failure semantics; a run slot is
+        held for the whole scan and released before returning.
         """
-        self._active_watch = request.watch
         run = await self._begin_scan(request)
+        if request.watch:
+            self._watch_run_ids.add(run.id)
         try:
             return await self._execute_pipeline(
                 run,
@@ -344,8 +353,7 @@ class ScanOrchestratorService:
                 on_progress=on_progress,
             )
         finally:
-            self._end_scan()
-            self._active_watch = False
+            self._end_scan(run.id)
 
     async def start_scan(
         self,
@@ -364,7 +372,8 @@ class ScanOrchestratorService:
         and published through ``on_progress`` exactly like the CLI path.
         """
         run = await self._begin_scan(request)
-        self._active_watch = request.watch
+        if request.watch:
+            self._watch_run_ids.add(run.id)
         task = asyncio.create_task(
             self._run_background(run, request, formats, Path(output_dir), on_progress)
         )
@@ -409,7 +418,7 @@ class ScanOrchestratorService:
         output_dir: Path,
         on_progress: Callable[[ProgressEvent], None] | None,
     ) -> None:
-        """Task body for start_scan: run the pipeline and always release the lock."""
+        """Task body for start_scan: run the pipeline and always release the slot."""
         try:
             await self._execute_pipeline(
                 run, request, formats=formats, output_dir=output_dir, on_progress=on_progress
@@ -419,39 +428,47 @@ class ScanOrchestratorService:
             # failed for every expected failure mode.
             logger.exception("background scan crashed")
         finally:
-            self._end_scan()
+            self._end_scan(run.id)
 
     async def _begin_scan(self, request: ScanRequest) -> Run:
-        """Scope gate + single-scan lock + Run creation, in that order.
+        """Scope gate + concurrency semaphore + Run creation, in that order.
 
         Raises before any side effect when the gate fails: no Run row, no HTTP
-        (inviolable rule 1). The lock check-then-acquire is atomic in practice:
-        acquiring a free ``asyncio.Lock`` completes without suspending, so no
-        other coroutine can interleave between the check and the acquisition.
+        (inviolable rule 1). With the default ``max_concurrent_runs=1`` the
+        semaphore degenerates to the historical single-scan lock: a second
+        scan raises :class:`ScanAlreadyRunningError` immediately (never
+        queues). With a higher limit, up to N scans run in parallel.
         """
         if not request.scope_confirmed:
             raise ScopeNotConfirmedError(
                 "scan requires scope_confirmed=True; the operator must explicitly "
                 "confirm authorization before any database write or network traffic"
             )
-        if self._lock.locked():
-            # Non-blocking acquisition: one active scan per process, never a queue.
-            raise ScanAlreadyRunningError(self._active_run_id)
-        await self._lock.acquire()
+        if self._run_slots.locked():
+            # Non-blocking check: when every slot is busy, reject instead of
+            # queueing (the API surfaces 409 with the active run ids).
+            raise ScanAlreadyRunningError(sorted(self._active_run_ids))
+        await self._run_slots.acquire()
         try:
             run = await self._create_run(request)
         except Exception:
-            self._lock.release()
+            self._run_slots.release()
             raise
+        self._active_run_ids.add(run.id)
         self._active_run_id = run.id
         set_run_context(run.id)
         return run
 
-    def _end_scan(self) -> None:
-        """Release the single-scan lock and clear the active-run marker."""
-        self._active_run_id = None
-        self._active_watch = False
-        self._lock.release()
+    def _end_scan(self, run_id: str | None = None) -> None:
+        """Release one scan slot and drop the run from the active set."""
+        if run_id is not None:
+            self._active_run_ids.discard(run_id)
+            self._watch_run_ids.discard(run_id)
+        if self._active_run_id == run_id or run_id is None:
+            # Keep pointing at some still-active run when N > 1; None when idle.
+            remaining = sorted(self._active_run_ids)
+            self._active_run_id = remaining[-1] if remaining else None
+        self._run_slots.release()
 
     @staticmethod
     def _authorized_domains(run: Run, request: ScanRequest) -> list[str]:
@@ -766,7 +783,7 @@ class ScanOrchestratorService:
                 # degrades to 0 (nothing new to report), never fails the scan
                 # (inviolable rule 5).
                 new_findings = 0
-                if self._active_watch and self._delta_reporter is not None:
+                if run.id in self._watch_run_ids and self._delta_reporter is not None:
                     try:
                         delta = await self._delta_reporter.compute_delta(run.id)
                         new_findings = delta.new_findings

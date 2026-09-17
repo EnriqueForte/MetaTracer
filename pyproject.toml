@@ -10,11 +10,18 @@ readme = "README.md"
 requires-python = ">=3.11,<3.13"
 # Closed dependency list (TASK-00, subtask 0.1.3). Do not add packages without
 # explicit approval; any addition must update both this file and the task list.
+# TASK-23 additions (approved 2026-09-17, platform v3.0 Eje B):
+#   - asyncpg: PostgreSQL async driver (sqlite has a single writer; Eje B).
+#   - alembic: schema migrations for PostgreSQL (init_db runs them to head).
+#   - pgvector: SQLAlchemy/pgvector plumbing for the knowledge index (Eje B).
 dependencies = [
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
     "sqlmodel>=0.0.18",
     "aiosqlite>=0.20",
+    "asyncpg>=0.29.0",
+    "alembic>=1.13.0",
+    "pgvector>=0.3.0",
     "langgraph>=0.1.0",
     "langchain-core>=0.2.0",
     "langchain-openai>=1.0",
@@ -52,6 +59,10 @@ where = ["src"]
 [tool.setuptools.package-data]
 "metatracer.agents.prompts" = ["*.md"]
 "metatracer.api" = ["templates/*.html", "static/*"]
+# Packaged Alembic migrations (TASK-23): shipped so the runtime can run them
+# programmatically on PostgreSQL backends.
+"metatracer.db.migrations" = ["*.mako", "*.py"]
+"metatracer.db.migrations.versions" = ["*.py"]
 
 [tool.ruff]
 target-version = "py311"
@@ -65,6 +76,11 @@ known-first-party = ["tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "B", "I", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# Alembic autogenerates one long sa.Column(...) per column; hand-wrapping the
+# generated migration invites merge conflicts on future autogenerations.
+"src/metatracer/db/migrations/versions/*" = ["E501"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

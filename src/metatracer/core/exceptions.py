@@ -66,15 +66,26 @@ class AmbiguousRunError(MetaTracerError):
 
 
 class ScanAlreadyRunningError(MetaTracerError):
-    """A second scan was requested while another run holds the single-scan lock.
+    """The orchestrator is already at its concurrency limit.
 
-    SQLite has a single writer, so one process runs one scan at a time (tasks
-    README, known trap 6); the API maps this error to HTTP 409.
+    Default limit is 1 (the historical single-scan lock: SQLite has a single
+    writer, tasks README known trap 6). Since TASK-23 (Eje B) the limit is
+    ``METATRACER_MAX_CONCURRENT_RUNS`` and this error fires when every slot
+    is busy. The API maps it to HTTP 409 either way.
     """
 
-    def __init__(self, active_run_id: str | None) -> None:
-        self.active_run_id = active_run_id
-        super().__init__(
-            f"a scan is already running (run_id={active_run_id or 'unknown'}); "
-            "wait for it to finish before starting another"
-        )
+    def __init__(self, active_run_ids: list[str] | None) -> None:
+        self.active_run_ids: list[str] = list(active_run_ids or [])
+        # Backward-compatible single-id view (first active run, if any).
+        self.active_run_id: str | None = self.active_run_ids[0] if self.active_run_ids else None
+        if self.active_run_ids:
+            detail = ", ".join(self.active_run_ids)
+            super().__init__(
+                f"maximum concurrent scans reached (active run_id(s): {detail}); "
+                "wait for one to finish or raise METATRACER_MAX_CONCURRENT_RUNS"
+            )
+        else:
+            super().__init__(
+                "maximum concurrent scans reached; wait for one to finish "
+                "or raise METATRACER_MAX_CONCURRENT_RUNS"
+            )

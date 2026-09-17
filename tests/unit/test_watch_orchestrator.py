@@ -114,7 +114,7 @@ async def test_watch_terminal_event_carries_delta_count(session_factory) -> None
     )
     # The watch flag is set by scan(); finalize calls the notify path. We
     # simulate the same state the scan() path establishes.
-    orchestrator._active_watch = True
+    orchestrator._watch_run_ids.add(watch_run.id)
     await orchestrator._notify_run_finished(watch_run, RunStatus.completed, None)
 
     assert len(capture.calls) == 1
@@ -152,7 +152,7 @@ async def test_zero_delta_when_nothing_is_new(session_factory) -> None:
         webhooks=capture,
         delta_reporter=DeltaReporter(session_factory),
     )
-    orchestrator._active_watch = True
+    orchestrator._watch_run_ids.add(second.id)
     await orchestrator._notify_run_finished(second, RunStatus.completed, None)
 
     assert len(capture.calls) == 1

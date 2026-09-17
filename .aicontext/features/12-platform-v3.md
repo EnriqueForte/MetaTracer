@@ -2,7 +2,7 @@
 
 **Proyecto:** MetaTracer
 **PRD:** [volver al índice](../PRD.md)
-**Estado:** **Visión formalizada 2026-09-16; Eje A (watch/headless) implementado el mismo día ([TASK-22](../tasks/22-watch-headless.md))** — Ejes B y C aún no planificados.
+**Estado:** **Visión formalizada 2026-09-16; Eje A (watch/headless) implementado el mismo día ([TASK-22](../tasks/22-watch-headless.md)); Eje B (PostgreSQL + pgvector) implementado 2026-09-17 ([TASK-23](../tasks/23-postgres-pgvector.md))** — Eje C aún no planificado.
 
 ---
 
@@ -47,6 +47,8 @@ Rutas posibles de producto:
 ---
 
 ## 3. Eje B — PostgreSQL + pgvector
+
+> **Estado 2026-09-17:** implementado como [TASK-23](../tasks/23-postgres-pgvector.md). `postgresql+asyncpg` soportado en `create_db_engine` (driver exigido; URL pelada rechazada en el arranque), migraciones Alembic empaquetadas ejecutadas programáticamente en `init_db` (SQLite conserva su bootstrap legacy), `PgVectorKnowledgeIndex` con embeddings hashing-trick deterministas de 384 dims detrás de la misma interfaz `KnowledgeRetriever` (cero cambios en `AgentPipeline`; Postgres sin pgvector → no-op con warning), `METATRACER_MAX_CONCURRENT_RUNS` (default 1; >1 = semáforo) y compose profile `postgres`. Pendiente del Eje B: embeddings ONNX (`all-MiniLM-L6-v2`) — solo hay que sustituir `_embed`; la geometría 384 ya está reservada.
 
 El código ya declara "PostgreSQL-ready" (UUIDs `str`, timestamps `DateTime(timezone=True)`, sin tipos exclusivos de SQLite, `PRAGMA foreign_keys` aislado en `db/engine.py`). El salto es:
 
