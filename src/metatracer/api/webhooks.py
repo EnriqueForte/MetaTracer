@@ -38,7 +38,7 @@ import time
 from typing import Any
 from urllib.parse import urlsplit
 
-from fastapi import HTTPException, Request, Response, status
+from fastapi import Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
 
 from metatracer.core.exceptions import SecurityViolationError
@@ -149,7 +149,19 @@ def register_routes(app, session_factory=None) -> None:
     from ``request.app.state`` (no dependency-injection helper), exactly like
     the feedback/scopes routers. ``session_factory`` is kept for tests that
     wire an explicit factory instead of the app state.
+
+    TASK-24: these routes carry the same auth dependencies as every other
+    data router. Webhooks are the MOST sensitive surface (they can exfiltrate
+    third-party metadata to an arbitrary URL), so the wiring is unconditional
+    here too: auth disabled → no-op dependencies (v0.5.0 behavior); auth
+    enabled → 401 without a session, CSRF + operator role on mutations.
     """
+    # Late import: app.py imports webhooks (for the dispatcher), so a module-
+    # level import of metatracer.api.app from here would cycle.
+    from metatracer.api import auth as auth_api
+
+    auth_deps = [Depends(auth_api.get_current_user), Depends(auth_api.require_operator_action)]
+
     async def _list(request: Request) -> list[dict[str, Any]]:
         factory = session_factory or request.app.state.session_factory
         async with factory() as session:
@@ -229,19 +241,40 @@ def register_routes(app, session_factory=None) -> None:
             for d in rows
         ]
 
-    app.add_api_route("/api/webhooks", _list, methods=["GET"], name="list_webhooks")
-    app.add_api_route("/api/webhooks", _create, methods=["POST"], name="create_webhook")
     app.add_api_route(
-        "/api/webhooks/{webhook_id}", _update, methods=["PUT"], name="update_webhook"
+        "/api/webhooks",
+        _list,
+        methods=["GET"],
+        name="list_webhooks",
+        dependencies=auth_deps,
     )
     app.add_api_route(
-        "/api/webhooks/{webhook_id}", _delete, methods=["DELETE"], name="delete_webhook"
+        "/api/webhooks",
+        _create,
+        methods=["POST"],
+        name="create_webhook",
+        dependencies=auth_deps,
+    )
+    app.add_api_route(
+        "/api/webhooks/{webhook_id}",
+        _update,
+        methods=["PUT"],
+        name="update_webhook",
+        dependencies=auth_deps,
+    )
+    app.add_api_route(
+        "/api/webhooks/{webhook_id}",
+        _delete,
+        methods=["DELETE"],
+        name="delete_webhook",
+        dependencies=auth_deps,
     )
     app.add_api_route(
         "/api/webhooks/{webhook_id}/deliveries",
         _deliveries,
         methods=["GET"],
         name="list_webhook_deliveries",
+        dependencies=auth_deps,
     )
 
 

@@ -1,9 +1,9 @@
 # Backlog Técnico de Tareas a Bajo Nivel (Tasks)
 
 **Proyecto:** MetaTracer  
-**Versión:** 3.0 (Eje B: PostgreSQL + pgvector) — **cerrada 2026-09-17**  
+**Versión:** 3.0 (Eje C: Auth básica) — **implementación 2026-09-18**  
 **PRD:** [Volver al PRD](../PRD.md)  
-**Estado:** MVP v1.0–v1.2 cerradas — v2.0 completada (TASK-10/11/12 ✅) — v2.1 completada (TASK-13 feedback ✅, TASK-14 RAG ligero ✅) — v2.2 "Integraciones" completada 2026-09-13 (TASK-15 a TASK-19 ✅; `pytest` 475 passed + ruff limpio + cobertura ≥85%) — v2.3 "Performance & UI polish" cerrada 2026-09-16 (TASK-20 ✅; rate limit + body cap + accesibilidad; `pytest` 528 passed) — v2.4 "Multi-engagement & paginación" cerrada 2026-09-16 (TASK-21 ✅). **Plataforma v3.0 iniciada 2026-09-16**: [visión](../features/12-platform-v3.md); **TASK-22 (Eje A, watch/headless) cerrada 2026-09-16** — `metatracer watch` con `--once`/`--interval`/`--webhook`, lock por scope, `DeltaReporter` determinista (sin LLM) y `new_findings` en el payload de webhook. **TASK-23 (Eje B, PostgreSQL + pgvector) cerrada 2026-09-17** — `postgresql+asyncpg` soportado en `create_db_engine` (driver asyncpg exigido), migraciones Alembic empaquetadas y ejecutadas programáticamente en `init_db` (SQLite conserva el bootstrap legacy), `PgVectorKnowledgeIndex` (tabla derivada `knowledge_vectors`, `vector(384)`, HNSW best-effort, embeddings hashing-trick deterministas sin dependencias nuevas) detrás de la misma interfaz `KnowledgeRetriever` (cero cambios en `AgentPipeline`; Postgres sin pgvector → degradación a no-op con warning, nunca tumba el run), `METATRACER_MAX_CONCURRENT_RUNS` (default 1 = lock histórico; >1 = `asyncio.Semaphore`), compose profile `postgres` con `pgvector/pgvector:pg17`. Suite: **576 passed** + ruff limpio + cobertura **91.57%** (≥85%).  
+**Estado:** MVP v1.0–v1.2 cerradas — v2.0 completada (TASK-10/11/12 ✅) — v2.1 completada (TASK-13 feedback ✅, TASK-14 RAG ligero ✅) — v2.2 "Integraciones" completada 2026-09-13 (TASK-15 a TASK-19 ✅; `pytest` 475 passed + ruff limpio + cobertura ≥85%) — v2.3 "Performance & UI polish" cerrada 2026-09-16 (TASK-20 ✅; rate limit + body cap + accesibilidad; `pytest` 528 passed) — v2.4 "Multi-engagement & paginación" cerrada 2026-09-16 (TASK-21 ✅). **Plataforma v3.0 iniciada 2026-09-16**: [visión](../features/12-platform-v3.md); **TASK-22 (Eje A, watch/headless) cerrada 2026-09-16** — `metatracer watch` con `--once`/`--interval`/`--webhook`, lock por scope, `DeltaReporter` determinista (sin LLM) y `new_findings` en el payload de webhook. **TASK-23 (Eje B, PostgreSQL + pgvector) cerrada 2026-09-17** — `postgresql+asyncpg` soportado en `create_db_engine` (driver asyncpg exigido), migraciones Alembic empaquetadas y ejecutadas programáticamente en `init_db` (SQLite conserva el bootstrap legacy), `PgVectorKnowledgeIndex` (tabla derivada `knowledge_vectors`, `vector(384)`, HNSW best-effort, embeddings hashing-trick deterministas sin dependencias nuevas) detrás de la misma interfaz `KnowledgeRetriever` (cero cambios en `AgentPipeline`; Postgres sin pgvector → degradación a no-op con warning, nunca tumba el run), `METATRACER_MAX_CONCURRENT_RUNS` (default 1 = lock histórico; >1 = `asyncio.Semaphore`), compose profile `postgres` con `pgvector/pgvector:pg17`. **TASK-24 (Eje C, auth básica) 2026-09-18** — sesión por cookie `HttpOnly` + CSRF double-submit, roles `operator`/`viewer`, hash de contraseñas **stdlib** (`pbkdf2_hmac` SHA-256 600k iteraciones, formato versionado `pbkdf2_sha256$…`; cero dependencias nuevas), token de sesión guardado como SHA-256 (leak de BD no da cookies válidas), rotación en login, kill-switch `METATRACER_AUTH_ENABLED` (default `false` = comportamiento v0.5.0 intacto), CLI sin login (postura documentada). Suite: **598 passed** + ruff limpio + cobertura **87.2%** (≥85%).  
 
 Este directorio descompone el MVP en tareas implementables. Cada archivo es un contrato: objetivo, subtareas, contratos de datos, fuera de alcance, tests mínimos y criterios de aceptación verificables.
 
@@ -35,6 +35,7 @@ Valores **en minúsculas** en base de datos, JSON, API y Pydantic. La capa de pr
 | `run.status` | `pending` \| `running` \| `completed` \| `failed` \| `aborted` |
 | `extraction_status` | `ok` \| `skipped` \| `failed` |
 | `namespace` | `exif` \| `xmp` \| `pdfinfo` \| `iptc` \| `http` \| `html` \| `js` |
+| `user.role` (TASK-24) | `operator` \| `viewer` |
 | Idioma de **reportes exportados** | Inglés (plataformas de bug bounty) |
 | Idioma de **documentación** (esta carpeta) | Español |
 | Idioma de **UI/CLI** | Inglés (audiencia internacional / portfolio) |
@@ -85,6 +86,7 @@ Aplican a **todas** las tasks. Un PR que las viole no está done.
 | **TASK-21** | [21-multi-engagement.md](21-multi-engagement.md) | Multi-engagement: unión de varios scopes guardados por run (`scope_ids`) + paginación por cursor del historial (v2.4) — **cerrada 2026-09-16** | TASK-00 a TASK-20 |
 | **TASK-22** | [22-watch-headless.md](22-watch-headless.md) | Watch/headless: `metatracer watch` con `--once`/`--interval`/`--webhook`, lock por scope, delta determinista sin LLM y `new_findings` en webhook (v3.0, Eje A) — **cerrada 2026-09-16** | TASK-00 a TASK-21 |
 | **TASK-23** | [23-postgres-pgvector.md](23-postgres-pgvector.md) | Eje B: PostgreSQL + asyncpg + Alembic + índice pgvector + `METATRACER_MAX_CONCURRENT_RUNS` (v3.0) — **cerrada 2026-09-17** | TASK-00 a TASK-22 |
+| **TASK-24** | [24-auth-basic.md](24-auth-basic.md) | Eje C: auth básica 1 usuario — cookie `HttpOnly` + CSRF, roles `operator`/`viewer`, PBKDF2 stdlib, kill-switch `METATRACER_AUTH_ENABLED` (v3.0) | TASK-00 a TASK-23 |
 
 `TASK-04` **no** depende de `TASK-05`: el motor de reportes debe funcionar con clasificaciones heurísticas (campos de explicación vacíos o plantilla). `TASK-05` rellena justificación, impacto, remediación y repro. `TASK-06` orquesta el pipeline completo.
 
@@ -150,6 +152,7 @@ Alineado con [Timeline y roadmap](../features/10-timeline-and-roadmap.md).
 | 19 | v2.4 | `TASK-21` | Multi-engagement: unión de scopes por run + paginación por cursor del historial — **cerrada 2026-09-16** |
 | 20 | v3.0 | `TASK-22` | Watch/headless (Eje A): `metatracer watch` con deltas deterministas y `new_findings` en webhook — **cerrada 2026-09-16** |
 | 21 | v3.0 | `TASK-23` | Eje B: PostgreSQL + asyncpg + Alembic + pgvector + concurrencia acotada — **cerrada 2026-09-17** |
+| 22 | v3.0 | `TASK-24` | Eje C: auth básica 1 usuario (cookie + CSRF + roles) — **2026-09-18** |
 
 Si hay que recortar, proteger los [criterios de éxito](../features/09-success-criteria.md) antes que pulido de UI.
 

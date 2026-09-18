@@ -65,6 +65,8 @@ Esfuerzo estimado: alto (Alembic + asyncpg + recodificar retriever), pero **cada
 
 ## 4. Eje C — Auth y multi-usuario
 
+> **Estado 2026-09-18:** implementado como [TASK-24](../tasks/24-auth-basic.md). Cookie `HttpOnly` `SameSite=Lax` + CSRF double-submit (`X-CSRF-Token` vs cookie, `compare_digest`), roles `operator`/`viewer`, un usuario por instalación. Hash de contraseñas **stdlib** (`pbkdf2_hmac` SHA-256 600k, formato versionado `pbkdf2_sha256$…`) — cero dependencias nuevas (revisión supply-chain 2026-09-18: descarta bcrypt/argon2-cffi/passlib). Token de sesión persistido como SHA-256 (leak de BD ≠ cookies válidas), rotación en login, expiración validada en BD, provisionado fail-closed desde `METATRACER_AUTH_PASSWORD`. Kill-switch `METATRACER_AUTH_ENABLED` default `false` (v0.5.0 intacto); CLI sin login (postura documentada).
+
 Precondición: una plataforma en red **no puede** seguir con "no authentication; bind to trusted network".
 
 - **Modelo inicial (v3.0, no sobre-diseñar)**:

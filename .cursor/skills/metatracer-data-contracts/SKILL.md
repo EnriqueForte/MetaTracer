@@ -22,7 +22,9 @@ Enums en **minúsculas** en DB, JSON, API y Pydantic. La presentación (CLI/UI/M
 | `extraction_status` | `ok` \| `skipped` \| `failed` |
 | `skip_reason` | `unsupported_type` \| `too_large` \| `out_of_scope` \| `duplicate_hash` \| `empty_body` |
 | `namespace` | `exif` \| `xmp` \| `pdfinfo` \| `iptc` \| `http` \| `html` \| `js` |
+| `namespace` | `exif` \| `xmp` \| `pdfinfo` \| `iptc` \| `http` \| `html` \| `js` |
 | `feedback.vote` | `up` \| `down` (TASK-13, v2.1+) |
+| `user.role` | `operator` \| `viewer` (TASK-24, v3.0 Eje C) |
 
 ## Modelos (SQLModel)
 
@@ -32,6 +34,7 @@ Enums en **minúsculas** en DB, JSON, API y Pydantic. La presentación (CLI/UI/M
 - **`Finding`**: `severity` **Optional, NULL hasta clasificar**; `severity_justification`, `impact_analysis`, `remediation_advice`, `reproduction_steps`, `title` y `agent_model_used` todos Optional. `title` solo lo escribe una evaluación de agente real (no el fallback); el reporte cae a la plantilla por tipo si es NULL.
 - **`AgentLog`**: tokens, `model_name`, `latency_ms`, `raw_response` (salida estructurada; no guardar el prompt completo si contiene secretos).
 - **`FindingFeedback`** (TASK-13, v2.1+): `vote` (`up`/`down`), `severity_before`/`severity_after` (la After **distinta** y en la dirección del vote), `reason` Optional Text truncado a ~150 chars (**nunca** viaja al LLM), `created_at`. Un `finding_id` admite **un solo** feedback activo (upsert); no se exporta a reportes ni al dashboard.
+- **`User` / `UserSession`** (TASK-24, v3.0 Eje C): una fila `user` por instalación (multi-tenant deferido a v3.1); `password_hash` es el formato versionado `pbkdf2_sha256$<iteraciones>$<salt_b64>$<hash_b64>` (stdlib, cero dependencias). `user_session.token_hash` guarda el **SHA-256 hex** del token — nunca el token; `expires_at` aware UTC se valida en el servidor. `password_hash` y `token_hash` no salen nunca en respuestas API.
 
 Convenciones: UUIDs como `str` (UUID4); timestamps timezone-aware UTC; `PRAGMA foreign_keys=ON`; sin tipos exclusivos de SQLite (migración a PostgreSQL en el horizonte).
 

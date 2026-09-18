@@ -16,8 +16,8 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi import Depends, FastAPI, Request
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException
@@ -25,6 +25,7 @@ from starlette.exceptions import HTTPException
 from metatracer import __version__
 from metatracer.agents.knowledge import KnowledgeRetriever
 from metatracer.agents.pipeline import AgentPipeline
+from metatracer.api import auth as auth_api
 from metatracer.api import feedback, knowledge, notifications, pages, runs, scopes, stats
 from metatracer.api.webhooks import WebhookDispatcher
 from metatracer.api.webhooks import register_routes as register_webhook_routes
@@ -58,6 +59,11 @@ _RATE_LIMIT_EXEMPT_PREFIXES: tuple[str, ...] = (
     "/api/health",
     "/static/",
 )
+
+# TASK-24: paths reachable without a session when auth is enabled. /login is
+# the login page itself; /api/auth/* is the pre-auth surface (login posts
+# credentials, me/logout self-diagnose); /api/health stays stateless.
+_PAGE_AUTH_EXEMPT: frozenset[str] = frozenset({"/login", "/api/health"})
 
 
 def _is_rate_limit_exempt(path: str) -> bool:
@@ -129,6 +135,9 @@ def create_app(
         # (see _is_rate_limit_exempt).
         app.state.rate_limiter = ApiRateLimiter(settings.api_rate_limit_per_minute)
         app.state.max_request_body_bytes = settings.max_request_body_bytes
+        # TASK-24 (v3.0, Eje C): provision the initial operator BEFORE any
+        # request can hit an endpoint (fail-closed on missing/short password).
+        await auth_api.ensure_default_user(app.state.session_factory, settings)
         yield
         await app.state.webhook_dispatcher.shutdown()
         await app.state.orchestrator.shutdown()
@@ -139,7 +148,8 @@ def create_app(
         version=__version__,
         description=(
             "Sensitive metadata discovery for authorized security audits. "
-            "No authentication in v1.0: bind to localhost / trusted networks only."
+            "Authentication is optional (METATRACER_AUTH_ENABLED): when off, "
+            "bind to localhost / trusted networks only."
         ),
         lifespan=lifespan,
     )
@@ -162,6 +172,24 @@ def create_app(
                 length = request.headers.get("content-length")
                 if length is not None and length.isdigit():
                     enforce_body_limit(int(length), max_body)
+            # TASK-24 (v3.0, Eje C): HTML pages are browser surfaces, not API
+            # consumers — an unauthenticated page hit redirects to /login
+            # instead of answering 401 JSON. Auth-disabled deployments skip
+            # this entirely. /login itself is the login page and stays open.
+            path = request.url.path
+            settings: Settings | None = getattr(request.app.state, "settings", None)
+            if (
+                settings is not None
+                and settings.auth_enabled
+                and path not in _PAGE_AUTH_EXEMPT
+                and not path.startswith("/static/")
+                and not path.startswith("/api/")
+                and request.method in ("GET", "HEAD")
+            ):
+                try:
+                    await auth_api._resolve_session(request)
+                except auth_api._InvalidSession:
+                    return RedirectResponse("/login", status_code=307)
             return await call_next(request)
         except HTTPException as exc:
             # Middleware-raised HTTPExceptions do not flow through FastAPI's
@@ -181,12 +209,23 @@ def create_app(
         """
         return {"status": "ok"}
 
-    app.include_router(runs.router)
-    app.include_router(scopes.router)
-    app.include_router(stats.router)
-    app.include_router(notifications.router)
-    app.include_router(feedback.router)
-    app.include_router(knowledge.router)
-    app.include_router(pages.router)
+    # TASK-24 (v3.0, Eje C): every data router takes the auth dependencies
+    # UNCONDITIONALLY. When auth is disabled (default) they no-op and the
+    # behavior is exactly v0.5.0; when enabled, reads require a session
+    # (401), and mutations additionally require CSRF + the operator role
+    # (403). get_current_user is resolved once per request (FastAPI caches
+    # dependency results), so require_operator_action reusing it as a
+    # sub-dependency costs nothing extra. See metatracer.api.auth.
+    data_deps = [Depends(auth_api.get_current_user)]
+    action_deps = [Depends(auth_api.require_operator_action)]
+
+    app.include_router(runs.router, dependencies=data_deps + action_deps)
+    app.include_router(scopes.router, dependencies=data_deps + action_deps)
+    app.include_router(stats.router, dependencies=data_deps)
+    app.include_router(notifications.router, dependencies=data_deps + action_deps)
+    app.include_router(feedback.router, dependencies=data_deps + action_deps)
+    app.include_router(knowledge.router, dependencies=data_deps + action_deps)
+    app.include_router(auth_api.router)  # login/logout/me are pre-auth by design
+    app.include_router(pages.router)  # pages gate themselves (redirect to /login)
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
     return app

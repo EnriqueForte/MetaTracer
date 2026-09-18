@@ -13,6 +13,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% if csrf_token %}<meta name="csrf-token" content="{{ csrf_token }}">{% endif %}
   <title>{% block title %}MetaTracer{% endblock %}</title>
   <script src="https://cdn.tailwindcss.com/3.4.16"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
@@ -83,6 +84,12 @@
           Authorized use only — audit exclusively targets you own or are explicitly
           authorized to test.
         </p>
+        {% if auth_enabled %}
+        <button type="button" @click="logout()"
+                class="text-xs text-slate-400 hover:text-slate-200 border border-slate-700 rounded-md px-2 py-1">
+          Sign out
+        </button>
+        {% endif %}
       </div>
     </div>
   </header>
@@ -101,6 +108,29 @@
   // component below and in the page templates delegates here instead of
   // duplicating the logic. English only (UI/CLI language contract).
   window.MetaTracerUI = {
+    // CSRF token for unsafe fetches (double-submit): read once from the
+    // <meta> tag the login flow rendered. Empty when auth is disabled —
+    // in that case no endpoint checks the header either.
+    csrfToken() {
+      const meta = document.querySelector('meta[name="csrf-token"]');
+      return meta ? meta.getAttribute('content') || '' : '';
+    },
+    // Auth-aware fetch wrapper: mutating calls go through here so the CSRF
+    // header is always attached, and an expired session (401) lands on the
+    // login page instead of surfacing a cryptic API error.
+    async authFetch(url, options) {
+      const opts = options || {};
+      const method = (opts.method || 'GET').toUpperCase();
+      if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+        opts.headers = Object.assign({}, opts.headers, { 'X-CSRF-Token': this.csrfToken() });
+      }
+      const response = await fetch(url, opts);
+      if (response.status === 401) {
+        window.location.href = '/login';
+        throw new Error('unauthenticated');
+      }
+      return response;
+    },
     async readError(response, fallback) {
       try {
         const payload = await response.json();
@@ -128,7 +158,7 @@
 
       async load() {
         try {
-          const response = await fetch('/api/notifications');
+          const response = await window.MetaTracerUI.authFetch('/api/notifications');
           if (!response.ok) { this.loadError = true; this.errorMessage = await this.readError(response); return; }
           const payload = await response.json();
           this.entries = payload.notifications || [];
@@ -148,7 +178,7 @@
 
       async remove(id) {
         try {
-          const response = await fetch('/api/notifications/' + id, { method: 'DELETE' });
+          const response = await window.MetaTracerUI.authFetch('/api/notifications/' + id, { method: 'DELETE' });
           if (response.ok || response.status === 404) {
             await this.load();
           }
@@ -162,6 +192,11 @@
 
       truncate(text, limit) {
         return window.MetaTracerUI.truncate(text, limit);
+      },
+
+      async logout() {
+        try { await window.MetaTracerUI.authFetch('/api/auth/logout', { method: 'POST' }); } catch (err) { /* session is cleared server-side anyway */ }
+        window.location.href = '/login';
       },
     }));
   });
