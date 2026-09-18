@@ -366,3 +366,56 @@ class WebhookDelivery(SQLModel, table=True):
 # key set (PAYLOAD_KEYS in metatracer.api.webhooks), which is safer and simpler
 # than operator-editable templates: the payload can never carry unexpected raw
 # metadata. A future slice could add a template table if a use case requires it.
+
+
+class UserRole(StrEnum):
+    """Role of the single installation user (TASK-24, v3.0 Eje C).
+
+    ``operator`` can do everything (create scopes, launch scans, feedback,
+    webhooks). ``viewer`` is read-only (dashboards, reports, exports). Values
+    are the lowercase wire strings, like every other closed enum.
+    """
+
+    operator = "operator"
+    viewer = "viewer"
+
+
+class User(SQLModel, table=True):
+    """The single installation user (TASK-24, v3.0 Eje C).
+
+    v3.0 keeps one user per installation (multi-tenant is deferred to v3.1):
+    the table exists, the app only provisions one operator row (created on
+    first boot from ``METATRACER_AUTH_PASSWORD``).
+
+    Password hashing is stdlib-only (supply-chain review 2026-09-18): PBKDF2-
+    HMAC-SHA256 with 600k iterations, stored self-describing and versioned as
+    ``pbkdf2_sha256$<iterations>$<salt_b64>$<hash_b64>`` so a future
+    rehash-on-login can raise the cost without a schema migration.
+    ``password_hash`` never leaves the database (no API response exposes it).
+    """
+
+    __tablename__ = "user"
+
+    id: str = Field(default_factory=_new_uuid, primary_key=True)
+    username: str = Field(unique=True, index=True)
+    password_hash: str = Field(sa_type=Text)
+    role: UserRole = UserRole.operator
+    created_at: datetime = Field(default_factory=_utc_now, sa_type=DateTime(timezone=True))
+
+
+class UserSession(SQLModel, table=True):
+    """One server-side session (TASK-24): a random token, hashed at rest.
+
+    Only the SHA-256 of the session token is stored, so a database leak never
+    yields a usable cookie. Sessions expire (``expires_at`` checked in
+    ``get_current_user``, not only in the cookie) and are rotated on every
+    login — the fresh login invalidates the previous session (anti-fixation).
+    """
+
+    __tablename__ = "user_session"
+
+    id: str = Field(default_factory=_new_uuid, primary_key=True)
+    user_id: str = Field(foreign_key="user.id", index=True)  # ON DELETE CASCADE (migration)
+    token_hash: str = Field(unique=True, index=True)  # sha256 hex of the token
+    expires_at: datetime = Field(sa_type=DateTime(timezone=True))
+    created_at: datetime = Field(default_factory=_utc_now, sa_type=DateTime(timezone=True))

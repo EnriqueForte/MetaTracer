@@ -64,6 +64,7 @@ Al cerrar esta task el repo debe ser instalable (`pip install -e .`) y el safety
   - Runtime: `pydantic>=2.7`, `pydantic-settings>=2.3`, `sqlmodel>=0.0.18`, `aiosqlite>=0.20`, `langgraph>=0.1.0`, `langchain-core>=0.2.0`, `langchain-openai>=1.0`, `httpx>=0.27.0`, `pillow>=10.3.0`, `pypdf>=4.2.0`, `piexif>=1.1.3`, `typer>=0.12.0`, `rich>=13.7.0`, `fastapi>=0.111.0`, `uvicorn>=0.30.0`, `jinja2>=3.1`, `beautifulsoup4>=4.12`, `tenacity>=8.3`, `python-dotenv>=1.0`.
   - Adición aprobada (TASK-05): `langchain-openai>=1.0` — cliente `ChatOpenAI` para la API compatible con OpenAI (Kimi/Moonshot vía `LLM_BASE_URL`); la clase no vive en `langchain-core`. Aprobada explícitamente al ejecutar TASK-05.
   - Adiciones aprobadas (TASK-23, 2026-09-17): `asyncpg>=0.29.0` — driver async de PostgreSQL (Eje B, único driver soportado, se exige en `create_db_engine`); `alembic>=1.13.0` — migraciones de esquema empaquetadas y ejecutadas programáticamente en `init_db` para el backend Postgres; `pgvector>=0.3.0` — plumbing pgvector para el índice vectorial del conocimiento (`PgVectorKnowledgeIndex`).
+  - Adición **NO** (TASK-24, 2026-09-18): el hash de contraseñas del Eje C se resuelve con la **stdlib** (`hashlib.pbkdf2_hmac` SHA-256, 600k iteraciones + `hmac.compare_digest`) — descartadas `bcrypt`/`argon2-cffi`/`passlib` (código nativo o wrapper en mantenimiento) para no ampliar el perímetro de la lista cerrada; la sesión (token `secrets` + CSRF double-submit) tampoco requiere nada nuevo. Revisión de cadena de suministro de 2026-09-18.
   - Dev: `pytest>=8.0.0`, `pytest-asyncio>=0.23.0`, `pytest-cov>=5.0`, `ruff>=0.4.0`, `reportlab>=4.2` (fixtures de PDF en TASK-07; se puede declarar ya en dev).
   - Entry point: `[project.scripts] metatracer = "metatracer.cli.main:app"` (el módulo CLI puede ser un stub que imprima “not implemented” hasta TASK-06).
 - **0.1.4. Ruff:** reglas `E`, `F`, `B`, `I`, `UP`. Line length 100.
@@ -77,7 +78,7 @@ Docker **no** se implementa aquí (TASK-07). Sí dejar `data/` y `reports/` list
 ### Subtarea 0.2: Modelado de Datos y Persistencia
 
 - **0.2.1. Modelos (SQLModel).** UUIDs como `str` (UUID4) salvo `RawMetadataItem.id` autoincrement. Timestamps timezone-aware UTC.
-  - **Modelos posteriores añadidos fuera de TASK-00** (especificados en sus propias tasks): `Scope` (TASK-10), `FindingFeedback` + enum `FeedbackVote` + helper `severity_rank` (TASK-13), `WebhookConfig` + `WebhookDelivery` + enum `WebhookDeliveryStatus` (TASK-15). El campo `Run.run_ref` (TASK-15) tampoco está en la tabla de abajo.
+  - **Modelos posteriores añadidos fuera de TASK-00** (especificados en sus propias tasks): `Scope` (TASK-10), `FindingFeedback` + enum `FeedbackVote` + helper `severity_rank` (TASK-13), `WebhookConfig` + `WebhookDelivery` + enum `WebhookDeliveryStatus` (TASK-15), `User` + `UserSession` + enum `UserRole` (TASK-24: tabla `user` de una fila por instalación, `password_hash` PBKDF2 versionado, sesiones con SHA-256 del token). El campo `Run.run_ref` (TASK-15) tampoco está en la tabla de abajo.
 
   **`Run`**
   - `id` PK

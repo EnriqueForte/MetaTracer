@@ -56,6 +56,21 @@ class Settings(BaseSettings):
     # per-domain rate limit remain the real bottleneck resources; see
     # 12-platform-v3 section 3.4).
     max_concurrent_runs: int = 1
+    # --- Platform v3.0, Eje C (TASK-24) -------------------------------------
+    # Authentication kill-switch. False (default) keeps the v0.5.0 behavior:
+    # no login, protected by the bind address (localhost). True requires a
+    # session cookie for every data endpoint and METATRACER_AUTH_PASSWORD to
+    # provision the initial operator on first boot. Flipping the default to
+    # true is a future release decision (see 24-auth-basic.md).
+    auth_enabled: bool = False
+    # Initial operator password, consumed ONCE on first boot (provisioned
+    # into the user table as a PBKDF2 hash; never logged, never echoed).
+    # Also accepted as the password for an EXISTING user at login time? No:
+    # login always verifies against the stored hash; this variable only
+    # provisions the first user.
+    auth_password: SecretStr = SecretStr("")
+    # Session lifetime in seconds (default 12h). Rotated on every login.
+    session_ttl_seconds: int = 12 * 3600
 
     @property
     def api_rate_limit_enabled(self) -> bool:

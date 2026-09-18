@@ -19,8 +19,9 @@ webhooks, portable KB, bounty exports, CI guardrail, scope import) → **v2.3**
 performance & UI polish (API rate limiting, request body cap, accessibility, shared UI
 helpers, consistent states) → **v2.4** multi-engagement (union of saved scopes per run,
 keyset-paginated run history). In progress: **v3.0** platform (headless watch with
-deterministic deltas — `metatracer watch`; PostgreSQL+pgvector and basic auth are the
-next Ejes). Full suite green, `ruff` clean, coverage ≥85%.
+deterministic deltas — `metatracer watch`; PostgreSQL+pgvector; basic auth with
+session cookies, CSRF and operator/viewer roles — `METATRACER_AUTH_ENABLED`). Full
+suite green, `ruff` clean, coverage ≥85%.
 
 See `.aicontext/tasks/`. Architecture tour (Spanish): `.aicontext/walkthrough.md`.
 
@@ -43,9 +44,11 @@ interprets.
 6. **Report** — Markdown, JSON and HTML in English, ordered Critical → Info.
 
 SQLite (default, single writer) or PostgreSQL + pgvector (`METATRACER_DATABASE_URL=postgresql+asyncpg://...`,
-Alembic-managed schema, optional parallel scans via `METATRACER_MAX_CONCURRENT_RUNS`). Roadmap:
-**v3.0** platform vision — watch/headless mode (done), PostgreSQL+pgvector (done), basic auth
-(`.aicontext/features/12-platform-v3.md`).
+Alembic-managed schema, optional parallel scans via `METATRACER_MAX_CONCURRENT_RUNS`). Optional
+authentication for the Web UI/API: `METATRACER_AUTH_ENABLED=true` + `METATRACER_AUTH_PASSWORD`
+(one operator provisioned on first boot; session cookie HttpOnly + CSRF; viewer role read-only;
+the localhost CLI needs no login). Roadmap: **v3.0** platform vision — watch/headless mode
+(done), PostgreSQL+pgvector (done), basic auth (done) (`.aicontext/features/12-platform-v3.md`).
 
 ## Requirements
 

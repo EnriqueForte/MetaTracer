@@ -576,7 +576,7 @@ document.addEventListener('alpine:init', () => {
       this.feedbackBusy = true;
       this.feedbackError = '';
       try {
-        const response = await fetch(
+        const response = await window.MetaTracerUI.authFetch(
           '/api/feedback/' + encodeURIComponent(this.selected.id),
           {
             method: 'PUT',
@@ -606,7 +606,7 @@ document.addEventListener('alpine:init', () => {
       this.feedbackBusy = true;
       this.feedbackError = '';
       try {
-        const response = await fetch(
+        const response = await window.MetaTracerUI.authFetch(
           '/api/feedback/' + encodeURIComponent(this.selected.id),
           { method: 'DELETE' },
         );

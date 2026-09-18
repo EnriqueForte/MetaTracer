@@ -13,6 +13,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% if csrf_token %}<meta name="csrf-token" content="{{ csrf_token }}">{% endif %}
   <title>{% block title %}MetaTracer{% endblock %}</title>
   <script src="https://cdn.tailwindcss.com/3.4.16"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
@@ -83,6 +84,18 @@
           Authorized use only — audit exclusively targets you own or are explicitly
           authorized to test.
         </p>
+        {% if auth_enabled and csrf_token %}
+        {# csrf_token is only in the page context when a session resolved
+           (middleware passed) — without it this chrome is about to bounce to
+           /login anyway, so no Sign out button. #}
+        {# Native onclick, NOT Alpine @click: this button sits outside the
+           notifications_bell x-data scope, so Alpine never evaluates a
+           directive here (seen live: the click did nothing). #}
+        <button type="button" onclick="window.MetaTracerUI.logout()"
+                class="text-xs text-slate-400 hover:text-slate-200 border border-slate-700 rounded-md px-2 py-1">
+          Sign out
+        </button>
+        {% endif %}
       </div>
     </div>
   </header>
@@ -101,6 +114,43 @@
   // component below and in the page templates delegates here instead of
   // duplicating the logic. English only (UI/CLI language contract).
   window.MetaTracerUI = {
+    // CSRF token for unsafe fetches (double-submit): read once from the
+    // <meta> tag the login flow rendered. Empty when auth is disabled —
+    // in that case no endpoint checks the header either.
+    csrfToken() {
+      const meta = document.querySelector('meta[name="csrf-token"]');
+      return meta ? meta.getAttribute('content') || '' : '';
+    },
+    // Auth-aware fetch wrapper: mutating calls go through here so the CSRF
+    // header is always attached, and an expired session (401) lands on the
+    // login page instead of surfacing a cryptic API error. The redirect is
+    // skipped while already on /login (that page renders the notifications
+    // bell too; redirecting from its own load() would create an infinite
+    // 401 -> /login -> load() -> 401 loop — seen live in the browser).
+    async authFetch(url, options) {
+      const opts = options || {};
+      const method = (opts.method || 'GET').toUpperCase();
+      if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+        opts.headers = Object.assign({}, opts.headers, { 'X-CSRF-Token': this.csrfToken() });
+      }
+      const response = await fetch(url, opts);
+      if (response.status === 401 && !window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login';
+        throw new Error('unauthenticated');
+      }
+      return response;
+    },
+    // Sign out (TASK-24). Plain window method, NOT an Alpine component
+    // method: the header button lives outside the bell's x-data scope, so
+    // an Alpine handler there never fires (seen live: button did nothing).
+    async logout() {
+      try {
+        await window.MetaTracerUI.authFetch('/api/auth/logout', { method: 'POST' });
+      } catch (err) {
+        // The session is cleared server-side anyway; fall through to /login.
+      }
+      window.location.href = '/login';
+    },
     async readError(response, fallback) {
       try {
         const payload = await response.json();
@@ -128,7 +178,7 @@
 
       async load() {
         try {
-          const response = await fetch('/api/notifications');
+          const response = await window.MetaTracerUI.authFetch('/api/notifications');
           if (!response.ok) { this.loadError = true; this.errorMessage = await this.readError(response); return; }
           const payload = await response.json();
           this.entries = payload.notifications || [];
@@ -148,7 +198,7 @@
 
       async remove(id) {
         try {
-          const response = await fetch('/api/notifications/' + id, { method: 'DELETE' });
+          const response = await window.MetaTracerUI.authFetch('/api/notifications/' + id, { method: 'DELETE' });
           if (response.ok || response.status === 404) {
             await this.load();
           }

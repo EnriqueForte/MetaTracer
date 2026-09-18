@@ -173,7 +173,7 @@ document.addEventListener('alpine:init', () => {
       this.importBusy = true;
       try {
         const text = await file.text();
-        const response = await fetch('/api/scopes/import', {
+          const response = await window.MetaTracerUI.authFetch('/api/scopes/import', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: text,
@@ -212,7 +212,7 @@ document.addEventListener('alpine:init', () => {
         domains,
       };
       try {
-        const response = await fetch(url, {
+        const response = await window.MetaTracerUI.authFetch(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
@@ -258,7 +258,7 @@ document.addEventListener('alpine:init', () => {
         return;
       }
       try {
-        const response = await fetch('/api/scopes/' + encodeURIComponent(scope.id), { method: 'DELETE' });
+        const response = await window.MetaTracerUI.authFetch('/api/scopes/' + encodeURIComponent(scope.id), { method: 'DELETE' });
         if (response.ok || response.status === 204) {
           await this.load();
         }
