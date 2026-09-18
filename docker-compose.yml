@@ -6,7 +6,7 @@
 services:
   web:
     build: .
-    image: metatracer:0.5.0
+    image: metatracer:0.5.1
     command: ["web"]
     ports:
       - "8000:8000"
@@ -17,6 +17,12 @@ services:
       METATRACER_LLM_MODEL: "${METATRACER_LLM_MODEL:-}"
       METATRACER_FAST_MODEL: "${METATRACER_FAST_MODEL:-}"
       METATRACER_LOG_LEVEL: "${METATRACER_LOG_LEVEL:-INFO}"
+      # TASK-24 (Eje C): auth config. OFF by default (bind-address posture);
+      # set METATRACER_AUTH_ENABLED=true + METATRACER_AUTH_PASSWORD in the
+      # host env or .env to require login on the Web UI/API.
+      METATRACER_AUTH_ENABLED: "${METATRACER_AUTH_ENABLED:-false}"
+      METATRACER_AUTH_PASSWORD: "${METATRACER_AUTH_PASSWORD:-}"
+      METATRACER_SESSION_TTL_SECONDS: "${METATRACER_SESSION_TTL_SECONDS:-43200}"
     volumes:
       - ./data:/app/data
       - ./reports:/app/reports

@@ -1,8 +1,28 @@
 # TASK-24 — Plataforma v3.0, Eje C: Auth básica (1 usuario)
 
 **Fuente:** [12-platform-v3.md](../features/12-platform-v3.md) (sección 4)
-**Estado:** **implementada y cerrada 2026-09-18** (v0.5.1; security review PASS).
+**Estado:** **implementada, cerrada y validada en navegador 2026-09-18** (v0.5.1; security review PASS).
 **Dependencias:** TASK-00 a TASK-23.
+
+## Validación en navegador (2026-09-18, stack Docker con auth ON)
+
+Verificado end-to-end contra la imagen `metatracer:0.5.1`: redirect de páginas
+protegidas a `/login`, error con credenciales incorrectas, login correcto con
+acceso completo, y **Sign out** funcional (cierra sesión server-side y redirige
+a `/login`; navegar a `/` tras logout rebotará al login).
+
+Fixes aplicados durante la validación (incluidos en el commit de cierre):
+
+- `base.html`: `logout()` movido de la función Alpine `notifications_bell` a
+  `window.MetaTracerUI`, y el botón usa `onclick` nativo. El botón vive fuera
+  del scope `x-data` de la campana, así que Alpine nunca evaluaba su
+  `@click` (el click no hacía nada — visto en vivo).
+- `base.html`: botón Sign out condicionado a `auth_enabled and csrf_token`
+  (solo se muestra con sesión activa).
+- `base.html`: `authFetch` no redirige a `/login` cuando ya se está en
+  `/login` (evita el bucle 401 → bell → 401 observado en vivo).
+- `login.html`: página standalone (no extiende `base.html`) para que la
+  campana de notificaciones no haga polling anónimo en el login.
 
 ## Resultado (2026-09-18)
 
