@@ -6,7 +6,7 @@
 services:
   web:
     build: .
-    image: metatracer:0.4.0
+    image: metatracer:0.5.0
     command: ["web"]
     ports:
       - "8000:8000"
@@ -21,3 +21,35 @@ services:
       - ./data:/app/data
       - ./reports:/app/reports
     restart: unless-stopped
+
+  # Optional PostgreSQL + pgvector backend (TASK-23, Eje B):
+  #   docker compose --profile postgres up
+  # The app service (profile "default") stays on SQLite; to point MetaTracer
+  # at Postgres set METATRACER_DATABASE_URL to the db service URL below, e.g.:
+  #   docker compose --profile postgres up \
+  #     -e METATRACER_DATABASE_URL=postgresql+asyncpg://metatracer:metatracer@db:5432/metatracer
+  # (or export it before running compose). The port is bound to the host's
+  # loopback ONLY (the corpus is sensitive: GPS, emails, internal paths); the
+  # app reaches the db over the compose internal network, not the host port.
+  # The password is a LOCAL default interpolated from the environment — set
+  # POSTGRES_PASSWORD in any deployment that is not a disposable dev box.
+  db:
+    image: pgvector/pgvector:pg17
+    profiles: ["postgres"]
+    environment:
+      POSTGRES_USER: metatracer
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-metatracer}"
+      POSTGRES_DB: metatracer
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U metatracer -d metatracer"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  pgdata:

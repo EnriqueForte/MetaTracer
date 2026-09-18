@@ -1,5 +1,10 @@
 """KnowledgeIndex + KnowledgeRetriever: light RAG over historical findings (TASK-14, v2.1+).
 
+Since TASK-23 (platform v3.0, Eje B) the retrieval layer dispatches by
+backend: SQLite keeps this module's FTS5 index; PostgreSQL runs the pgvector
+index in :mod:`metatracer.agents.knowledge_pg` behind the same
+:class:`KnowledgeRetriever` interface (zero changes in AgentPipeline).
+
 The agent layer (TASK-05) analyses one finding with only the current run's
 payload plus same-type feedback examples (TASK-13). When an operator has
 worked the same kind of target before, that learning lives in the rows of
@@ -41,6 +46,16 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+# TASK-23: the dataclass moved to knowledge_pg (shared by both backends);
+# re-exported here so every existing import path keeps working.
+from metatracer.agents.knowledge_pg import (  # noqa: F401
+    PgVectorKnowledgeIndex,
+    RetrievedEvidence,
+    pgvector_available,
+)
+from metatracer.agents.knowledge_pg import (
+    _parse_created_at as _pg_parse_created_at,  # noqa: F401
+)
 from metatracer.db.models import Finding, FindingType, Severity
 
 logger = logging.getLogger("metatracer.agents.knowledge")
@@ -54,25 +69,6 @@ _FTS_TABLE = "knowledge_fts"
 _INDEX_SNIPPET_MAX = 300
 # How many historical findings to load for the index per rebuild.
 _INDEX_SEED_LIMIT = 1000
-
-
-@dataclass(slots=True)
-class RetrievedEvidence:
-    """One ranked hit from the knowledge index (read-only, never persisted).
-
-    Mirrors the lightweight contract of TASK-14.14.1: it carries enough for
-    the agent prompt to cite a *precedent* ("this was seen in run X") without
-    dumping raw database rows.
-    """
-
-    finding_id: str
-    run_id: str
-    finding_type: FindingType
-    evidence_snippet: str
-    severity: Severity | None
-    title: str | None
-    created_at: datetime | None
-    score: float
 
 
 @dataclass(slots=True)
@@ -241,11 +237,16 @@ def _fts_safe_query(raw: str, *, max_terms: int = 12) -> str:
 class KnowledgeRetriever:
     """Retrieves historical context for one finding (light RAG, TASK-14).
 
-    ``retrieve`` builds the FTS5 query from the **closed payload fields only**
+    ``retrieve`` builds the query from the **closed payload fields only**
     (evidence snippet + finding type + field source) — never from free-text
     operator input and never touching the network. An empty index is a no-op
     (returns ``[]``), keeping the agent phase byte-identical to v2.1 without
     RAG.
+
+    Backend dispatch (TASK-23, Eje B): on PostgreSQL the retrieval runs on
+    :class:`PgVectorKnowledgeIndex` (pgvector similarity); on SQLite it keeps
+    the FTS5 :class:`KnowledgeIndex`. The interface (``retrieve(payload) ->
+    [RetrievedEvidence]``) and the AgentPipeline contract are unchanged.
     """
 
     def __init__(
@@ -255,8 +256,10 @@ class KnowledgeRetriever:
         *,
         limit: int = 5,
     ) -> None:
-        self._index = KnowledgeIndex(engine, session_factory)
+        self._engine = engine
+        self._session_factory = session_factory
         self._limit = limit
+        self._backend: KnowledgeIndex | PgVectorKnowledgeIndex | None = None
 
     async def retrieve(
         self,
@@ -266,7 +269,7 @@ class KnowledgeRetriever:
     ) -> list[RetrievedEvidence]:
         """Best-match historical findings for a closed payload.
 
-        The FTS5 query is built from the snippet only. ``field_source`` is
+        The query is built from the snippet only. ``field_source`` is
         deliberately NOT added to the MATCH: imported ports carry
         ``field_source='kb-import'`` (TASK-17), while native rows carry
         e.g. ``EXIF:GPSInfo``, so requiring it would make imported precedents
@@ -279,9 +282,47 @@ class KnowledgeRetriever:
         if not snippet:
             return []
         ftype = FindingType(ftype_raw) if ftype_raw in FindingType.__members__ else None
-        return await self._index.search(
-            snippet,  # raw snippet: search() sanitizes internally
+        backend = await self._get_backend()
+        return await backend.search(
+            snippet,
             finding_type=ftype,
             exclude_finding_id=exclude_finding_id,
             limit=self._limit,
         )
+
+    async def _get_backend(self) -> KnowledgeIndex | PgVectorKnowledgeIndex:
+        """Lazily resolve the backend from the engine's dialect (once).
+
+        PostgreSQL without the pgvector extension degrades to a no-op
+        retriever (always ``[]``): the agent phase loses historical context
+        but never crashes (inviolable rule 5).
+        """
+        if self._backend is not None:
+            return self._backend
+        if self._engine.url.get_backend_name() == "postgresql":
+            if await pgvector_available(self._engine):
+                self._backend = PgVectorKnowledgeIndex(self._engine, self._session_factory)
+            else:
+                logger.warning(
+                    "PostgreSQL detected without the pgvector extension; "
+                    "knowledge retrieval disabled (agent phase continues without "
+                    "historical context)"
+                )
+                self._backend = _NoopBackend()
+        else:
+            self._backend = KnowledgeIndex(self._engine, self._session_factory)
+        return self._backend
+
+
+class _NoopBackend:
+    """Stand-in backend for Postgres-without-pgvector: always returns []."""
+
+    async def search(
+        self,
+        query: str,
+        *,
+        finding_type: FindingType | None = None,
+        exclude_finding_id: str | None = None,
+        limit: int = 5,
+    ) -> list[RetrievedEvidence]:
+        return []

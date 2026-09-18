@@ -49,6 +49,13 @@ class Settings(BaseSettings):
     # Generous defaults: the KB/scopes imports are the only legitimate
     # consumers and both are meant to be small operational JSON files.
     max_request_body_bytes: int = 5 * 1024 * 1024  # 5242880 bytes = 5 MiB
+    # --- Platform v3.0, Eje B (TASK-23) -------------------------------------
+    # Max scans running at the same time in this process. 1 (default) keeps
+    # the v1-v2.4 single-scan lock (ScanAlreadyRunningError); >1 relaxes it to
+    # an asyncio.Semaphore (deliberate product decision — the LLM and the
+    # per-domain rate limit remain the real bottleneck resources; see
+    # 12-platform-v3 section 3.4).
+    max_concurrent_runs: int = 1
 
     @property
     def api_rate_limit_enabled(self) -> bool:

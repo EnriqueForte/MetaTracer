@@ -42,9 +42,10 @@ interprets.
    or reject severity.
 6. **Report** — Markdown, JSON and HTML in English, ordered Critical → Info.
 
-SQLite now (single writer); schema is PostgreSQL-ready for later pgvector/RAG. Next
-product phase: **v3.0** platform vision — watch/headless mode, PostgreSQL+pgvector,
-basic auth (`.aicontext/features/12-platform-v3.md`).
+SQLite (default, single writer) or PostgreSQL + pgvector (`METATRACER_DATABASE_URL=postgresql+asyncpg://...`,
+Alembic-managed schema, optional parallel scans via `METATRACER_MAX_CONCURRENT_RUNS`). Roadmap:
+**v3.0** platform vision — watch/headless mode (done), PostgreSQL+pgvector (done), basic auth
+(`.aicontext/features/12-platform-v3.md`).
 
 ## Requirements
 

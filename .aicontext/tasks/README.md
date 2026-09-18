@@ -1,9 +1,9 @@
 # Backlog Técnico de Tareas a Bajo Nivel (Tasks)
 
 **Proyecto:** MetaTracer  
-**Versión:** 2.4 (Multi-engagement & paginación) — **cerrada 2026-09-16**  
+**Versión:** 3.0 (Eje B: PostgreSQL + pgvector) — **cerrada 2026-09-17**  
 **PRD:** [Volver al PRD](../PRD.md)  
-**Estado:** MVP v1.0–v1.2 cerradas — v2.0 completada (TASK-10/11/12 ✅) — v2.1 completada (TASK-13 feedback ✅, TASK-14 RAG ligero ✅) — v2.2 "Integraciones" completada 2026-09-13 (TASK-15 a TASK-19 ✅; `pytest` 475 passed + ruff limpio + cobertura ≥85%) — v2.3 "Performance & UI polish" cerrada 2026-09-16 (TASK-20 ✅; rate limit + body cap + accesibilidad; `pytest` 528 passed) — **v2.4 "Multi-engagement & paginación" cerrada 2026-09-16 (TASK-21 ✅)**: `scope_ids` (unión multi-scope en `ScanRequest`, resuelta al snapshot `Run.allowed_scope` sin red), paginación keyset de `GET /api/runs` por cursor `<started_at>_<run_id>` con `has_more`/`next_cursor`, `total` global sin truncar, wizard multi-scope en la Web UI (checkboxes → `scope_ids`) y History con Older/Newer; `scope_id` singular se conserva como alias (compatibilidad v2.0–v2.3). Suite: 528 passed + ruff limpio + cobertura ≥85%. **Plataforma v3.0 iniciada 2026-09-16**: [visión](../features/12-platform-v3.md); **TASK-22 (Eje A, watch/headless) cerrada** — `metatracer watch` con `--once`/`--interval`/`--webhook`, lock por scope, `DeltaReporter` determinista (sin LLM) y `new_findings` en el payload de webhook. Suite: 498+ passed + ruff limpio + cobertura ≥85%.  
+**Estado:** MVP v1.0–v1.2 cerradas — v2.0 completada (TASK-10/11/12 ✅) — v2.1 completada (TASK-13 feedback ✅, TASK-14 RAG ligero ✅) — v2.2 "Integraciones" completada 2026-09-13 (TASK-15 a TASK-19 ✅; `pytest` 475 passed + ruff limpio + cobertura ≥85%) — v2.3 "Performance & UI polish" cerrada 2026-09-16 (TASK-20 ✅; rate limit + body cap + accesibilidad; `pytest` 528 passed) — v2.4 "Multi-engagement & paginación" cerrada 2026-09-16 (TASK-21 ✅). **Plataforma v3.0 iniciada 2026-09-16**: [visión](../features/12-platform-v3.md); **TASK-22 (Eje A, watch/headless) cerrada 2026-09-16** — `metatracer watch` con `--once`/`--interval`/`--webhook`, lock por scope, `DeltaReporter` determinista (sin LLM) y `new_findings` en el payload de webhook. **TASK-23 (Eje B, PostgreSQL + pgvector) cerrada 2026-09-17** — `postgresql+asyncpg` soportado en `create_db_engine` (driver asyncpg exigido), migraciones Alembic empaquetadas y ejecutadas programáticamente en `init_db` (SQLite conserva el bootstrap legacy), `PgVectorKnowledgeIndex` (tabla derivada `knowledge_vectors`, `vector(384)`, HNSW best-effort, embeddings hashing-trick deterministas sin dependencias nuevas) detrás de la misma interfaz `KnowledgeRetriever` (cero cambios en `AgentPipeline`; Postgres sin pgvector → degradación a no-op con warning, nunca tumba el run), `METATRACER_MAX_CONCURRENT_RUNS` (default 1 = lock histórico; >1 = `asyncio.Semaphore`), compose profile `postgres` con `pgvector/pgvector:pg17`. Suite: **576 passed** + ruff limpio + cobertura **91.57%** (≥85%).  
 
 Este directorio descompone el MVP en tareas implementables. Cada archivo es un contrato: objetivo, subtareas, contratos de datos, fuera de alcance, tests mínimos y criterios de aceptación verificables.
 
@@ -84,6 +84,7 @@ Aplican a **todas** las tasks. Un PR que las viole no está done.
 | **TASK-20** | [20-ui-polish.md](20-ui-polish.md) | UI polish y accesibilidad: matriz de estados por página, `readError`/Retry compartidos, focus/ARIA/teclado, tests a11y (v2.3) — **cerrada 2026-09-16** | TASK-00 a TASK-19 |
 | **TASK-21** | [21-multi-engagement.md](21-multi-engagement.md) | Multi-engagement: unión de varios scopes guardados por run (`scope_ids`) + paginación por cursor del historial (v2.4) — **cerrada 2026-09-16** | TASK-00 a TASK-20 |
 | **TASK-22** | [22-watch-headless.md](22-watch-headless.md) | Watch/headless: `metatracer watch` con `--once`/`--interval`/`--webhook`, lock por scope, delta determinista sin LLM y `new_findings` en webhook (v3.0, Eje A) — **cerrada 2026-09-16** | TASK-00 a TASK-21 |
+| **TASK-23** | [23-postgres-pgvector.md](23-postgres-pgvector.md) | Eje B: PostgreSQL + asyncpg + Alembic + índice pgvector + `METATRACER_MAX_CONCURRENT_RUNS` (v3.0) — **cerrada 2026-09-17** | TASK-00 a TASK-22 |
 
 `TASK-04` **no** depende de `TASK-05`: el motor de reportes debe funcionar con clasificaciones heurísticas (campos de explicación vacíos o plantilla). `TASK-05` rellena justificación, impacto, remediación y repro. `TASK-06` orquesta el pipeline completo.
 
@@ -148,6 +149,7 @@ Alineado con [Timeline y roadmap](../features/10-timeline-and-roadmap.md).
 | 18 | v2.3 | `TASK-20` | UI polish y accesibilidad: estados consistentes, `readError`/Retry únicos, focus/ARIA/teclado, tests a11y — **cerrada 2026-09-16** |
 | 19 | v2.4 | `TASK-21` | Multi-engagement: unión de scopes por run + paginación por cursor del historial — **cerrada 2026-09-16** |
 | 20 | v3.0 | `TASK-22` | Watch/headless (Eje A): `metatracer watch` con deltas deterministas y `new_findings` en webhook — **cerrada 2026-09-16** |
+| 21 | v3.0 | `TASK-23` | Eje B: PostgreSQL + asyncpg + Alembic + pgvector + concurrencia acotada — **cerrada 2026-09-17** |
 
 Si hay que recortar, proteger los [criterios de éxito](../features/09-success-criteria.md) antes que pulido de UI.
 

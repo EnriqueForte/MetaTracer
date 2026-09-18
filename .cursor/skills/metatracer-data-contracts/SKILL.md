@@ -71,13 +71,14 @@ Unique constraint `(asset_id, dedup_signature)`. Insertar ignorando conflictos; 
 - **Semántica**: idempotente por `name` case-insensitive — si el scope ya existe **se omite** (no se pisa, no se actualiza). No borra nada, no hay red, no hay bytes (solo `name`/`description`/`domains`).
 - **Superficies**: CLI `scope import --file` + API `POST /api/scopes/import` (UploadFile → temp → import) con respuesta `{"imported": n, "skipped": m}`. `ValueError` del parser → exit 1 / 422, nunca un insert a medias.
 
-## RAG ligero (TASK-14, v2.1+)
+## RAG ligero (TASK-14, v2.1+; dispatch por backend desde TASK-23)
 
-`metatracer/agents/knowledge.py`:
+`metatracer/agents/knowledge.py` + `metatracer/agents/knowledge_pg.py`:
 
-- **`KnowledgeIndex`** — índice FTS5 (virtual table `knowledge_fts`) sobre findings históricos. `rebuild()` lo reconstruye (idempotente), `search(query, finding_type=None, exclude_finding_id=None, limit=5)` devuelve `RetrievedEvidence` rankeados. La tabla derivada **nunca es fuente de verdad**; se borra/recrea.
-- **`KnowledgeRetriever`** — construye la query desde los campos cerrados del payload (`evidence_snippet` + `field_source` + `finding_type`), sin red y sin texto libre del operador. Índice vacío → no-op (`[]`).
-- **`RetrievedEvidence`** (dataclass read-only): `finding_id`, `run_id`, `finding_type`, `evidence_snippet`, `severity | None`, `title | None`, `created_at | None`, `score`.
+- **`KnowledgeIndex`** (SQLite) — índice FTS5 (virtual table `knowledge_fts`) sobre findings históricos. `rebuild()` lo reconstruye (idempotente), `search(query, finding_type=None, exclude_finding_id=None, limit=5)` devuelve `RetrievedEvidence` rankeados. La tabla derivada **nunca es fuente de verdad**; se borra/recrea.
+- **`PgVectorKnowledgeIndex`** (PostgreSQL, TASK-23) — índice vectorial pgvector (tabla derivada `knowledge_vectors`, `embedding vector(384)`, HNSW best-effort, distancia coseno). Mismos `rebuild()`/`search()` y post-filtros que el FTS5; `score = 1 - cosine_distance` acotado a `[0, 1]`. Embeddings **hashing-trick deterministas** (crc32 módulo 384 con signo alternante, tokens + trigramas, L2) — estables entre procesos, sin dependencias nuevas. El upgrade a ONNX (`all-MiniLM-L6-v2`) solo sustituye `_embed`.
+- **`KnowledgeRetriever`** — construye la query desde los campos cerrados del payload (`evidence_snippet` + `field_source` + `finding_type`), sin red y sin texto libre del operador. Índice vacío → no-op (`[]`). Resuelve el backend perezosamente por dialecto: SQLite → FTS5; Postgres con pgvector → `PgVectorKnowledgeIndex`; Postgres **sin** pgvector → backend no-op con warning (la fase agente pierde contexto histórico pero nunca tumba el run, regla inviolable 5).
+- **`RetrievedEvidence`** (dataclass read-only, vive en `knowledge_pg` y se re-exporta desde `agents.knowledge`): `finding_id`, `run_id`, `finding_type`, `evidence_snippet`, `severity | None`, `title | None`, `created_at | None`, `score`.
 - Inyección: `AgentPipeline(..., knowledge=KnowledgeRetriever)` adjunta `entry["retrieved_evidence"]` **fuera** del payload cerrado; `AnalyzeContextNode` lo fusiona al prompt como guía **no autoritativa** (nunca como evidencia del finding actual). Trazabilidad: nota `retrieved_evidence_used=<n>` en `guard_notes` (AgentLog), nunca los snippets.
 - FTS5 sanitiza la query (tokens alfanuméricos AND-phrases) porque los snippets llevan `.` `/` `@` que romperían la sintaxis.
 - Endpoint read-only `GET /api/knowledge/search?q=...&finding_type=...&limit=...`.
