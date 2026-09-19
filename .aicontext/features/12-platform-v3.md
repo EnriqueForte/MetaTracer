@@ -2,7 +2,7 @@
 
 **Proyecto:** MetaTracer
 **PRD:** [volver al índice](../PRD.md)
-**Estado:** **Visión formalizada 2026-09-16; Eje A (watch/headless) implementado el mismo día ([TASK-22](../tasks/22-watch-headless.md)); Eje B (PostgreSQL + pgvector) implementado 2026-09-17 ([TASK-23](../tasks/23-postgres-pgvector.md))** — Eje C aún no planificado.
+**Estado:** **Visión formalizada 2026-09-16; Eje A (watch/headless) implementado el mismo día ([TASK-22](../tasks/22-watch-headless.md)); Eje B (PostgreSQL + pgvector) implementado 2026-09-17 ([TASK-23](../tasks/23-postgres-pgvector.md)); Eje C (auth básica 1 usuario) implementado 2026-09-18 ([TASK-24](../tasks/24-auth-basic.md)) — v3.0 cerrada**. Multi-usuario e invitaciones → v3.1 ([TASK-25](../tasks/25-user-registration.md)); rediseño de UI → [TASK-26](../tasks/26-ui-redesign.md).
 
 ---
 
