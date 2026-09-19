@@ -1,10 +1,20 @@
-"""Authentication for the Web/API surface (TASK-24, v3.0 Eje C).
+"""Authentication for the Web/API surface (TASK-24, v3.0 Eje C; TASK-25 multi-user).
 
-One installation user (v3.0 scope), session cookie + CSRF, stdlib-only
-password hashing (supply-chain review 2026-09-18: PBKDF2-HMAC-SHA256 600k —
-no bcrypt/argon2/passlib dependency; see 24-auth-basic.md for the trade-offs).
+TASK-24 baseline: session cookie + CSRF, stdlib-only password hashing
+(supply-chain review 2026-09-18: PBKDF2-HMAC-SHA256 600k — no bcrypt/argon2/
+passlib dependency; see 24-auth-basic.md for the trade-offs).
 
-The CLI stays unauthenticated (localhost, one operator — documented posture);
+TASK-25 (multi-user v3.1) adds two pre-auth flows on the same primitives:
+- First-run setup: with auth ON, no ``METATRACER_AUTH_PASSWORD`` and no users,
+  the app now BOOTS (deliberate change over TASK-24) in setup mode — a
+  one-shot ``secrets.token_urlsafe(32)`` token is logged to the console once
+  and parked on ``app.state.setup_token`` (memory only, never the database).
+  ``POST /api/auth/setup`` consumes it to create the first operator.
+- Invitation registration: operators mint single-use codes (only their
+  SHA-256 is stored, same technique as session tokens); redeeming a code
+  creates the account with the role recorded in the code.
+
+The CLI stays unauthenticated (localhost, documented posture);
 this module only protects the Web/API surface. It never touches the pipeline,
 the safety core or webhook egress: the 7 inviolable rules are unchanged.
 
@@ -19,7 +29,9 @@ time). That keeps the router code identical for both postures:
 
 Security notes:
 - Only the SHA-256 of the session token is stored; a database leak never
-  yields a usable cookie.
+  yields a usable cookie. The same applies to invitation codes (TASK-25):
+  only ``code_hash`` is persisted and the plaintext exists exactly once, in
+  the creation response — never in logs.
 - Sessions are rotated on every login (the fresh login deletes the previous
   session — anti-fixation) and expire server-side (``expires_at`` is checked
   here, not only in the cookie).
@@ -27,7 +39,13 @@ Security notes:
   session token) + ``X-CSRF-Token`` header on unsafe methods, compared with
   ``hmac.compare_digest``.
 - Password login burns one PBKDF2 verification on unknown usernames so the
-  response time does not reveal whether the user exists.
+  response time does not reveal whether the user exists. Code redemption
+  (TASK-25) burns one on an unknown code for the same reason: the response
+  time must not reveal whether a code hash was found.
+- SETUP TOKEN EXCEPTION (deliberate, reviewed design of TASK-25): the
+  first-run setup token is the ONE secret printed to the console, once, with
+  instructions. It lives only on ``app.state`` (never persisted), is
+  consumed on success, and every restart without users regenerates it.
 - Brute force is bounded by the existing API-edge rate limit (429 per IP).
 """
 
@@ -44,10 +62,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
+from sqlalchemy import update
 from sqlmodel import select
 
 from metatracer.core.config import Settings
-from metatracer.db.models import User, UserRole, UserSession
+from metatracer.db.models import InvitationCode, User, UserRole, UserSession
 
 logger = logging.getLogger("metatracer.api.auth")
 
@@ -132,6 +151,16 @@ CSRF_HEADER_NAME = "x-csrf-token"
 # 32 bytes of entropy -> 43 url-safe chars: not guessable, and brute force
 # through the rate-limited edge is meaningless.
 _SESSION_TOKEN_BYTES = 32
+
+# SETUP_MODE message format (TASK-25): logged exactly once per boot while the
+# installation has no users and no provisioned password. The setup token is
+# the ONE deliberate exception to "never log secrets": it is the only channel
+# to bootstrap a headless install (documented in 25-user-registration.md).
+_SETUP_LOG_MESSAGE = (
+    "SETUP MODE: no users yet - create the first operator at GET /setup "
+    "with the setup token printed here. This is the ONLY time it is shown; "
+    "restart regenerates it until setup completes."
+)
 
 
 def _hash_token(token: str) -> str:
@@ -307,6 +336,69 @@ def _ensure_csrf_cookie(request: Request, response: Response, settings: Settings
     )
 
 
+async def _create_session_and_cookies(
+    db, user_id: str, settings: Settings
+) -> tuple[str, str]:
+    """Create one fresh session row for ``user_id``; return ``(token, csrf)``.
+
+    Shared by login, setup and register (TASK-25): the caller is inside an
+    open session and commits; the cookie values are only generated here and
+    returned so the endpoint can set them after the transaction closes.
+    """
+    token = secrets.token_urlsafe(_SESSION_TOKEN_BYTES)
+    csrf = secrets.token_urlsafe(_SESSION_TOKEN_BYTES)
+    expires_at = _utc_now() + timedelta(seconds=settings.session_ttl_seconds)
+    db.add(
+        UserSession(
+            user_id=user_id,
+            token_hash=_hash_token(token),
+            expires_at=expires_at,
+        )
+    )
+    await db.commit()
+    return token, csrf
+
+
+def _set_session_cookies(
+    request: Request, response: Response, token: str, csrf: str, settings: Settings
+) -> None:
+    """Set the session + CSRF cookies for a freshly created session.
+
+    The CSRF cookie rotates with the session (any pre-session value issued by
+    the page render is replaced). Readable by JS by design (double-submit
+    pattern); random, independent of the session token.
+    """
+    response.set_cookie(
+        SESSION_COOKIE_NAME,
+        token,
+        max_age=settings.session_ttl_seconds,
+        **_cookie_params(request, http_only=True),
+    )
+    response.set_cookie(
+        CSRF_COOKIE_NAME,
+        csrf,
+        max_age=settings.session_ttl_seconds,
+        **_cookie_params(request, http_only=False),
+    )
+
+
+def _pre_session_csrf(request: Request, response: Response, settings: Settings) -> None:
+    """Enforce the pre-session double-submit for public auth POSTs.
+
+    Shared by login, setup and register (TASK-25): the endpoint is reachable
+    without a session, so the mutation is protected by a throwaway CSRF cookie
+    that the page render issued first. No-op when auth is OFF (kill-switch
+    symmetry: no public flow succeeds then anyway).
+    """
+    if not settings.auth_enabled:
+        return
+    _ensure_csrf_cookie(request, response, settings)
+    header = request.headers.get(CSRF_HEADER_NAME, "")
+    cookie = request.cookies.get(CSRF_COOKIE_NAME, "")
+    if not header or not cookie or not hmac.compare_digest(header, cookie):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "CSRF check failed")
+
+
 @router.post("/login")
 async def login_endpoint(
     body: LoginRequest, request: Request, response: Response
@@ -366,32 +458,8 @@ async def login_endpoint(
         ).all():
             await db.delete(other)
 
-        token = secrets.token_urlsafe(_SESSION_TOKEN_BYTES)
-        csrf = secrets.token_urlsafe(_SESSION_TOKEN_BYTES)
-        expires_at = _utc_now() + timedelta(seconds=settings.session_ttl_seconds)
-        db.add(
-            UserSession(
-                user_id=stored.id,
-                token_hash=_hash_token(token),
-                expires_at=expires_at,
-            )
-        )
-        await db.commit()
-
-    params = _cookie_params(request, http_only=True)
-    response.set_cookie(
-        SESSION_COOKIE_NAME, token, max_age=settings.session_ttl_seconds, **params
-    )
-    # Fresh CSRF cookie for the new session (rotated with it; the value that
-    # was set pre-login by _ensure_csrf_cookie is replaced). Readable by JS
-    # by design (double-submit pattern); random, independent of the session
-    # token.
-    response.set_cookie(
-        CSRF_COOKIE_NAME,
-        csrf,
-        max_age=settings.session_ttl_seconds,
-        **_cookie_params(request, http_only=False),
-    )
+        token, csrf = await _create_session_and_cookies(db, stored.id, settings)
+    _set_session_cookies(request, response, token, csrf, settings)
     logger.info("user logged in", extra={"user": stored.username})
     return {
         "authenticated": True,
@@ -453,39 +521,243 @@ async def me_endpoint(request: Request) -> dict:
     }
 
 
-# --- Provisioning ----------------------------------------------------------------
+# --- Provisioning / first-run setup (TASK-25) --------------------------------------
 
-async def ensure_default_user(session_factory, settings: Settings) -> None:
-    """Create the initial operator on first boot (auth enabled only).
+_MIN_PASSWORD_CHARS = 8
 
-    Consumes ``METATRACER_AUTH_PASSWORD`` once. If auth is enabled, no user
-    exists and the password is missing (or too short), the lifespan fails
-    with a clear message — fail-closed: a platform exposed to the network
-    must never come up silently without usable credentials.
+
+class SetupRequest(BaseModel):
+    """Body of POST /api/auth/setup (first operator creation)."""
+
+    setup_token: str = Field(min_length=1)
+    username: str = Field(min_length=1, max_length=64)
+    password: str = Field(min_length=1, max_length=256)
+
+
+class RegisterRequest(BaseModel):
+    """Body of POST /api/auth/register (invitation redemption)."""
+
+    code: str = Field(min_length=1, max_length=256)
+    username: str = Field(min_length=1, max_length=64)
+    password: str = Field(min_length=1, max_length=256)
+
+
+def _validate_password_length(password: str) -> None:
+    """422 when the new password is shorter than the platform minimum.
+
+    Field-level min_length stays at 1 (same shape as ``LoginRequest``); the
+    real policy check happens here so the response is an explicit 422.
+    """
+    if len(password) < _MIN_PASSWORD_CHARS:
+        raise HTTPException(
+            422, f"password must be at least {_MIN_PASSWORD_CHARS} characters"
+        )
+
+
+async def ensure_default_user(session_factory, settings: Settings) -> str | None:
+    """Bootstrap the first user on boot (auth enabled only); three branches.
+
+    - (a) ``METATRACER_AUTH_PASSWORD`` set: provision the initial operator
+      exactly like TASK-24 (compatibility). Setup mode stays disabled.
+    - (b) auth ON, no password, no users: SETUP MODE — generate a one-shot
+      setup token (``secrets.token_urlsafe(32)``), log it to the console
+      ONCE with instructions (deliberate, documented exception to "never log
+      secrets": it is the only bootstrap channel for a headless install) and
+      return it so the lifespan parks it on ``app.state.setup_token``. The
+      app boots normally; every route still requires a session, so nothing
+      is exposed — without setup there is no usable surface (fail-closed).
+    - (c) users already exist: no-op (``None``).
+
+    Returns the setup token when branch (b) applies, else ``None``. The token
+    lives only in memory; every restart without users regenerates it.
     """
     if not settings.auth_enabled:
-        return
+        return None
     async with session_factory() as db:
         existing = (await db.exec(select(User))).first()
         if existing is not None:
-            return
+            return None  # branch (c): already provisioned
         password = settings.auth_password.get_secret_value()
-        if not password:
-            raise RuntimeError(
-                "METATRACER_AUTH_ENABLED=true but METATRACER_AUTH_PASSWORD is not "
-                "set: refusing to start without initial credentials (fail-closed)"
+        if password:
+            # Branch (a): TASK-24 provisioning, unchanged.
+            if len(password) < _MIN_PASSWORD_CHARS:
+                raise RuntimeError(
+                    "METATRACER_AUTH_PASSWORD must be at least 8 characters "
+                    "(fail-closed: a network-exposed platform needs a real password)"
+                )
+            db.add(
+                User(
+                    username="operator",
+                    password_hash=hash_password(password),
+                    role=UserRole.operator,
+                )
             )
-        if len(password) < 8:
-            raise RuntimeError(
-                "METATRACER_AUTH_PASSWORD must be at least 8 characters "
-                "(fail-closed: a network-exposed platform needs a real password)"
-            )
-        db.add(
-            User(
-                username="operator",
-                password_hash=hash_password(password),
-                role=UserRole.operator,
-            )
+            await db.commit()
+            logger.info("initial operator provisioned from METATRACER_AUTH_PASSWORD")
+            return None
+        # Branch (b): setup mode. The token is memory-only (app.state) and is
+        # consumed by POST /api/auth/setup on success.
+        setup_token = secrets.token_urlsafe(_SESSION_TOKEN_BYTES)
+        logger.warning("")
+        logger.warning(_SETUP_LOG_MESSAGE)
+        logger.warning("setup token: %s", setup_token)
+        logger.warning("")
+        return setup_token
+
+
+@router.post("/setup")
+async def setup_endpoint(
+    body: SetupRequest, request: Request, response: Response
+) -> dict:
+    """Create the first operator with the one-shot console setup token.
+
+    Reachable only when ALL of these hold: auth ON, no user provisioned from
+    the environment, no user in the table and a live setup token on
+    ``app.state``. Any other posture answers 404 (setup disabled) or 409
+    (already has users) so the endpoint never becomes a standing account
+    factory. On success it behaves like a login: fresh session + CSRF
+    cookies, and the token is burned from memory.
+    """
+    settings: Settings = request.app.state.settings
+    if not settings.auth_enabled:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "authentication is disabled on this installation"
         )
-        await db.commit()
-        logger.info("initial operator provisioned from METATRACER_AUTH_PASSWORD")
+    session_factory = request.app.state.session_factory
+    # Posture check BEFORE the token compare: the 409/404 split must not
+    # depend on token possession (any caller can learn this much, and the
+    # token itself is never echoed back).
+    async with session_factory() as db:
+        existing = (await db.exec(select(User))).first()
+    if existing is not None:
+        if getattr(request.app.state, "setup_completed", False):
+            # This very installation just completed setup in this process.
+            raise HTTPException(
+                status.HTTP_409_CONFLICT, "this installation already has a user"
+            )
+        # Provisioned from METATRACER_AUTH_PASSWORD (or pre-TASK-25 database):
+        # the setup flow is permanently disabled here (404, per contract).
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "setup is not available for this installation"
+        )
+    if request.app.state.setup_token is None:
+        # No users, no live token: setup mode was never entered on this boot.
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "setup is not available")
+    if not hmac.compare_digest(str(request.app.state.setup_token), body.setup_token):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid setup token")
+    _pre_session_csrf(request, response, settings)
+    _validate_password_length(body.password)
+    username = body.username.strip()
+    async with session_factory() as db:
+        user = User(
+            username=username,
+            password_hash=hash_password(body.password),
+            role=UserRole.operator,
+        )
+        db.add(user)
+        await db.flush()
+        token, csrf = await _create_session_and_cookies(db, user.id, settings)
+    # Burn the token ONLY after the user was committed (a failed setup leaves
+    # the token valid for a corrected retry). The completed flag distinguishes
+    # "setup done here" (409 on retries) from "provisioned from env" (404).
+    request.app.state.setup_token = None
+    request.app.state.setup_completed = True
+    _set_session_cookies(request, response, token, csrf, settings)
+    logger.info("first operator created via setup", extra={"user": username})
+    return {
+        "authenticated": True,
+        "username": username,
+        "role": UserRole.operator.value,
+        "csrf_token": csrf,
+    }
+
+
+@router.post("/register")
+async def register_endpoint(
+    body: RegisterRequest, request: Request, response: Response
+) -> dict:
+    """Redeem an invitation code: create the user, mark the code used, log in.
+
+    The code is looked up by its SHA-256 (only hashes are persisted). Unknown,
+    used and expired codes all answer the SAME generic 401, and an unknown
+    code burns one PBKDF2 verification so the response time does not reveal
+    whether a code hash exists (same technique as the login dummy hash).
+    The redeemed user gets the role recorded in the code by its creator.
+    """
+    settings: Settings = request.app.state.settings
+    if not settings.auth_enabled:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "authentication is disabled on this installation"
+        )
+    _pre_session_csrf(request, response, settings)
+    _validate_password_length(body.password)
+    username = body.username.strip()
+    code_hash = _hash_token(body.code)
+    session_factory = request.app.state.session_factory
+    async with session_factory() as db:
+        # The plaintext role travels in the code: one read for it (and to
+        # distinguish an unknown code, which burns one PBKDF2 verification so
+        # the response time does not reveal whether the hash exists — same
+        # technique as the login dummy hash).
+        invitation = (
+            await db.exec(
+                select(InvitationCode).where(InvitationCode.code_hash == code_hash)
+            )
+        ).first()
+        if invitation is None:
+            verify_password(body.password, _get_dummy_hash())
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid invitation code")
+        if (
+            await db.exec(select(User).where(User.username == username))
+        ).first() is not None:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT, "username already taken"
+            )
+        user = User(
+            username=username,
+            password_hash=hash_password(body.password),
+            role=invitation.role,
+        )
+        db.add(user)
+        await db.flush()
+        # Race-safe single-use claim (security review 2026-09-19, MEDIUM):
+        # the naive read-then-mark sequence let two concurrent registers
+        # redeem the same code. The claim is ONE conditional UPDATE (atomic
+        # in both backends: Postgres row-locks the row, SQLite is a single
+        # writer); rowcount 0 means already claimed, expired or deleted —
+        # the raised 401 rolls this transaction back, so the loser of the
+        # race also rolls back its just-created user row.
+        claimed = 0
+        result = await db.exec(
+            update(InvitationCode)
+            .where(
+                InvitationCode.code_hash == code_hash,
+                InvitationCode.used_at.is_(None),
+                InvitationCode.used_by.is_(None),
+                InvitationCode.expires_at > _utc_now(),
+            )
+            .values(used_at=_utc_now(), used_by=user.id)
+            # The claim is enforced by the DATABASE, not by Python-side row
+            # synchronization: "evaluate" would re-run the WHERE against
+            # in-session objects and compare SQLite's naive datetimes with
+            # the aware bound param (TypeError). Nothing needs syncing — the
+            # transaction commits right after.
+            .execution_options(synchronize_session=False)
+        )
+        claimed = result.rowcount
+        if claimed == 0:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid invitation code")
+        token, csrf = await _create_session_and_cookies(db, user.id, settings)
+    _set_session_cookies(request, response, token, csrf, settings)
+    logger.info(
+        "user registered from invitation code", extra={"user": username}
+    )
+    return {
+        "authenticated": True,
+        "username": username,
+        "role": user.role.value,
+        "csrf_token": csrf,
+    }
+
+
+# --- Provisioning (TASK-24 compatibility path) --------------------------------------

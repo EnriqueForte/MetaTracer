@@ -63,14 +63,20 @@ class Settings(BaseSettings):
     # provision the initial operator on first boot. Flipping the default to
     # true is a future release decision (see 24-auth-basic.md).
     auth_enabled: bool = False
-    # Initial operator password, consumed ONCE on first boot (provisioned
-    # into the user table as a PBKDF2 hash; never logged, never echoed).
+    # Initial operator password (consumed ONCE on first boot when present:
+    # provisioned into the user table as a PBKDF2 hash; never logged, never
+    # echoed). OPTIONAL since TASK-25: with auth ON and no password set, the
+    # first boot enters setup mode — a one-shot setup token is logged to the
+    # console once and the first account is created at POST /api/auth/setup.
     # Also accepted as the password for an EXISTING user at login time? No:
     # login always verifies against the stored hash; this variable only
     # provisions the first user.
     auth_password: SecretStr = SecretStr("")
     # Session lifetime in seconds (default 12h). Rotated on every login.
     session_ttl_seconds: int = 12 * 3600
+    # Invitation TTL in seconds (TASK-25, default 7 days). Upper bound per
+    # request is 30 days; operators may set a shorter TTL per invitation.
+    invite_ttl_seconds: int = 7 * 24 * 3600
 
     @property
     def api_rate_limit_enabled(self) -> bool:

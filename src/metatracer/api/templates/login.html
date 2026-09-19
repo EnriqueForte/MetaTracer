@@ -48,6 +48,12 @@
           </button>
         </form>
       </div>
+      {% if auth_enabled %}
+      <p class="text-xs text-slate-500 mt-4 text-center">
+        Have an invitation code?
+        <a href="/register" class="text-emerald-400 hover:text-emerald-300">Create your account</a>
+      </p>
+      {% endif %}
     </div>
     <p class="text-xs text-slate-500 mt-4 text-center">
       Authentication protects the Web UI and API. The CLI on localhost does not require login.
