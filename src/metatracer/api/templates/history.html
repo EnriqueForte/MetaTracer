@@ -1,81 +1,77 @@
 {% extends "base.html" %}
 {% block title %}MetaTracer — History{% endblock %}
 {% block content %}
-<div x-data="runHistory" x-init="load()" class="max-w-4xl mx-auto">
-  <div class="flex items-end justify-between gap-4 mb-6">
-    <div>
-      <h1 class="text-2xl font-bold text-slate-100 mb-1">Local history</h1>
-      <p class="text-sm text-slate-400">
+<div x-data="runHistory" x-init="load()" class="min-w-0 flex flex-col gap-6">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0">
+      <h1 class="mt-title">Local history</h1>
+      <p class="mt-body">
         Runs stored in this installation. Reopen a scan to review findings or
         re-export the report. This is not a multi-user dashboard.
       </p>
     </div>
-    <a href="/" class="text-sm text-emerald-400 hover:text-emerald-300 font-medium">New scan</a>
+    <a href="/" class="mt-btn mt-btn-secondary">New scan</a>
   </div>
 
-  <div class="flex flex-wrap gap-2 mb-4">
+  <div class="flex flex-wrap gap-2">
     <template x-for="status in statuses" :key="status">
       <button type="button" @click="setStatus(status)"
-              class="px-3 py-1 rounded-full text-xs font-semibold border transition-colors"
-              :class="statusFilter === status ? 'border-emerald-500 text-emerald-300' : 'border-slate-700 text-slate-400 hover:border-slate-500'"
+              class="mt-btn mt-btn-secondary"
               :aria-pressed="statusFilter === status ? 'true' : 'false'"
               :aria-label="'Filter by status ' + status"
-              x-text="status"></button>
+              x-text="statusLabel(status)"></button>
     </template>
   </div>
 
   <!-- TASK-21 (v2.4): page state. The API returns has_more/next_cursor; the
        counter says "N runs" (this page), and older runs load through prev/next
        with a "loading more" state. -->
-  <div class="mb-4 text-xs text-slate-500" aria-live="polite">
+  <div class="mt-meta" aria-live="polite">
     <span x-text="totalLabel"></span>
   </div>
 
-  <!-- Loading state -->
-  <div x-show="!loaded && !loadError" class="flex items-center gap-3 text-slate-400" aria-live="polite">
-    <span class="inline-block h-5 w-5 animate-spin rounded-full border-2 border-slate-600 border-t-emerald-500"></span>
+  <div x-show="!loaded && !loadError" class="mt-loading" aria-live="polite">
+    <span class="mt-spin" aria-hidden="true"></span>
     <span>Loading history…</span>
   </div>
 
-  <p x-show="loadError" x-cloak role="alert" class="text-sm text-red-400">
-    <span x-text="errorMessage || 'Could not load the local history.'"></span>
-    <button type="button" @click="load()" class="underline text-red-300 hover:text-red-200">Retry</button>
-  </p>
-
-  <div x-show="!loadError && loaded && runs.length === 0" x-cloak
-       class="bg-slate-900/60 border border-slate-800 rounded-lg p-8 text-center">
-    <p class="text-lg font-semibold text-slate-200 mb-1">No runs yet</p>
-    <p class="text-sm text-slate-400 mb-4">Start a scan to build a local history.</p>
-    <a href="/" class="text-emerald-400 hover:text-emerald-300 text-sm font-medium">New scan</a>
+  <div x-show="loadError" x-cloak role="alert" class="mt-alert mt-alert-danger flex flex-wrap items-center justify-between gap-3">
+    <p x-text="errorMessage || 'Could not load the local history.'"></p>
+    <button type="button" @click="load()" class="mt-btn mt-btn-secondary">Retry</button>
   </div>
 
-  <div x-show="runs.length > 0" class="overflow-x-auto bg-slate-900/60 border border-slate-800 rounded-lg">
-    <table class="min-w-full text-sm">
+  <div x-show="!loadError && loaded && runs.length === 0" x-cloak
+       class="mt-panel mt-empty text-center flex flex-col items-center gap-2">
+    <p class="mt-title" style="font-size:16px">No runs yet</p>
+    <p class="mt-body" style="color:var(--mt-muted)">Start a scan to build a local history.</p>
+    <a href="/" class="mt-btn mt-btn-secondary">New scan</a>
+  </div>
+
+  <div x-show="runs.length > 0" x-cloak class="mt-table-wrap">
+    <table>
       <caption class="sr-only">Local scan history</caption>
-      <thead class="border-b border-slate-800 text-left text-xs uppercase tracking-wide text-slate-500">
+      <thead>
         <tr>
-          <th class="px-4 py-3">Status</th>
-          <th class="px-4 py-3">Target</th>
-          <th class="px-4 py-3">Assets</th>
-          <th class="px-4 py-3">Findings</th>
-          <th class="px-4 py-3">Started (UTC)</th>
+          <th class="mt-section" scope="col">Status</th>
+          <th class="mt-section" scope="col">Target</th>
+          <th class="mt-section" scope="col">Assets</th>
+          <th class="mt-section" scope="col">Findings</th>
+          <th class="mt-section" scope="col">Started (UTC)</th>
         </tr>
       </thead>
       <tbody>
         <template x-for="run in runs" :key="run.run_id">
-          <tr class="border-b border-slate-800/60 hover:bg-slate-800/40">
-            <td class="px-4 py-3">
-              <span class="px-2 py-0.5 rounded text-xs font-semibold"
-                    :class="statusBadge(run.status)" x-text="run.status"></span>
+          <tr>
+            <td>
+              <span :class="statusBadge(run.status)" x-text="statusLabel(run.status)"></span>
             </td>
-            <td class="px-4 py-3">
-              <a :href="'/runs/' + run.run_id"
-                 class="text-emerald-400 hover:text-emerald-300 font-mono text-xs break-all"
-                 x-text="run.target"></a>
+            <td>
+              <a :href="'/runs/' + run.run_id" class="mt-tech underline" x-text="run.target"></a>
+              <p class="mt-tech" x-show="scopeText(run)" x-text="scopeText(run)"></p>
             </td>
-            <td class="px-4 py-3 text-slate-300" x-text="run.total_assets"></td>
-            <td class="px-4 py-3 text-slate-300" x-text="run.total_findings"></td>
-            <td class="px-4 py-3 text-xs text-slate-500 font-mono" x-text="formatWhen(run.started_at)"></td>
+            <td class="text-right tabular-nums" x-text="run.total_assets"></td>
+            <td class="text-right tabular-nums" x-text="run.total_findings"></td>
+            <td class="mt-tech" x-text="formatWhen(run.started_at)"></td>
           </tr>
         </template>
       </tbody>
@@ -83,19 +79,17 @@
   </div>
 
   <!-- Pagination controls (v2.4): next_cursor-driven, keyset-stable. -->
-  <div class="flex items-center justify-between gap-3 mt-4" x-show="loaded && runs.length > 0">
+  <div class="flex flex-wrap items-center justify-between gap-3" x-show="loaded && runs.length > 0">
     <button type="button" @click="loadPrevious()"
             :disabled="!hasPrevious || loadingMore"
-            :class="hasPrevious && !loadingMore ? 'text-emerald-400 hover:text-emerald-300 border-slate-700 hover:border-slate-500' : 'text-slate-600 cursor-not-allowed'"
-            class="rounded-md border px-3 py-1.5 text-sm transition-colors disabled:opacity-50">
-      ← Newer
+            class="mt-btn mt-btn-secondary">
+      Newer
     </button>
-    <span class="text-xs text-slate-500" x-show="loadingMore" aria-live="polite">Loading more…</span>
+    <span class="mt-loading" x-show="loadingMore" aria-live="polite">Loading more…</span>
     <button type="button" @click="loadNext()"
             :disabled="!hasMore || loadingMore"
-            :class="hasMore && !loadingMore ? 'text-emerald-400 hover:text-emerald-300 border-slate-700 hover:border-slate-500' : 'text-slate-600 cursor-not-allowed'"
-            class="rounded-md border px-3 py-1.5 text-sm transition-colors disabled:opacity-50">
-      Older →
+            class="mt-btn mt-btn-secondary">
+      Older
     </button>
   </div>
 </div>
@@ -103,11 +97,19 @@
 <script>
 document.addEventListener('alpine:init', () => {
   const STATUS_BADGES = {
-    pending: 'bg-slate-700 text-slate-300',
-    running: 'bg-yellow-600 text-white',
-    completed: 'bg-emerald-700 text-white',
-    failed: 'bg-red-700 text-white',
-    aborted: 'bg-slate-600 text-slate-200',
+    pending: 'mt-badge mt-badge-pending',
+    running: 'mt-badge mt-badge-running',
+    completed: 'mt-badge mt-badge-completed',
+    failed: 'mt-badge mt-badge-failed',
+    aborted: 'mt-badge mt-badge-aborted',
+  };
+  const STATUS_LABELS = {
+    all: 'All',
+    pending: 'Pending',
+    running: 'Running',
+    completed: 'Completed',
+    failed: 'Failed',
+    aborted: 'Aborted',
   };
   // TASK-21 (v2.4): explicit page size for deterministic cursor anchors.
   const PAGE_LIMIT = 50;
@@ -138,6 +140,7 @@ document.addEventListener('alpine:init', () => {
     async load() {
       // First page (also reused on status filter / retry): reset the stack.
       this.resetPagination();
+      this.loadError = false;
       const params = this.buildQuery();
       try {
         const response = await fetch('/api/runs' + params);
@@ -152,6 +155,7 @@ document.addEventListener('alpine:init', () => {
         this.nextCursor = data.next_cursor;
         this.hasMore = data.has_more;
         this.loaded = true;
+        this.loadError = false;
         this.errorMessage = '';
       } catch (err) {
         this.errorMessage = 'Network error: the API is unreachable.';
@@ -234,8 +238,16 @@ document.addEventListener('alpine:init', () => {
       this.loaded = false; // show the loading state again
       this.load();
     },
+    statusLabel(status) {
+      return STATUS_LABELS[status] || status;
+    },
     statusBadge(status) {
       return STATUS_BADGES[status] || STATUS_BADGES.pending;
+    },
+    scopeText(run) {
+      const scope = run && run.scope;
+      if (!scope || !scope.length) return '';
+      return Array.isArray(scope) ? scope.join(', ') : String(scope);
     },
     formatWhen(value) {
       return window.MetaTracerUI.formatWhen(value);

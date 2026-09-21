@@ -20,107 +20,130 @@
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
   <link rel="stylesheet" href="{{ url_for('static', path='metatracer.css') }}">
 </head>
-<body class="bg-slate-950 text-slate-200 min-h-screen antialiased">
+<body>
   <a href="#main-content"
-     class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:px-3 focus:py-2 focus:bg-emerald-600 focus:text-white rounded-md">
+     class="mt-skip sr-only focus:not-sr-only focus:absolute focus:z-50 focus:px-3 focus:py-2">
     Skip to main content
   </a>
-  <header class="border-b border-slate-800 bg-slate-900/60">
-    <div class="max-w-6xl mx-auto px-4 py-4 flex items-baseline justify-between">
-      <div class="flex items-baseline gap-6">
-        <a href="/" class="text-lg font-bold tracking-tight text-slate-100" aria-label="MetaTracer home">
-          MetaTracer <span class="text-xs font-normal text-slate-500">v{{ version }}</span>
-        </a>
-        <nav class="flex items-center gap-4 text-sm" aria-label="Primary">
-          <a href="/" {% if request.url.path == '/' %}aria-current="page" {% endif %}class="text-slate-400 hover:text-slate-200">New scan</a>
-          <a href="/dashboard" {% if request.url.path == '/dashboard' %}aria-current="page" {% endif %}class="text-slate-400 hover:text-slate-200">Dashboard</a>
-          <a href="/runs" {% if request.url.path == '/runs' %}aria-current="page" {% endif %}class="text-slate-400 hover:text-slate-200">History</a>
-          <a href="/scopes" {% if request.url.path == '/scopes' %}aria-current="page" {% endif %}class="text-slate-400 hover:text-slate-200">Scopes</a>
-          {# Users admin (TASK-25): always visible when auth is off (the page
-             itself gates nothing then); with auth on it is operator-only —
-             viewers never see the link. #}
-          {% if not auth_enabled or (current_user and current_user.role == 'operator') %}
-          <a href="/users" {% if request.url.path == '/users' %}aria-current="page" {% endif %}class="text-slate-400 hover:text-slate-200">Users</a>
-          {% endif %}
-        </nav>
-      </div>
-      <div class="flex items-center gap-4">
-        <div x-data="notifications_bell" x-init="load()" class="relative">
-          <button type="button" @click="toggle()"
-                  class="relative p-1 text-slate-400 hover:text-slate-200"
-                  aria-label="Notifications"
-                  aria-haspopup="true"
-                  :aria-expanded="open ? 'true' : 'false'"
-                  aria-controls="notifications-panel">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-            </svg>
-            <span x-show="total > 0" x-cloak x-text="total"
-                  class="absolute -top-1 -right-1 bg-rose-600 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center"></span>
-          </button>
-
-          <div id="notifications-panel" x-show="open" x-cloak @click.outside="close()" role="region"
-               aria-label="Notifications panel"
-               class="absolute right-0 mt-2 w-80 max-h-96 overflow-y-auto bg-slate-900 border border-slate-800 rounded-lg shadow-xl z-20">
-            <div class="flex items-center justify-between px-4 py-2 border-b border-slate-800">
-              <h2 class="text-xs font-semibold uppercase tracking-wide text-slate-400">Notifications</h2>
-              <button type="button" @click="load()" class="text-xs text-emerald-400 hover:text-emerald-300">Refresh</button>
-            </div>
-
-            <p x-show="loadError" x-cloak class="px-4 py-3 text-xs text-red-400" role="status" x-text="errorMessage || 'Could not load notifications.'"></p>
-            <p x-show="!loadError && total === 0" x-cloak class="px-4 py-3 text-xs text-slate-500">No notifications yet.</p>
-
-            <template x-for="entry in entries" :key="entry.id">
-              <div class="px-4 py-3 border-b border-slate-800/60 flex items-start justify-between gap-2">
-                <div class="min-w-0">
-                  <p class="text-xs font-semibold"
-                     :class="entry.kind === 'failed' ? 'text-rose-400' : 'text-emerald-400'"
-                     x-text="(entry.kind === 'failed' ? 'Scan failed' : 'Scan completed') + ' — ' + entry.target"></p>
-                  <p class="text-[11px] text-slate-500 mt-0.5"
-                     x-text="entry.total_assets + ' asset(s) · ' + entry.total_findings + ' finding(s)'"></p>
-                  <p x-show="entry.kind === 'failed' && entry.error_message"
-                     class="text-[11px] text-rose-300/80 mt-0.5 break-words" x-text="truncate(entry.error_message, 150)"></p>
-                </div>
-                <button type="button" @click="remove(entry.id)"
-                        class="shrink-0 text-[11px] text-slate-500 hover:text-slate-300" aria-label="Dismiss notification">Dismiss</button>
-              </div>
-            </template>
-          </div>
-        </div>
-        <p class="text-xs text-amber-500/90">
+  {# navOpen is layout state, separate from notifications_bell. At ≥1024px the
+     sidebar is shown by CSS and does not depend on this flag. #}
+  <div class="mt-shell"
+       x-data="{
+         navOpen: false,
+         narrow: false,
+         init() {
+           const mq = window.matchMedia('(max-width: 1023px)');
+           const apply = () => {
+             this.narrow = mq.matches;
+             if (!this.narrow) this.navOpen = false;
+           };
+           apply();
+           mq.addEventListener('change', apply);
+         }
+       }">
+    <aside id="app-sidebar" class="mt-sidebar" :class="{ 'mt-sidebar-open': navOpen }"
+           x-effect="narrow && !navOpen ? $el.setAttribute('inert', '') : $el.removeAttribute('inert')">
+      <a href="/" class="mt-nav-link" aria-label="MetaTracer home" @click="navOpen = false">
+        MetaTracer <span class="mt-meta">v{{ version }}</span>
+      </a>
+      <nav class="flex flex-col gap-1" aria-label="Primary">
+        <a href="/dashboard" class="mt-nav-link" @click="navOpen = false"{% if request.url.path == '/dashboard' %} aria-current="page"{% endif %}>Dashboard</a>
+        <a href="/" class="mt-nav-link" @click="navOpen = false"{% if request.url.path == '/' %} aria-current="page"{% endif %}>Reconnaissance</a>
+        <a href="/runs" class="mt-nav-link" @click="navOpen = false"{% if request.url.path == '/runs' %} aria-current="page"{% endif %}>History</a>
+        <a href="/scopes" class="mt-nav-link" @click="navOpen = false"{% if request.url.path == '/scopes' %} aria-current="page"{% endif %}>Scopes</a>
+        {# Users admin (TASK-25): always visible when auth is off (the page
+           itself gates nothing then); with auth on it is operator-only —
+           viewers never see the link. #}
+        {% if not auth_enabled or (current_user and current_user.role == 'operator') %}
+        <a href="/users" class="mt-nav-link" @click="navOpen = false"{% if request.url.path == '/users' %} aria-current="page"{% endif %}>Users</a>
+        {% endif %}
+      </nav>
+    </aside>
+    <div class="mt-scrim" x-show="navOpen && narrow" x-cloak @click="navOpen = false" aria-hidden="true"></div>
+    <div class="mt-main">
+      <header class="mt-topbar flex-wrap">
+        <button type="button" class="mt-btn mt-btn-ghost mt-menu-btn"
+                @click="navOpen = !navOpen"
+                :aria-expanded="navOpen ? 'true' : 'false'"
+                aria-controls="app-sidebar">
+          Menu
+        </button>
+        <p class="mt-meta min-w-0 flex-1">
           Authorized use only — audit exclusively targets you own or are explicitly
           authorized to test.
         </p>
-        {% if auth_enabled and csrf_token %}
-        {# csrf_token is only in the page context when a session resolved
-           (middleware passed) — without it this chrome is about to bounce to
-           /login anyway, so no Sign out button. #}
-        {# Native onclick, NOT Alpine @click: this button sits outside the
-           notifications_bell x-data scope, so Alpine never evaluates a
-           directive here (seen live: the click did nothing). #}
-        {% if current_user %}
-        <p class="text-xs text-slate-500">
-          Signed in as <strong class="font-semibold text-slate-400">{{ current_user.username }}</strong>
-          ({{ current_user.role }})
+        <div class="flex items-center gap-3">
+          <div x-data="notifications_bell" x-init="load()" class="relative">
+            <button type="button" @click="toggle()"
+                    class="mt-btn mt-btn-ghost relative"
+                    aria-label="Notifications"
+                    aria-haspopup="true"
+                    :aria-expanded="open ? 'true' : 'false'"
+                    aria-controls="notifications-panel">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              <span x-show="total > 0" x-cloak x-text="total"
+                    class="mt-badge mt-badge-info absolute -top-1 -right-1"></span>
+            </button>
+
+            <div id="notifications-panel" x-show="open" x-cloak @click.outside="close()" role="region"
+                 aria-label="Notifications panel"
+                 class="mt-panel absolute right-0 top-full mt-2 w-80 max-h-96 overflow-y-auto z-20">
+              <div class="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-[var(--mt-border)]">
+                <h2 class="mt-section">Notifications</h2>
+                <button type="button" @click="load()" class="mt-btn mt-btn-ghost">Refresh</button>
+              </div>
+
+              <p x-show="loadError" x-cloak class="mt-alert mt-alert-danger" role="status" x-text="errorMessage || 'Could not load notifications.'"></p>
+              <p x-show="!loadError && total === 0" x-cloak class="mt-meta">No notifications yet.</p>
+
+              <template x-for="entry in entries" :key="entry.id">
+                <div class="flex items-start justify-between gap-2 py-3 border-b border-[var(--mt-border)]">
+                  <div class="min-w-0">
+                    <p :class="entry.kind === 'failed' ? 'mt-badge mt-badge-failed' : 'mt-badge mt-badge-completed'"
+                       x-text="(entry.kind === 'failed' ? 'Scan failed' : 'Scan completed') + ' — ' + entry.target"></p>
+                    <p class="mt-meta"
+                       x-text="entry.total_assets + ' asset(s) · ' + entry.total_findings + ' finding(s)'"></p>
+                    <p x-show="entry.kind === 'failed' && entry.error_message"
+                       class="mt-meta break-words" x-text="truncate(entry.error_message, 150)"></p>
+                  </div>
+                  <button type="button" @click="remove(entry.id)"
+                          class="mt-btn mt-btn-ghost" aria-label="Dismiss notification">Dismiss</button>
+                </div>
+              </template>
+            </div>
+          </div>
+          {% if auth_enabled and csrf_token %}
+          {# csrf_token is only in the page context when a session resolved
+             (middleware passed) — without it this chrome is about to bounce to
+             /login anyway, so no Sign out button. #}
+          {# Native onclick, NOT Alpine @click: this button sits outside the
+             notifications_bell x-data scope, so Alpine never evaluates a
+             directive here (seen live: the click did nothing). #}
+          {% if current_user %}
+          <p class="mt-meta">
+            Signed in as <strong>{{ current_user.username }}</strong>
+            ({{ current_user.role }})
+          </p>
+          {% endif %}
+          <button type="button" onclick="window.MetaTracerUI.logout()" class="mt-btn mt-btn-ghost">
+            Sign out
+          </button>
+          {% endif %}
+        </div>
+      </header>
+      <main id="main-content" class="mt-content">
+        {% block content %}{% endblock %}
+      </main>
+      <footer class="px-6 pb-6">
+        <p class="mt-meta">
+          Passive metadata audit of publicly available documents inside the confirmed
+          scope. Not an exploitation test.
         </p>
-        {% endif %}
-        <button type="button" onclick="window.MetaTracerUI.logout()"
-                class="text-xs text-slate-400 hover:text-slate-200 border border-slate-700 rounded-md px-2 py-1">
-          Sign out
-        </button>
-        {% endif %}
-      </div>
+      </footer>
     </div>
-  </header>
-  <main id="main-content" class="max-w-6xl mx-auto px-4 py-8">
-    {% block content %}{% endblock %}
-  </main>
-  <footer class="border-t border-slate-800 mt-12">
-    <div class="max-w-6xl mx-auto px-4 py-4 text-xs text-slate-500">
-      Passive metadata audit of publicly available documents inside the confirmed
-      scope. Not an exploitation test.
-    </div>
-  </footer>
+  </div>
   <script>
   // Shared UI helpers (TASK-20, 20.2). Single source of truth for error
   // rendering, truncation and UTC timestamp formatting; every Alpine

@@ -1,117 +1,118 @@
 {% extends "base.html" %}
 {% block title %}MetaTracer — Scopes{% endblock %}
 {% block content %}
-<div x-data="scopeManager" x-init="load()" class="max-w-4xl mx-auto">
-  <div class="flex items-end justify-between gap-4 mb-6">
-    <div>
-      <h1 class="text-2xl font-bold text-slate-100 mb-1">Scopes</h1>
-      <p class="text-sm text-slate-400">
+<div x-data="scopeManager" x-init="load()" class="min-w-0 flex flex-col gap-6">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0">
+      <h1 class="mt-title">Scopes</h1>
+      <p class="mt-body">
         Reusable sets of authorized domains. A scan copies the domains of a scope
         onto the run, so editing or deleting a scope never changes past runs.
       </p>
     </div>
-    <a href="/" class="text-sm text-emerald-400 hover:text-emerald-300 font-medium">New scan</a>
+    <a href="/" class="mt-btn mt-btn-secondary">New scan</a>
   </div>
 
   <!-- Import portable scopes (TASK-19, v2.2) -->
-  <div class="bg-slate-900/60 border border-slate-800 rounded-lg p-5 mb-6">
-    <h2 class="text-sm font-semibold text-slate-300 mb-3">Import scopes from a file</h2>
-    <p class="text-sm text-slate-400 mb-3">
-      Upload a portable scopes JSON (see <span class="font-mono text-slate-500">metatracer scope export</span>
+  <div class="mt-panel flex flex-col gap-3">
+    <h2 class="mt-section">Import scopes from a file</h2>
+    <p class="mt-body">
+      Upload a portable scopes JSON (see <span class="mt-tech">metatracer scope export</span>
       or the TASK-19 format). Existing names are skipped — nothing is overwritten.
     </p>
-<label for="scope-import-file" class="block text-sm font-medium text-slate-300 mb-1">Portable scopes JSON file</label>
-<input id="scope-import-file" type="file" accept="application/json,.json"
-       class="block w-full text-sm text-white rounded-md"
-       style="color: #ffffff; background-color: #0f172a; border: 1px solid #334155">
-    <p x-show="importMessage" x-text="importMessage" x-cloak class="text-sm text-slate-400 mt-2" role="status"></p>
-    <p x-show="importError" x-text="importError" x-cloak class="text-sm text-red-400 mt-2" role="alert"></p>
-    <button type="button" @click="importFile" :disabled="importBusy"
-            class="rounded-md bg-emerald-600 hover:bg-emerald-500 font-semibold px-4 py-2 text-sm transition-colors mt-3 disabled:opacity-40 disabled:cursor-not-allowed"
-            style="color: #ffffff"
-            x-text="importBusy ? 'Importing…' : 'Import file'"></button>
+    <div>
+      <label for="scope-import-file" class="mt-label">Portable scopes JSON file</label>
+      <input id="scope-import-file" type="file" accept="application/json,.json"
+             class="mt-input" :disabled="importBusy">
+    </div>
+    <p x-show="importMessage" x-text="importMessage" x-cloak class="mt-meta" role="status"></p>
+    <p x-show="importError" x-text="importError" x-cloak class="mt-alert mt-alert-danger" role="alert"></p>
+    <div>
+      <button type="button" @click="importFile" :disabled="importBusy"
+              class="mt-btn mt-btn-primary"
+              x-text="importBusy ? 'Importing…' : 'Import file'"></button>
+    </div>
   </div>
 
-  <!-- Save / edit form -->
-  <div class="bg-slate-900/60 border border-slate-800 rounded-lg p-5 mb-6">
-    <h2 class="text-sm font-semibold text-slate-300 mb-3"
-        x-text="editing ? 'Edit scope' : 'New scope'"></h2>
+  <div class="mt-panel flex flex-col gap-4">
+    <h2 class="mt-section" x-text="editing ? 'Edit scope' : 'New scope'"></h2>
     <div class="grid grid-cols-1 gap-4">
       <div>
-        <label for="scope-name" class="block text-sm font-medium text-slate-300 mb-1">Name</label>
+        <label for="scope-name" class="mt-label">Name</label>
         <input id="scope-name" type="text" x-model="form.name" maxlength="64" required
-               class="w-full rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none"
+               class="mt-input mt-tech"
                placeholder="e.g. acme-2026-engagement">
       </div>
       <div>
-        <label for="scope-desc" class="block text-sm font-medium text-slate-300 mb-1">Description (optional)</label>
+        <label for="scope-desc" class="mt-label">Description (optional)</label>
         <textarea id="scope-desc" x-model="form.description" rows="2"
-                  class="w-full rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none"
+                  class="mt-input"
                   placeholder="Purpose, client or engagement this scope belongs to"></textarea>
       </div>
       <div>
-        <label for="scope-domains" class="block text-sm font-medium text-slate-300 mb-1">Domains</label>
+        <label for="scope-domains" class="mt-label">Domains</label>
         <textarea id="scope-domains" x-model="form.domainsText" rows="3" required
-                  class="w-full rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none"
+                  class="mt-input mt-tech"
                   placeholder="One per line or comma-separated, e.g.&#10;example.com&#10;static.example.com"></textarea>
-        <p class="text-xs text-slate-500 mt-1">
+        <p class="mt-meta mt-1">
           Stored host-normalized (lowercase, no scheme/path). Wildcards like
-          <span class="font-mono">*.example.com</span> are allowed.
+          <span class="mt-tech">*.example.com</span> are allowed.
         </p>
       </div>
     </div>
-    <p x-show="formError" x-text="formError" x-cloak class="text-sm text-red-400 mt-3"></p>
-    <div class="flex gap-3 mt-4">
+    <p x-show="formError" x-text="formError" x-cloak class="mt-alert mt-alert-danger" role="alert"></p>
+    <div class="flex flex-wrap gap-2">
       <button type="button" @click="save"
-              class="rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-2 text-sm transition-colors"
+              class="mt-btn mt-btn-primary"
               x-text="editing ? 'Save changes' : 'Create scope'"></button>
       <button type="button" @click="resetForm" x-show="editing" x-cloak
-              class="rounded-md border border-slate-700 text-slate-300 px-4 py-2 text-sm hover:bg-slate-800 transition-colors">
+              class="mt-btn mt-btn-secondary">
         Cancel
       </button>
     </div>
   </div>
 
-  <!-- Loading state -->
-  <div x-show="!loaded && !loadError" class="flex items-center gap-3 text-slate-400" aria-live="polite">
-    <span class="inline-block h-5 w-5 animate-spin rounded-full border-2 border-slate-600 border-t-emerald-500"></span>
+  <div x-show="!loaded && !loadError" class="mt-loading" aria-live="polite">
+    <span class="mt-spin" aria-hidden="true"></span>
     <span>Loading scopes…</span>
   </div>
 
-  <p x-show="loadError" x-cloak role="alert" class="text-sm text-red-400">
-    <span x-text="errorMessage || 'Could not load the scopes.'"></span>
-    <button type="button" @click="load()" class="underline text-red-300 hover:text-red-200">Retry</button>
-  </p>
-
-  <div x-show="!loadError && loaded && scopes.length === 0" x-cloak
-       class="bg-slate-900/60 border border-slate-800 rounded-lg p-8 text-center">
-    <p class="text-lg font-semibold text-slate-200 mb-1">No scopes yet</p>
-    <p class="text-sm text-slate-400 mb-4">Create a scope to reuse the same authorized domains across scans.</p>
+  <div x-show="loadError" x-cloak role="alert" class="mt-alert mt-alert-danger flex flex-wrap items-center justify-between gap-3">
+    <p x-text="errorMessage || 'Could not load the scopes.'"></p>
+    <button type="button" @click="load()" class="mt-btn mt-btn-secondary">Retry</button>
   </div>
 
-  <div x-show="scopes.length > 0" class="overflow-x-auto bg-slate-900/60 border border-slate-800 rounded-lg">
-    <table class="min-w-full text-sm">
+  <div x-show="!loadError && loaded && scopes.length === 0" x-cloak
+       class="mt-panel mt-empty">
+    <p class="mt-title" style="font-size:16px">No scopes yet</p>
+    <p class="mt-body" style="color:var(--mt-muted)">Create a scope to reuse the same authorized domains across scans.</p>
+  </div>
+
+  <div x-show="scopes.length > 0" x-cloak class="mt-table-wrap">
+    <table>
       <caption class="sr-only">Saved authorization scopes</caption>
-      <thead class="border-b border-slate-800 text-left text-xs uppercase tracking-wide text-slate-500">
+      <thead>
         <tr>
-          <th class="px-4 py-3" scope="col">Name</th>
-          <th class="px-4 py-3" scope="col">Domains</th>
-          <th class="px-4 py-3" scope="col">Created (UTC)</th>
-          <th class="px-4 py-3" scope="col">Actions</th>
+          <th class="mt-section" scope="col">Name</th>
+          <th class="mt-section" scope="col">Domains</th>
+          <th class="mt-section" scope="col">Created (UTC)</th>
+          <th class="mt-section" scope="col">Actions</th>
         </tr>
       </thead>
       <tbody>
         <template x-for="scope in scopes" :key="scope.id">
-          <tr class="border-b border-slate-800/60 hover:bg-slate-800/40">
-            <td class="px-4 py-3 text-slate-200">
+          <tr>
+            <td>
               <span x-text="scope.name"></span>
-              <p class="text-xs text-slate-500" x-text="scope.description || ''"></p>
+              <p class="mt-meta" x-text="scope.description || ''"></p>
             </td>
-            <td class="px-4 py-3 font-mono text-xs text-slate-400" x-text="scope.domains.join(', ')"></td>
-            <td class="px-4 py-3 text-xs text-slate-500 font-mono" x-text="formatWhen(scope.created_at)"></td>
-            <td class="px-4 py-3">
-              <button @click="edit(scope)" class="text-xs text-emerald-400 hover:text-emerald-300 font-medium mr-3">Edit</button>
-              <button @click="remove(scope)" class="text-xs text-red-400 hover:text-red-300 font-medium">Delete</button>
+            <td class="mt-tech" x-text="scope.domains.join(', ')"></td>
+            <td class="mt-tech" x-text="formatWhen(scope.created_at)"></td>
+            <td>
+              <div class="flex flex-wrap gap-2">
+                <button type="button" @click="edit(scope)" class="mt-btn mt-btn-secondary">Edit</button>
+                <button type="button" @click="remove(scope)" class="mt-btn mt-btn-danger">Delete</button>
+              </div>
             </td>
           </tr>
         </template>
@@ -135,6 +136,7 @@ document.addEventListener('alpine:init', () => {
     importBusy: false,
 
     async load() {
+      this.loadError = false;
       try {
         const response = await fetch('/api/scopes');
         if (!response.ok) {
@@ -145,6 +147,7 @@ document.addEventListener('alpine:init', () => {
         const data = await response.json();
         this.scopes = data.scopes;
         this.loaded = true;
+        this.loadError = false;
         this.errorMessage = '';
       } catch (err) {
         this.errorMessage = 'Network error: the API is unreachable.';
@@ -173,13 +176,19 @@ document.addEventListener('alpine:init', () => {
       this.importBusy = true;
       try {
         const text = await file.text();
-          const response = await window.MetaTracerUI.authFetch('/api/scopes/import', {
+        const response = await window.MetaTracerUI.authFetch('/api/scopes/import', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: text,
         });
-        const data = await response.json();
+        let data = {};
+        try {
+          data = await response.json();
+        } catch (err) {
+          data = {};
+        }
         if (!response.ok) {
+          // A failed import must not replace the list already on screen.
           if (response.status === 413) {
             this.importError = 'File too large: the server rejected the upload.';
           } else {

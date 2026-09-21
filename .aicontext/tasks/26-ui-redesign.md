@@ -1,7 +1,7 @@
 # TASK-26 — Rediseño de UI: design system propio sobre el stack actual
 
 **Fuente:** decisión de producto 2026-09-19 (prioridad del operador: "diseño mucho mejor" para la Web UI).
-**Estado:** **borrador inicial 2026-09-19 — el operador le dará otra vuelta antes de implementar; no empezar sin esa redefinición.** Planteamiento actual: se ejecutaría **después** de [TASK-25](25-user-registration.md) para rediseñar el flujo Sign In / Register / Setup una sola vez y con el modelo de usuarios final.
+**Estado:** **rediseño visual aplicado 2026-09-21** sobre el stack actual (Jinja2 + Alpine.js 3.14.8 + Tailwind 3.4.16 por CDN fijado). Contrato en [`.aicontext/ui/`](../ui/redesign-plan.md). La retirada del CDN (opciones A/B de abajo) y las cabeceras HTTP de seguridad siguen como seguimiento; no forman parte de este cierre. La base a11y de TASK-20 se revalidó (`pytest` 675 passed, 5 skipped, ruff limpio; revisión de `safety-guardian` sin bloqueantes).
 **Dependencias:** TASK-00 … TASK-25 (en particular TASK-20, cuya base a11y se conserva).
 
 ## Objetivo

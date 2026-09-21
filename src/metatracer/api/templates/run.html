@@ -1,301 +1,335 @@
 {% extends "base.html" %}
 {% block title %}MetaTracer — Run results{% endblock %}
 {% block content %}
-<div x-data="runDashboard" x-init="init()">
+<div x-data="runDashboard" x-init="init()" class="min-w-0 flex flex-col gap-6">
 
-  <!-- Loading state -->
-  <div x-show="!run && !loadError" class="flex items-center gap-3 text-slate-400">
-    <span class="inline-block h-5 w-5 animate-spin rounded-full border-2 border-slate-600 border-t-emerald-500"></span>
+  <div x-show="!run && !loadError" class="mt-loading" aria-live="polite">
+    <span class="mt-spin" aria-hidden="true"></span>
     <span>Loading run…</span>
   </div>
 
   <!-- Unknown run: a dignified state, not a blank screen -->
-  <div x-show="loadError" x-cloak class="bg-slate-900/60 border border-slate-800 rounded-lg p-8 text-center" role="alert">
-    <p class="text-lg font-semibold text-slate-200 mb-2" x-text="loadErrorMessage || 'Run not found'"></p>
-    <p class="text-sm text-slate-400 mb-4">
+  <div x-show="loadError" x-cloak role="alert" class="mt-alert mt-alert-danger flex flex-col gap-2">
+    <p class="mt-title" style="font-size:16px" x-text="loadErrorMessage || 'Run not found'"></p>
+    <p class="mt-body">
       This run id does not exist in the local database. It may belong to another
       MetaTracer installation or the database may have been reset.
     </p>
-    <a href="/" class="text-emerald-400 hover:text-emerald-300 text-sm font-medium">Start a new scan</a>
+    <a href="/" class="mt-btn mt-btn-secondary self-start">Start a new scan</a>
   </div>
 
-  <div x-show="run && !loadError" x-cloak>
-    <!-- Run header -->
-    <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
-      <div>
-        <h1 class="text-xl font-bold text-slate-100">
-          Scan of <span class="font-mono text-emerald-400" x-text="run ? run.target : ''"></span>
+  <div x-show="run && !loadError" x-cloak class="flex flex-col gap-6">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div class="min-w-0">
+        <h1 class="mt-title">
+          Scan of <span class="mt-tech" x-text="run ? run.target : ''"></span>
         </h1>
-        <p class="text-xs text-slate-500 font-mono" x-text="run ? run.run_id : ''"></p>
+        <p class="mt-tech" x-text="run ? run.run_id : ''"></p>
+        <p class="mt-meta" x-show="run && run.completed_at">
+          Completed at <span x-text="run ? formatWhen(run.completed_at) : ''"></span>
+        </p>
       </div>
-      <span class="px-3 py-1 rounded-full text-xs font-semibold"
+      <span class="mt-badge"
             :class="statusBadgeClass(run ? run.status : '')"
-            x-text="run ? run.status : ''"></span>
+            x-text="statusLabel(run ? run.status : '')"></span>
     </div>
 
-    <!-- Failed run: explicit error, never an empty dashboard -->
-    <div x-show="run && run.status === 'failed'" x-cloak
-         class="bg-red-950/50 border border-red-800 rounded-lg p-5 mb-6">
-      <p class="text-sm font-semibold text-red-300 mb-1">Scan failed</p>
-      <p class="text-sm text-red-200/90 font-mono whitespace-pre-wrap"
+    <!-- Failed run: the server status, never inferred from the message text -->
+    <div x-show="run && run.status === 'failed'" x-cloak role="alert"
+         class="mt-alert mt-alert-danger flex flex-col gap-1">
+      <p class="mt-body" style="font-weight:600">Scan failed</p>
+      <p class="mt-tech whitespace-pre-wrap"
          x-text="run ? (run.error_message || 'unknown error') : ''"></p>
+    </div>
+
+    <!-- Aborted is its own status. failed is not remapped here. -->
+    <div x-show="run && run.status === 'aborted'" x-cloak role="alert"
+         class="mt-alert mt-alert-warning flex flex-col gap-1">
+      <p class="mt-body" style="font-weight:600">Scan aborted</p>
+      <p class="mt-tech whitespace-pre-wrap" x-show="run && run.error_message"
+         x-text="run ? run.error_message : ''"></p>
     </div>
 
     <!-- Live progress (SSE) -->
     <div x-show="run && (run.status === 'pending' || run.status === 'running')" x-cloak
-         class="bg-slate-900/60 border border-slate-800 rounded-lg p-6 mb-6">
-      <h2 class="text-sm font-semibold text-slate-300 mb-4">Progress</h2>
-      <ol class="space-y-2">
+         class="mt-panel flex flex-col gap-4">
+      <h2 class="mt-section">Progress</h2>
+      <ol class="flex flex-col gap-2">
         <template x-for="stage in stages" :key="stage.key">
-          <li class="flex items-center gap-3 text-sm">
-            <span x-show="stage.state === 'done'" class="text-emerald-400 font-bold">&#10003;</span>
-            <span x-show="stage.state === 'active'"
-                  class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-600 border-t-emerald-500"></span>
-            <span x-show="stage.state === 'pending'" class="inline-block h-4 w-4 rounded-full border-2 border-slate-700"></span>
-            <span x-show="stage.state === 'failed'" class="text-red-400 font-bold">&#10007;</span>
-            <span :class="stage.state === 'pending' ? 'text-slate-500' : 'text-slate-200'"
+          <li class="flex items-center gap-3">
+            <span x-show="stage.state === 'done'" aria-hidden="true"
+                  class="inline-flex items-center justify-center"
+                  style="width:16px;height:16px;color:var(--mt-success)">&#10003;</span>
+            <span x-show="stage.state === 'active'" class="mt-spin" aria-hidden="true"></span>
+            <span x-show="stage.state === 'pending'" aria-hidden="true"
+                  style="width:16px;height:16px;border:2px solid var(--mt-border-strong);border-radius:50%"></span>
+            <span x-show="stage.state === 'failed'" aria-hidden="true"
+                  class="inline-flex items-center justify-center"
+                  style="width:16px;height:16px;color:var(--mt-danger)">&#10007;</span>
+            <span class="mt-body"
+                  :style="stage.state === 'pending' ? 'color:var(--mt-muted)' : (stage.state === 'active' ? 'font-weight:600' : '')"
                   x-text="stage.label"></span>
           </li>
         </template>
       </ol>
-      <p class="text-xs text-slate-400 mt-4 font-mono" x-text="currentMessage"></p>
+      <p class="mt-tech whitespace-pre-wrap" x-text="currentMessage"></p>
+      <p class="mt-tech break-all" x-show="currentAsset" x-text="currentAsset"></p>
+      <p class="mt-meta" x-show="totalSteps">
+        Step <span x-text="currentStep"></span> / <span x-text="totalSteps"></span>
+      </p>
     </div>
 
     <!-- Results -->
-    <div x-show="run && run.status === 'completed'" x-cloak>
-      <!-- Severity + type badges and search (client-side; export stays complete) -->
-      <div class="flex flex-wrap gap-2 mb-3">
-        <button @click="severityFilter = 'all'"
-                class="px-3 py-1 rounded-full text-xs font-semibold border transition-colors"
-                :class="severityFilter === 'all' ? 'border-emerald-500 text-emerald-300' : 'border-slate-700 text-slate-400 hover:border-slate-500'"
+    <div x-show="run && run.status === 'completed'" x-cloak class="flex flex-col gap-4">
+      <div class="flex flex-wrap gap-2">
+        <button type="button" @click="severityFilter = 'all'"
+                class="mt-btn mt-btn-secondary"
                 :aria-pressed="severityFilter === 'all' ? 'true' : 'false'">
           All (<span x-text="findings.length"></span>)
         </button>
         <template x-for="sev in severityOrder" :key="sev">
-          <button @click="severityFilter = (severityFilter === sev ? 'all' : sev)"
-                  class="px-3 py-1 rounded-full text-xs font-semibold border transition-colors"
-                  :class="severityFilter === sev ? 'border-emerald-500 text-emerald-300' : 'border-slate-700 text-slate-400 hover:border-slate-500'"
+          <button type="button" @click="severityFilter = (severityFilter === sev ? 'all' : sev)"
+                  class="mt-btn mt-btn-secondary"
                   :aria-pressed="severityFilter === sev ? 'true' : 'false'">
-            <span x-text="sev"></span> (<span x-text="counts[sev] || 0"></span>)
+            <span x-text="severityLabel(sev)"></span> (<span x-text="counts[sev] || 0"></span>)
           </button>
         </template>
       </div>
-      <div class="flex flex-wrap gap-2 mb-3">
-        <button @click="typeFilter = 'all'"
-                class="px-3 py-1 rounded-full text-xs font-semibold border transition-colors"
-                :class="typeFilter === 'all' ? 'border-emerald-500 text-emerald-300' : 'border-slate-700 text-slate-400 hover:border-slate-500'"
+      <div class="flex flex-wrap gap-2">
+        <button type="button" @click="typeFilter = 'all'"
+                class="mt-btn mt-btn-secondary"
                 :aria-pressed="typeFilter === 'all' ? 'true' : 'false'">
           All types
         </button>
         <template x-for="type in typeOptions" :key="type.value">
-          <button @click="typeFilter = (typeFilter === type.value ? 'all' : type.value)"
-                  class="px-3 py-1 rounded-full text-xs font-semibold border transition-colors"
-                  :class="typeFilter === type.value ? 'border-emerald-500 text-emerald-300' : 'border-slate-700 text-slate-400 hover:border-slate-500'"
+          <button type="button" @click="typeFilter = (typeFilter === type.value ? 'all' : type.value)"
+                  class="mt-btn mt-btn-secondary"
                   :aria-pressed="typeFilter === type.value ? 'true' : 'false'"
                   x-text="type.label"></button>
         </template>
       </div>
-      <label for="findings-search" class="sr-only">Search findings</label>
-      <input id="findings-search" type="search" x-model="query" placeholder="Search evidence, title, field or URL"
-             class="w-full mb-4 rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none">
+      <div>
+        <label for="findings-search" class="sr-only">Search findings</label>
+        <input id="findings-search" type="search" x-model="query" placeholder="Search evidence, title, field or URL"
+               class="mt-input">
+      </div>
 
       <!-- Findings load failure: distinct from an honest zero-findings result -->
       <div x-show="findingsError" x-cloak role="alert"
-           class="bg-red-950/50 border border-red-800 rounded-lg p-5 mb-4">
-        <p class="text-sm font-semibold text-red-300 mb-1">Findings unavailable</p>
-        <p class="text-sm text-red-200/90" x-text="findingsError"></p>
+           class="mt-alert mt-alert-danger flex flex-col gap-1">
+        <p class="mt-body" style="font-weight:600">Findings unavailable</p>
+        <p class="mt-body" x-text="findingsError"></p>
       </div>
 
-      <!-- Zero findings: a valid result, rendered as such -->
-      <div x-show="findingsLoaded && !findingsError && findings.length === 0"
-           class="bg-slate-900/60 border border-emerald-900 rounded-lg p-8 text-center">
-        <p class="text-lg font-semibold text-emerald-300 mb-1">No findings</p>
-        <p class="text-sm text-slate-400">
+      <!-- Zero findings: a valid result, not an error and not a success state -->
+      <div x-show="findingsLoaded && !findingsError && findings.length === 0" x-cloak
+           class="mt-alert mt-alert-neutral flex flex-col gap-1">
+        <p class="mt-title" style="font-size:16px">No findings</p>
+        <p class="mt-body" style="color:var(--mt-muted)">
           No sensitive metadata was identified in the
           <span x-text="run ? run.total_assets : 0"></span> asset(s) analyzed.
         </p>
       </div>
 
-      <!-- Findings table -->
-      <div x-show="findings.length > 0" class="overflow-x-auto bg-slate-900/60 border border-slate-800 rounded-lg">
-        <table class="min-w-full text-sm">
+      <div x-show="findings.length > 0" class="mt-table-wrap">
+        <table>
           <caption class="sr-only">Findings of this scan, ordered by severity</caption>
-          <thead class="border-b border-slate-800 text-left text-xs uppercase tracking-wide text-slate-500">
+          <thead>
             <tr>
-              <th class="px-4 py-3" scope="col">Severity</th>
-              <th class="px-4 py-3" scope="col">Type</th>
-              <th class="px-4 py-3" scope="col">Evidence</th>
-              <th class="px-4 py-3" scope="col">Asset</th>
+              <th class="mt-section" scope="col">Severity</th>
+              <th class="mt-section" scope="col">Type</th>
+              <th class="mt-section" scope="col">Evidence</th>
+              <th class="mt-section" scope="col">Asset</th>
             </tr>
           </thead>
           <tbody>
             <template x-for="finding in filteredFindings" :key="finding.id">
               <tr @click="select(finding)" @keydown.enter="select(finding)"
                   tabindex="0"
-                  class="border-b border-slate-800/60 hover:bg-slate-800/40 cursor-pointer focus:outline-none focus:bg-slate-800/60">
-                <td class="px-4 py-3">
-                  <span class="px-2 py-0.5 rounded text-xs font-semibold"
+                  class="cursor-pointer focus-visible:[outline:2px_solid_var(--mt-focus)]">
+                <td>
+                  <span class="mt-badge"
                         :class="severityBadgeClass(finding.severity)"
-                        x-text="finding.severity || 'unclassified'"></span>
+                        x-text="severityLabel(finding.severity)"></span>
                 </td>
-                <td class="px-4 py-3 text-slate-300" x-text="finding.type_label"></td>
-                <td class="px-4 py-3 font-mono text-xs text-slate-400"
-                    x-text="truncate(finding.evidence_snippet, 90)"></td>
-                <td class="px-4 py-3 font-mono text-xs text-slate-400"
-                    x-text="truncate(finding.asset_final_url, 60)"></td>
+                <td x-text="finding.type_label"></td>
+                <td class="mt-tech" x-text="truncate(finding.evidence_snippet, 90)"></td>
+                <td class="mt-tech" x-text="truncate(finding.asset_final_url, 60)"></td>
               </tr>
             </template>
           </tbody>
         </table>
-        <p x-show="filteredFindings.length === 0" class="px-4 py-6 text-sm text-slate-500 text-center">
+        <p x-show="filteredFindings.length === 0" class="px-4 py-6 mt-meta text-center">
           No findings match the current filters.
         </p>
       </div>
 
-      <!-- Asset issues: a failed asset is visible, never a silent gap -->
+      <!-- Asset issues: a failed asset is visible, never a silent gap.
+           This block did not abort the run, so it stays a warning. -->
       <details x-show="run && run.asset_issues.length > 0"
-               class="mt-6 bg-slate-900/60 border border-slate-800 rounded-lg">
-        <summary class="px-4 py-3 text-sm font-semibold text-slate-300 cursor-pointer">
+               class="mt-alert mt-alert-warning">
+        <summary class="cursor-pointer">
           Asset issues (<span x-text="run ? run.asset_issues.length : 0"></span>) — failed or
           skipped documents that did not abort the run
         </summary>
-        <ul class="px-4 pb-4 space-y-2">
+        <ul class="mt-3 flex flex-col gap-2">
           <template x-for="issue in (run ? run.asset_issues : [])" :key="issue.asset_id">
-            <li class="text-xs font-mono text-slate-400">
-              <span class="px-1.5 py-0.5 rounded"
-                    :class="issue.status === 'failed' ? 'bg-red-900/60 text-red-300' : 'bg-slate-800 text-slate-400'"
+            <li class="mt-tech">
+              <span class="mt-badge"
+                    :class="issue.status === 'failed' ? 'mt-badge-failed' : 'mt-badge-pending'"
                     x-text="issue.skip_reason || issue.status"></span>
-              <span x-text="' ' + issue.source_url"></span>
-              <span class="text-slate-500" x-text="issue.error_message ? ' — ' + issue.error_message : ''"></span>
+              <span x-text="issue.source_url"></span>
+              <span class="mt-meta" x-text="issue.error_message ? ' — ' + issue.error_message : ''"></span>
             </li>
           </template>
         </ul>
       </details>
 
-      <!-- Export -->
-      <div class="flex gap-3 mt-6">
-        <a :href="'/api/runs/' + runId + '/export?format=md'" download
-           class="rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-4 py-2 text-sm font-medium transition-colors">
-          Download Markdown
-        </a>
-        <a :href="'/api/runs/' + runId + '/export?format=json'" download
-           class="rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-4 py-2 text-sm font-medium transition-colors">
-          Download JSON
-        </a>
-        <a :href="'/api/runs/' + runId + '/export?format=html'" download
-           class="rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-4 py-2 text-sm font-medium transition-colors">
-          Download HTML
-        </a>
-        <a :href="'/api/runs/' + runId + '/export?format=csv'" download
-           class="rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-4 py-2 text-sm font-medium transition-colors">
-          Download CSV
-        </a>
-        <a :href="'/api/runs/' + runId + '/export?format=bounty'" download
-           class="rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-4 py-2 text-sm font-medium transition-colors">
-          Download Bounty TXT
-        </a>
-        <a href="/runs" class="ml-auto text-sm text-slate-400 hover:text-slate-200 font-medium">History</a>
-        <a href="/" class="text-sm text-emerald-400 hover:text-emerald-300 font-medium">
-          New scan
-        </a>
+      <div class="flex flex-col gap-3">
+        <div>
+          <h2 class="mt-section">Reports</h2>
+          <p class="mt-meta">The report file is regenerated on the server.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <a :href="'/api/runs/' + runId + '/export?format=md'" download
+             class="mt-btn mt-btn-secondary">
+            Download Markdown
+          </a>
+          <a :href="'/api/runs/' + runId + '/export?format=json'" download
+             class="mt-btn mt-btn-secondary">
+            Download JSON
+          </a>
+          <a :href="'/api/runs/' + runId + '/export?format=html'" download
+             class="mt-btn mt-btn-secondary">
+            Download HTML
+          </a>
+          <a :href="'/api/runs/' + runId + '/export?format=csv'" download
+             class="mt-btn mt-btn-secondary">
+            Download CSV
+          </a>
+          <a :href="'/api/runs/' + runId + '/export?format=bounty'" download
+             class="mt-btn mt-btn-secondary">
+            Download Bounty TXT
+          </a>
+          <a href="/runs" class="mt-btn mt-btn-ghost">History</a>
+          <a href="/" class="mt-btn mt-btn-secondary">New scan</a>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Finding drawer: full evidence + agent prose. All values via x-text.
+  <!-- Finding drawer: evidence and model prose stay in separate zones.
        TASK-20 (20.3): role/aria-modal announce it as a dialog; focus moves in
        on open and is restored on close; Tab is trapped inside; Escape closes. -->
   <div x-show="selected" x-cloak class="fixed inset-0 z-50" @keydown.escape.window="closeDrawer()">
-    <div class="absolute inset-0 bg-slate-950/70" @click="closeDrawer()"></div>
-    <aside class="absolute inset-y-0 right-0 w-full max-w-xl bg-slate-900 border-l border-slate-700 shadow-2xl overflow-y-auto"
+    <div class="absolute inset-0" style="background:var(--mt-overlay)" @click="closeDrawer()"></div>
+    <aside class="absolute inset-y-0 right-0 w-full max-w-xl overflow-y-auto"
+           style="background:var(--mt-surface);border-left:1px solid var(--mt-border);box-shadow:var(--mt-shadow-overlay)"
            role="dialog" aria-modal="true" aria-labelledby="finding-drawer-title"
            @keydown.tab="trapFocus($event)">
       <template x-if="selected">
-        <div class="p-6">
-          <div class="flex items-start justify-between gap-4 mb-4">
-            <h2 id="finding-drawer-title" class="text-base font-bold text-slate-100" x-text="selected.title"></h2>
-            <button @click="closeDrawer" ref="drawerClose" aria-label="Close finding details"
-                    class="text-slate-400 hover:text-slate-200 text-xl leading-none">&times;</button>
-          </div>
-          <div class="flex items-center gap-2 mb-4">
-            <span class="px-2 py-0.5 rounded text-xs font-semibold"
-                  :class="severityBadgeClass(selected.severity)"
-                  x-text="selected.severity || 'unclassified'"></span>
-            <span class="text-xs text-slate-400" x-text="selected.type_label"></span>
-            <span class="text-xs text-slate-500" x-text="'confidence: ' + selected.confidence"></span>
+        <div class="p-6 flex flex-col gap-6">
+          <div class="flex items-start justify-between gap-4">
+            <div class="min-w-0 flex flex-col gap-2">
+              <h2 id="finding-drawer-title" class="mt-title" x-text="selected.title"></h2>
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="mt-badge"
+                      :class="severityBadgeClass(selected.severity)"
+                      x-text="severityLabel(selected.severity)"></span>
+                <span class="mt-body" x-text="selected.type_label"></span>
+                <span class="mt-meta">Confidence</span>
+                <span class="mt-badge mt-badge-confidence" x-text="confidenceLabel(selected.confidence)"></span>
+              </div>
+            </div>
+            <button type="button" @click="closeDrawer" x-ref="drawerClose" ref="drawerClose"
+                    aria-label="Close finding details"
+                    class="mt-btn mt-btn-ghost">&times;</button>
           </div>
 
-          <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Asset</h3>
-          <a :href="safeUrl(selected.asset_final_url)" target="_blank" rel="noopener noreferrer"
-             class="block text-xs font-mono text-emerald-400 break-all mb-1"
-             x-text="selected.asset_final_url"></a>
-          <p class="text-xs text-slate-500 font-mono mb-4">
-            <span x-text="'source: ' + selected.asset_source_url"></span><br>
-            <span x-text="'content-type: ' + selected.asset_content_type"></span><br>
-            <span x-text="'field: ' + selected.field_source"></span>
-          </p>
-
-          <div class="flex items-center justify-between mb-1">
-            <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Evidence</h3>
-            <button @click="copyEvidence"
-                    class="text-xs text-emerald-400 hover:text-emerald-300 font-medium"
+          <section class="flex flex-col gap-2">
+            <h3 class="mt-body" style="font-weight:600">Evidence</h3>
+            <pre class="mt-evidence whitespace-pre-wrap"
+                 style="border:1px solid var(--mt-border);padding:12px;background:var(--mt-bg)"
+                 x-text="selected.evidence_snippet"></pre>
+            <p class="mt-label">Field</p>
+            <p class="mt-tech" x-text="selected.field_source"></p>
+            <p class="mt-label">Source URL</p>
+            <a :href="safeUrl(selected.asset_source_url)" target="_blank" rel="noopener noreferrer"
+               class="mt-tech underline break-all" x-text="selected.asset_source_url"></a>
+            <p class="mt-label">Final URL</p>
+            <a :href="safeUrl(selected.asset_final_url)" target="_blank" rel="noopener noreferrer"
+               class="mt-tech underline break-all" x-text="selected.asset_final_url"></a>
+            <p class="mt-label">Content type</p>
+            <p class="mt-tech" x-text="selected.asset_content_type"></p>
+            <button type="button" @click="copyEvidence" class="mt-btn mt-btn-secondary self-start"
                     x-text="copied ? 'Copied' : 'Copy'"></button>
-          </div>
-          <pre class="bg-slate-950 border border-slate-800 rounded p-3 text-xs font-mono text-slate-300 whitespace-pre-wrap break-all mb-4"
-               x-text="selected.evidence_snippet"></pre>
+          </section>
 
-          <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Justification</h3>
-          <p class="text-sm text-slate-300 mb-4" x-text="selected.severity_justification"></p>
-
-          <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Impact</h3>
-          <p class="text-sm text-slate-300 mb-4" x-text="selected.impact_analysis"></p>
-
-          <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Reproduction steps</h3>
-          <ol class="list-decimal list-inside text-sm text-slate-300 mb-4 space-y-1">
-            <template x-for="(step, index) in selected.reproduction_steps" :key="index">
-              <li x-text="step"></li>
+          <section class="mt-panel flex flex-col gap-3" style="border-color:var(--mt-border-strong)">
+            <p class="mt-label" style="text-transform:none">AI analysis — not evidence</p>
+            <template x-if="selected.severity_justification">
+              <div>
+                <h3 class="mt-label">Justification</h3>
+                <p class="mt-body" x-text="selected.severity_justification"></p>
+              </div>
             </template>
-          </ol>
-
-          <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Remediation</h3>
-          <p class="text-sm text-slate-300" x-text="selected.remediation_advice"></p>
+            <template x-if="selected.impact_analysis">
+              <div>
+                <h3 class="mt-label">Impact</h3>
+                <p class="mt-body" x-text="selected.impact_analysis"></p>
+              </div>
+            </template>
+            <template x-if="selected.reproduction_steps && selected.reproduction_steps.length">
+              <div>
+                <h3 class="mt-label">Reproduction steps</h3>
+                <ol class="list-decimal ps-5 flex flex-col gap-1">
+                  <template x-for="(step, index) in selected.reproduction_steps" :key="index">
+                    <li class="mt-body" x-text="step"></li>
+                  </template>
+                </ol>
+              </div>
+            </template>
+            <template x-if="selected.remediation_advice">
+              <div>
+                <h3 class="mt-label">Remediation</h3>
+                <p class="mt-body" x-text="selected.remediation_advice"></p>
+              </div>
+            </template>
+          </section>
 
           <!-- Operator feedback (TASK-13, v2.1+): local correction, becomes
                few-shot guidance for future runs. Values via x-text only. -->
-          <div class="mt-6 border-t border-slate-800 pt-4">
-            <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Feedback</h3>
-            <p class="text-xs text-slate-400 mb-2">
+          <div class="flex flex-col gap-2 border-t pt-4" style="border-color:var(--mt-border)">
+            <h3 class="mt-body" style="font-weight:600">Feedback</h3>
+            <p class="mt-meta">
               Correct the severity if the model got it wrong. Your correction is
               stored locally and guides future runs with similar findings.
             </p>
             <template x-if="feedback">
-              <p class="text-xs text-emerald-400 mb-2"
-                 x-text="'Current feedback: ' + feedback.vote + ' → ' + feedback.severity_after"></p>
+              <p class="mt-meta"
+                 x-text="'Current feedback: ' + feedback.vote + ' → ' + severityLabel(feedback.severity_after)"></p>
             </template>
             <div class="flex flex-wrap items-center gap-2">
-              <label for="feedback-severity" class="text-xs text-slate-400">Corrected severity</label>
-              <select id="feedback-severity" x-model="feedbackSeverity"
-                      class="rounded-md bg-slate-950 border border-slate-700 px-2 py-1.5 text-xs text-slate-200 focus:border-emerald-500 focus:outline-none">
+              <label for="feedback-severity" class="mt-label" style="margin-bottom:0">Corrected severity</label>
+              <select id="feedback-severity" x-model="feedbackSeverity" class="mt-input" style="width:auto">
                 <template x-for="sev in severityOrder" :key="sev">
-                  <option :value="sev" x-text="sev"></option>
+                  <option :value="sev" :selected="feedbackSeverity === sev" x-text="severityLabel(sev)"></option>
                 </template>
               </select>
-              <button @click="sendFeedback()"
-                      class="px-3 py-1.5 rounded-md border border-slate-700 text-xs font-semibold text-slate-200 hover:border-emerald-500 hover:text-emerald-300 transition-colors"
+              <button type="button" @click="sendFeedback()" class="mt-btn mt-btn-secondary"
                       x-text="feedback !== null ? 'Update feedback' : 'Save feedback'"></button>
               <template x-if="feedback">
-                <button @click="deleteFeedback()"
-                        class="px-3 py-1.5 rounded-md border border-red-900/60 text-xs font-semibold text-red-300 hover:border-red-500 transition-colors">
+                <button type="button" @click="deleteFeedback()" class="mt-btn mt-btn-danger">
                   Remove
                 </button>
               </template>
-              <span class="text-xs text-slate-500" aria-live="polite" x-text="feedbackBusy ? 'Saving…' : ''"></span>
-              <span class="text-xs text-red-400" role="alert" x-text="feedbackError"></span>
+              <span class="mt-meta" aria-live="polite" x-text="feedbackBusy ? 'Saving…' : ''"></span>
+              <span class="mt-meta" role="alert" style="color:var(--mt-danger)" x-text="feedbackError"></span>
             </div>
-            <label for="feedback-reason" class="block text-xs font-medium text-slate-400 mb-1">Reason (optional)</label>
+            <label for="feedback-reason" class="mt-label">Reason (optional)</label>
             <input id="feedback-reason" type="text" x-model="feedbackReason"
                    placeholder="Optional: why (stored locally, never sent to the model)"
-                   class="mt-2 w-full rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-xs text-slate-300 focus:border-emerald-500 focus:outline-none">
+                   class="mt-input">
           </div>
         </div>
       </template>
@@ -306,19 +340,39 @@
 <script>
 document.addEventListener('alpine:init', () => {
   const SEVERITY_BADGES = {
-    critical: 'bg-red-600 text-white',
-    high: 'bg-fuchsia-600 text-white',
-    medium: 'bg-yellow-500 text-slate-900',
-    low: 'bg-cyan-600 text-white',
-    info: 'bg-slate-500 text-white',
-    unclassified: 'bg-slate-700 text-slate-300',
+    critical: 'mt-badge-critical',
+    high: 'mt-badge-high',
+    medium: 'mt-badge-medium',
+    low: 'mt-badge-low',
+    info: 'mt-badge-info',
+    unclassified: 'mt-badge-unclassified',
   };
   const STATUS_BADGES = {
-    pending: 'bg-slate-700 text-slate-300',
-    running: 'bg-yellow-600 text-white',
-    completed: 'bg-emerald-700 text-white',
-    failed: 'bg-red-700 text-white',
-    aborted: 'bg-slate-600 text-slate-200',
+    pending: 'mt-badge-pending',
+    running: 'mt-badge-running',
+    completed: 'mt-badge-completed',
+    failed: 'mt-badge-failed',
+    aborted: 'mt-badge-aborted',
+  };
+  const SEVERITY_LABELS = {
+    critical: 'Critical',
+    high: 'High',
+    medium: 'Medium',
+    low: 'Low',
+    info: 'Info',
+    unclassified: 'Unclassified',
+  };
+  const STATUS_LABELS = {
+    pending: 'Pending',
+    running: 'Running',
+    completed: 'Completed',
+    failed: 'Failed',
+    aborted: 'Aborted',
+  };
+  const CONFIDENCE_LABELS = {
+    high: 'High',
+    medium: 'Medium',
+    low: 'Low',
   };
 
   Alpine.data('runDashboard', () => ({
@@ -342,6 +396,9 @@ document.addEventListener('alpine:init', () => {
     feedbackBusy: false,
     feedbackError: '',
     currentMessage: 'Connecting to the live stream…',
+    currentAsset: '',
+    currentStep: null,
+    totalSteps: null,
     eventSource: null,
     pollTimer: null,
     stages: [
@@ -406,8 +463,21 @@ document.addEventListener('alpine:init', () => {
     statusBadgeClass(status) {
       return STATUS_BADGES[status] || STATUS_BADGES.pending;
     },
+    severityLabel(severity) {
+      const key = severity || 'unclassified';
+      return SEVERITY_LABELS[key] || key;
+    },
+    statusLabel(status) {
+      return STATUS_LABELS[status] || status || '';
+    },
+    confidenceLabel(confidence) {
+      return CONFIDENCE_LABELS[confidence] || confidence || '';
+    },
     truncate(text, limit) {
       return window.MetaTracerUI.truncate(text, limit);
+    },
+    formatWhen(value) {
+      return window.MetaTracerUI.formatWhen(value);
     },
     safeUrl(url) {
       // Defense in depth (threat 12): the asset URL is target-controlled, so
@@ -448,6 +518,9 @@ document.addEventListener('alpine:init', () => {
 
     handleEvent(event) {
       this.currentMessage = event.message;
+      this.currentAsset = event.current_asset || '';
+      this.currentStep = event.current_step;
+      this.totalSteps = event.total_steps;
       if (event.stage === 'completed') {
         this.stages.forEach((stage) => { stage.state = 'done'; });
         this.closeStream();

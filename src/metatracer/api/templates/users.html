@@ -11,87 +11,84 @@
   creation response and is shown once in the banner below — it is never
   persisted in JS state beyond that render and never logged.
 -->
-<div x-data="users_admin" x-init="init()" x-cloak>
-  <div class="flex items-center justify-between mb-6">
-    <h1 class="text-xl font-bold text-slate-100">Users &amp; invitations</h1>
-    <div class="flex items-center gap-2 text-sm" role="tablist" aria-label="Admin sections">
+<div x-data="users_admin" x-init="init()" x-cloak class="min-w-0 flex flex-col gap-6">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <h1 class="mt-title">Users &amp; invitations</h1>
+    <div class="flex flex-wrap items-center gap-2" role="tablist" aria-label="Admin sections">
       <button type="button" role="tab" :aria-selected="tab === 'users'"
               @click="tab = 'users'"
-              :class="tab === 'users' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-slate-200 border border-slate-700'"
-              class="rounded-md px-3 py-1.5">Users</button>
+              class="mt-btn"
+              :class="tab === 'users' ? 'bg-[var(--mt-elevated)] text-[var(--mt-fg)] border-[var(--mt-accent)]' : 'mt-btn-secondary'">Users</button>
       <button type="button" role="tab" :aria-selected="tab === 'invitations'"
               @click="tab = 'invitations'"
-              :class="tab === 'invitations' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-slate-200 border border-slate-700'"
-              class="rounded-md px-3 py-1.5">Invitations</button>
+              class="mt-btn"
+              :class="tab === 'invitations' ? 'bg-[var(--mt-elevated)] text-[var(--mt-fg)] border-[var(--mt-accent)]' : 'mt-btn-secondary'">Invitations</button>
     </div>
   </div>
 
   <div x-show="loadError" role="alert"
-       class="bg-red-950/50 border border-red-800 rounded-lg p-3 mb-4 flex items-center justify-between">
-    <p class="text-sm text-red-200" x-text="errorMessage"></p>
-    <button type="button" @click="loadAll()"
-            class="text-xs text-red-200 hover:text-white border border-red-800 rounded-md px-2 py-1">Retry</button>
+       class="mt-alert mt-alert-danger flex flex-wrap items-center justify-between gap-3">
+    <p x-text="errorMessage"></p>
+    <button type="button" @click="loadAll()" class="mt-btn mt-btn-secondary">Retry</button>
   </div>
 
   <!-- ============ Users tab ============ -->
-  <section x-show="tab === 'users'" aria-label="User accounts">
-    <p x-show="forbidden" role="alert" class="bg-amber-950/50 border border-amber-800 rounded-lg p-3 mb-4 text-sm text-amber-200">
+  <section x-show="tab === 'users'" aria-label="User accounts" class="flex flex-col gap-6">
+    <p x-show="forbidden" role="alert" class="mt-alert mt-alert-warning">
       Operator role required
     </p>
 
-    <div class="bg-slate-900/60 border border-slate-800 rounded-lg p-4 mb-6">
-      <h2 class="text-sm font-semibold text-slate-300 mb-3">Create user</h2>
-      <form @submit.prevent="createUser()" class="flex flex-wrap items-end gap-3">
-        <div class="grow min-w-[160px]">
-          <label for="new-username" class="block text-xs font-medium text-slate-400 mb-1">Username</label>
-          <input id="new-username" name="username" type="text" required x-model="newUsername"
-                 class="w-full rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none">
+    <div class="mt-panel flex flex-col gap-4">
+      <h2 class="mt-section">Create user</h2>
+      <form @submit.prevent="createUser()" class="flex flex-wrap items-end gap-2">
+        <div class="grow min-w-0 basis-40">
+          <label for="new-username" class="mt-label">Username</label>
+          <input id="new-username" name="username" type="text" required x-model="newUsername" class="mt-input">
         </div>
-        <div class="grow min-w-[160px]">
-          <label for="new-password" class="block text-xs font-medium text-slate-400 mb-1">Password</label>
-          <input id="new-password" name="password" type="password" required autocomplete="new-password" x-model="newPassword"
-                 class="w-full rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none">
+        <div class="grow min-w-0 basis-40">
+          <label for="new-password" class="mt-label">Password</label>
+          <input id="new-password" name="password" type="password" required autocomplete="new-password" x-model="newPassword" class="mt-input">
         </div>
-        <div>
-          <label for="new-role" class="block text-xs font-medium text-slate-400 mb-1">Role</label>
-          <select id="new-role" name="role" x-model="newRole"
-                  class="rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none">
-            <option value="operator">operator</option>
-            <option value="viewer">viewer</option>
+        <div class="w-36">
+          <label for="new-role" class="mt-label">Role</label>
+          <select id="new-role" name="role" x-model="newRole" class="mt-input">
+            <option value="operator">Operator</option>
+            <option value="viewer">Viewer</option>
           </select>
         </div>
-        <button type="submit" :disabled="busy"
-                class="rounded-md bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-3 py-2 text-sm font-semibold text-white">Create</button>
+        <button type="submit" :disabled="busy" class="mt-btn mt-btn-primary">Create</button>
       </form>
-      <p x-show="actionError" role="alert" class="text-sm text-red-300 mt-3" x-text="actionError"></p>
-      <p class="text-xs text-slate-500 mt-3">Passwords: minimum 8 characters.</p>
+      <p x-show="actionError" x-cloak role="alert" class="mt-alert mt-alert-danger" x-text="actionError"></p>
+      <p class="mt-meta">Passwords: minimum 8 characters.</p>
     </div>
 
-    <div class="bg-slate-900/60 border border-slate-800 rounded-lg p-4">
-      <p x-show="loadingUsers" class="text-sm text-slate-400 py-4">Loading users…</p>
-      <p x-show="!loadingUsers && users.length === 0" class="text-sm text-slate-500 py-4">No users yet.</p>
-      <div x-show="!loadingUsers && users.length > 0" class="overflow-x-auto">
-        <table class="w-full text-sm">
+    <div>
+      <p x-show="loadingUsers" class="mt-loading" aria-live="polite">
+        <span class="mt-spin" aria-hidden="true"></span>
+        <span>Loading users…</span>
+      </p>
+      <p x-show="!loadingUsers && users.length === 0" class="mt-meta">No users yet.</p>
+      <div x-show="!loadingUsers && users.length > 0" class="mt-table-wrap">
+        <table>
+          <caption class="sr-only">User accounts</caption>
           <thead>
-            <tr class="text-left text-xs uppercase tracking-wide text-slate-500 border-b border-slate-800">
-              <th scope="col" class="py-2 pr-4">Username</th>
-              <th scope="col" class="py-2 pr-4">Role</th>
-              <th scope="col" class="py-2 pr-4">Created</th>
-              <th scope="col" class="py-2">Actions</th>
+            <tr>
+              <th scope="col" class="mt-section">Username</th>
+              <th scope="col" class="mt-section">Role</th>
+              <th scope="col" class="mt-section">Created</th>
+              <th scope="col" class="mt-section">Actions</th>
             </tr>
           </thead>
           <tbody>
             <template x-for="user in users" :key="user.id">
-              <tr class="border-b border-slate-800/60">
-                <td class="py-2 pr-4 font-medium text-slate-200" x-text="user.username"></td>
-                <td class="py-2 pr-4 text-slate-300" x-text="user.role"></td>
-                <td class="py-2 pr-4 text-slate-500" x-text="formatWhen(user.created_at)"></td>
-                <td class="py-2">
-                  <div class="flex items-center gap-2">
-                    <button type="button" @click="toggleRole(user)"
-                            class="text-xs text-emerald-400 hover:text-emerald-300">Change role</button>
-                    <button type="button" @click="deleteUser(user)"
-                            class="text-xs text-rose-400 hover:text-rose-300">Delete</button>
+              <tr>
+                <td x-text="user.username"></td>
+                <td x-text="roleLabel(user.role)"></td>
+                <td class="mt-tech" x-text="formatWhen(user.created_at)"></td>
+                <td>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" @click="toggleRole(user)" class="mt-btn mt-btn-secondary">Change role</button>
+                    <button type="button" @click="deleteUser(user)" class="mt-btn mt-btn-danger">Delete</button>
                   </div>
                 </td>
               </tr>
@@ -103,80 +100,78 @@
   </section>
 
   <!-- ============ Invitations tab ============ -->
-  <section x-show="tab === 'invitations'" aria-label="Invitation codes">
-    <p x-show="forbidden" role="alert" class="bg-amber-950/50 border border-amber-800 rounded-lg p-3 mb-4 text-sm text-amber-200">
+  <section x-show="tab === 'invitations'" aria-label="Invitation codes" class="flex flex-col gap-6">
+    <p x-show="forbidden" role="alert" class="mt-alert mt-alert-warning">
       Operator role required
     </p>
 
     <!-- One-shot code banner: rendered ONLY from the creation response. -->
-    <div x-show="freshCode" role="status"
-         class="bg-emerald-950/50 border border-emerald-700 rounded-lg p-4 mb-6">
-      <h2 class="text-sm font-semibold text-emerald-300 mb-2">Invitation created — copy the code now</h2>
-      <div class="flex items-center gap-3">
-        <code class="text-sm bg-slate-950 border border-emerald-800 rounded-md px-3 py-2 text-emerald-200 break-all"
-              x-text="freshCode"></code>
-        <button type="button" @click="copyCode()"
-                class="text-xs bg-emerald-600 hover:bg-emerald-500 text-white rounded-md px-3 py-2 font-semibold">Copy</button>
+    <div x-show="freshCode" role="status" class="mt-panel flex flex-col gap-2" style="border-color:var(--mt-border-strong)">
+      <p class="mt-body" style="font-weight:600">Invitation created — copy the code now</p>
+      <div class="flex flex-wrap items-center gap-2">
+        <code class="mt-tech" x-text="freshCode"></code>
+        <button type="button" @click="copyCode()" class="mt-btn mt-btn-secondary">Copy</button>
       </div>
-      <p class="text-xs text-amber-400/90 mt-2">This code will not be shown again.</p>
-      <p x-show="copied" class="text-xs text-emerald-300 mt-1" x-text="'Copied to clipboard.'"></p>
+      <p class="mt-meta">This code will not be shown again.</p>
+      <p x-show="copied" class="mt-meta" x-text="'Copied to clipboard.'"></p>
     </div>
 
-    <div class="bg-slate-900/60 border border-slate-800 rounded-lg p-4 mb-6">
-      <h2 class="text-sm font-semibold text-slate-300 mb-3">Generate invitation</h2>
-      <form @submit.prevent="createInvitation()" class="flex flex-wrap items-end gap-3">
-        <div>
-          <label for="invite-role" class="block text-xs font-medium text-slate-400 mb-1">Role</label>
-          <select id="invite-role" x-model="inviteRole"
-                  class="rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none">
-            <option value="operator">operator</option>
-            <option value="viewer">viewer</option>
+    <div class="mt-panel flex flex-col gap-4">
+      <h2 class="mt-section">Generate invitation</h2>
+      <form @submit.prevent="createInvitation()" class="flex flex-wrap items-end gap-2">
+        <div class="w-36">
+          <label for="invite-role" class="mt-label">Role</label>
+          <select id="invite-role" x-model="inviteRole" class="mt-input">
+            <option value="operator">Operator</option>
+            <option value="viewer">Viewer</option>
           </select>
         </div>
-        <div>
-          <label for="invite-ttl" class="block text-xs font-medium text-slate-400 mb-1">Expires in (hours)</label>
-          <input id="invite-ttl" type="number" min="1" max="720" step="1" x-model.number="inviteTtlHours"
-                 class="w-28 rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none">
-          <p class="text-xs text-slate-500 mt-1">Default 7 days (168 h).</p>
+        <div class="w-28">
+          <label for="invite-ttl" class="mt-label">Expires in (hours)</label>
+          <input id="invite-ttl" type="number" min="1" max="720" step="1" x-model.number="inviteTtlHours" class="mt-input">
+          <p class="mt-meta mt-1">Default 7 days (168 h).</p>
         </div>
-        <button type="submit" :disabled="busy"
-                class="rounded-md bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-3 py-2 text-sm font-semibold text-white">Generate invitation</button>
+        <button type="submit" :disabled="busy" class="mt-btn mt-btn-primary">Generate invitation</button>
       </form>
-      <p x-show="actionError" role="alert" class="text-sm text-red-300 mt-3" x-text="actionError"></p>
+      <p x-show="actionError" x-cloak role="alert" class="mt-alert mt-alert-danger" x-text="actionError"></p>
     </div>
 
-    <div class="bg-slate-900/60 border border-slate-800 rounded-lg p-4">
-      <p x-show="loadingInvitations" class="text-sm text-slate-400 py-4">Loading invitations…</p>
-      <p x-show="!loadingInvitations && invitations.length === 0" class="text-sm text-slate-500 py-4">No invitations yet.</p>
-      <div x-show="!loadingInvitations && invitations.length > 0" class="overflow-x-auto">
-        <table class="w-full text-sm">
+    <div>
+      <p x-show="loadingInvitations" class="mt-loading" aria-live="polite">
+        <span class="mt-spin" aria-hidden="true"></span>
+        <span>Loading invitations…</span>
+      </p>
+      <p x-show="!loadingInvitations && invitations.length === 0" class="mt-meta">No invitations yet.</p>
+      <div x-show="!loadingInvitations && invitations.length > 0" class="mt-table-wrap">
+        <table>
+          <caption class="sr-only">Invitation codes</caption>
           <thead>
-            <tr class="text-left text-xs uppercase tracking-wide text-slate-500 border-b border-slate-800">
-              <th scope="col" class="py-2 pr-4">Role</th>
-              <th scope="col" class="py-2 pr-4">Status</th>
-              <th scope="col" class="py-2 pr-4">Created</th>
-              <th scope="col" class="py-2 pr-4">Expires</th>
-              <th scope="col" class="py-2 pr-4">Used by</th>
-              <th scope="col" class="py-2">Actions</th>
+            <tr>
+              <th scope="col" class="mt-section">Role</th>
+              <th scope="col" class="mt-section">Status</th>
+              <th scope="col" class="mt-section">Created</th>
+              <th scope="col" class="mt-section">Expires</th>
+              <th scope="col" class="mt-section">Used by</th>
+              <th scope="col" class="mt-section">Actions</th>
             </tr>
           </thead>
           <tbody>
             <template x-for="invitation in invitations" :key="invitation.id">
-              <tr class="border-b border-slate-800/60">
-                <td class="py-2 pr-4 text-slate-300" x-text="invitation.role"></td>
-                <td class="py-2 pr-4">
-                  <span x-text="invitation.status"
-                        :class="invitation.status === 'active' ? 'bg-emerald-900/60 text-emerald-300 border-emerald-700'
-                                : invitation.status === 'expired' ? 'bg-amber-900/60 text-amber-300 border-amber-700'
-                                : 'bg-slate-800 text-slate-400 border-slate-700'"
-                        class="inline-block rounded-full border px-2 py-0.5 text-xs"></span>
+              <tr>
+                <td x-text="roleLabel(invitation.role)"></td>
+                <td>
+                  <span class="mt-badge"
+                        :class="invitation.status === 'active' ? 'mt-badge-running'
+                                : invitation.status === 'expired' ? 'mt-badge-aborted'
+                                : 'mt-badge-pending'"
+                        x-text="statusLabel(invitation.status)"></span>
                 </td>
-                <td class="py-2 pr-4 text-slate-500" x-text="formatWhen(invitation.created_at)"></td>
-                <td class="py-2 pr-4 text-slate-500" x-text="formatWhen(invitation.expires_at)"></td>
-                <td class="py-2 pr-4 text-slate-500" x-text="usedBy(invitation)"></td>
-                <td class="py-2">
+                <td class="mt-tech" x-text="formatWhen(invitation.created_at)"></td>
+                <td class="mt-tech" x-text="formatWhen(invitation.expires_at)"></td>
+                <td class="mt-tech" x-text="usedBy(invitation)"></td>
+                <td>
                   <button type="button" x-show="invitation.status === 'active'" @click="revokeInvitation(invitation)"
-                          class="text-xs text-rose-400 hover:text-rose-300">Revoke</button>
+                          class="mt-btn mt-btn-danger">Revoke</button>
                 </td>
               </tr>
             </template>
@@ -410,6 +405,17 @@
 
       usedBy(invitation) {
         return invitation.used_by || '';
+      },
+
+      roleLabel(role) {
+        if (role === 'operator') return 'Operator';
+        if (role === 'viewer') return 'Viewer';
+        return role || '';
+      },
+
+      statusLabel(status) {
+        const text = String(status || '');
+        return text ? text.charAt(0).toUpperCase() + text.slice(1) : '';
       },
 
       formatWhen(value) {

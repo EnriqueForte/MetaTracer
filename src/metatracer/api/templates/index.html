@@ -1,123 +1,136 @@
 {% extends "base.html" %}
 {% block title %}MetaTracer — New scan{% endblock %}
 {% block content %}
-<div x-data="scanWizard" class="max-w-2xl mx-auto">
-  <h1 class="text-2xl font-bold text-slate-100 mb-2">New scan</h1>
-  <p class="text-sm text-slate-400 mb-6">
-    Discover sensitive metadata (GPS, emails, internal paths, software versions,
-    debug comments) in publicly available documents inside your authorized scope.
-  </p>
+<div x-data="scanWizard" class="max-w-2xl mx-auto min-w-0 flex flex-col gap-6">
+  <div>
+    <h1 class="mt-title">New scan</h1>
+    <p class="mt-body">
+      Discover sensitive metadata (GPS, emails, internal paths, software versions,
+      debug comments) in publicly available documents inside your authorized scope.
+    </p>
+  </div>
 
-  <form @submit.prevent="openModal" class="space-y-5 bg-slate-900/60 border border-slate-800 rounded-lg p-6">
-    <div>
-      <label for="targets" class="block text-sm font-medium text-slate-300 mb-1">Targets</label>
-      <textarea id="targets" x-model="targets" rows="4" required
-        class="w-full rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none"
-        placeholder="One target per line: domains or URLs of public documents, e.g.&#10;example.com&#10;https://example.com/investor-report.pdf"></textarea>
-    </div>
-    <div>
-      <!-- TASK-21 (v2.4): saved scopes (checkboxes) replace this manual field
-           as the primary scope source. The manual input remains as the v1.x
-           fallback inside the <details> below; no `required` here because
-           picking saved scopes is a valid explicit scope source and the
-           browser-native required attribute would block the submit before
-           Alpine's own validation (which understands both sources). -->
-      <label for="scope" class="block text-sm font-medium text-slate-300 mb-1">Authorized scope domains (only if not using saved scopes below)</label>
-      <input id="scope" type="text" x-model="scopeDomains"
-        class="w-full rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none"
-        placeholder="One per line or comma-separated, e.g. example.com, static.example.com">
-      <p class="text-xs text-slate-500 mt-1">
-        The scope is never inferred from the targets: only documents on these
-        domains are ever requested.
+  <form @submit.prevent="openModal" class="mt-panel flex flex-col gap-6">
+    <section class="flex flex-col gap-2">
+      <h2 class="mt-section">1. Targets</h2>
+      <div>
+        <label for="targets" class="mt-label">Targets</label>
+        <textarea id="targets" x-model="targets" rows="4" required
+          class="mt-input mt-tech"
+          placeholder="One target per line: domains or URLs of public documents, e.g.&#10;example.com&#10;https://example.com/investor-report.pdf"></textarea>
+      </div>
+    </section>
+
+    <section class="flex flex-col gap-3">
+      <h2 class="mt-section">2. Scope</h2>
+      <p class="mt-meta">
+        Choose one or more saved scopes, or enter domains below. The scope is never
+        inferred from the targets: only documents on these domains are ever requested.
       </p>
-    </div>
-    <div>
-      <label for="saved-scope" class="block text-sm font-medium text-slate-300 mb-1">… or reuse saved scopes</label>
-      <div class="space-y-2 mb-2" x-show="savedScopes.length > 0">
-        <!-- TASK-21 (v2.4): multi-engagement — pick any number of saved
-             scopes; their domains are unioned (deduplicated) by the server.
-             The manual field below stays as the fallback v1.x flow. -->
-        <template x-for="scope in savedScopes" :key="scope.id">
-          <label class="flex items-start gap-2 text-sm text-slate-300 cursor-pointer hover:bg-slate-800/40 rounded px-2 py-1">
-            <input type="checkbox" :value="scope.id" x-model="selectedScopeIds"
-                   class="mt-0.5 rounded border-slate-600 bg-slate-950 text-emerald-600 focus:ring-emerald-500">
-            <span>
-              <span class="font-medium text-slate-200" x-text="scope.name"></span>
-              <span class="text-xs text-slate-500" x-text="'— ' + scope.total_domains + ' domain(s)'"></span>
-              <span class="block text-xs text-slate-500" x-text="scope.domains.join(', ')"></span>
-            </span>
-          </label>
-        </template>
-        <a href="/scopes" class="inline-block text-xs text-emerald-400 hover:text-emerald-300 font-medium mt-1">Manage scopes…</a>
-      </div>
-      <div x-show="savedScopes.length === 0" class="text-xs text-slate-500 mb-2">
-        No saved scopes yet —
-        <a href="/scopes" class="text-emerald-400 hover:text-emerald-300 font-medium">create one</a>.
-      </div>
-      <details class="mt-2">
-        <summary class="text-xs text-slate-500 cursor-pointer">Or enter manual scope domains</summary>
-        <input id="manual-scope" type="text" x-model="scopeDomains"
-          class="mt-2 w-full rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none"
-          placeholder="One per line or comma-separated, e.g. example.com, static.example.com">
-        <p class="text-xs text-slate-500 mt-1">
-          The scope is never inferred from the targets: only documents on these
-          domains are ever requested.
+
+      <fieldset class="flex flex-col gap-2">
+        <legend class="mt-label">Saved scopes</legend>
+        <div class="flex flex-col gap-2" x-show="savedScopes.length > 0">
+          <!-- TASK-21 (v2.4): multi-engagement — pick any number of saved
+               scopes; their domains are unioned (deduplicated) by the server.
+               A saved scope never skips the confirmation modal. -->
+          <template x-for="scope in savedScopes" :key="scope.id">
+            <label class="flex items-start gap-2 cursor-pointer">
+              <input type="checkbox" :value="scope.id" x-model="selectedScopeIds" class="mt-1">
+              <span class="min-w-0">
+                <span class="mt-body" x-text="scope.name"></span>
+                <span class="mt-meta" x-text="'— ' + scope.total_domains + ' domain(s)'"></span>
+                <span class="mt-tech block" x-text="scope.domains.join(', ')"></span>
+              </span>
+            </label>
+          </template>
+          <a href="/scopes" class="mt-meta underline">Manage scopes…</a>
+        </div>
+        <p x-show="savedScopes.length === 0" class="mt-meta">
+          No saved scopes yet —
+          <a href="/scopes" class="underline">create one</a>.
         </p>
-      </details>
-    </div>
-    <div>
-      <label for="depth" class="block text-sm font-medium text-slate-300 mb-1">Reasoning depth</label>
-      <select id="depth" x-model="depth"
-        class="w-full rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none">
-        {% for depth in depths %}
-        <option value="{{ depth }}" {% if depth == 'standard' %}selected{% endif %}>{{ depth }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <button type="submit"
-      class="w-full rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2 text-sm transition-colors">
-      Start scan
-    </button>
-    <p x-show="error" x-text="error" x-cloak role="alert" class="text-sm text-red-400"></p>
+      </fieldset>
+
+      <div>
+        <!-- TASK-21 / TASK-22: one manual field. No `required` — saved scopes
+             are a valid explicit source, and browser-native required would
+             block submit before Alpine validates either source. -->
+        <label for="scope" class="mt-label">Authorized scope domains</label>
+        <input id="scope" type="text" x-model="scopeDomains" class="mt-input mt-tech"
+          placeholder="One per line or comma-separated, e.g. example.com, static.example.com">
+        <p class="mt-meta mt-1">
+          Only when you are not using a saved scope. The scope is never inferred
+          from the targets.
+        </p>
+      </div>
+    </section>
+
+    <section class="flex flex-col gap-2">
+      <h2 class="mt-section">3. Reasoning depth</h2>
+      <div>
+        <label for="depth" class="mt-label">Reasoning depth</label>
+        <select id="depth" x-model="depth" class="mt-input">
+          {% for depth in depths %}
+          <option value="{{ depth }}" {% if depth == 'standard' %}selected{% endif %}>{{ depth }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </section>
+
+    <section class="flex flex-col gap-2">
+      <h2 class="mt-section">4. Confirmation</h2>
+      <p class="mt-meta">
+        Start scan opens the authorization dialog. The scan does not start until
+        you confirm the scope.
+      </p>
+      <button type="submit" class="mt-btn mt-btn-primary w-full">Start scan</button>
+    </section>
+
+    <p x-show="error" x-text="error" x-cloak role="alert" class="mt-alert mt-alert-danger"></p>
   </form>
 
   <!-- Blocking scope-confirmation modal: the POST never leaves without the check.
        TASK-20 (20.3): focus is moved into the dialog on open and restored to the
-       trigger on close; Escape closes; aria-modal announces the modal to AT. -->
-  <div x-show="modalOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80"
+       trigger on close; Escape closes; aria-modal announces the modal to AT.
+       No Tab trap: that behavior belongs to the finding drawer, not this dialog. -->
+  <div x-show="modalOpen" x-cloak
+       class="fixed inset-0 z-50 flex items-center justify-center p-4"
+       style="background: var(--mt-overlay)"
        role="dialog" aria-modal="true" aria-labelledby="scope-modal-title"
        @keydown.escape.window="closeModal()">
-    <div class="bg-slate-900 border border-slate-700 rounded-lg max-w-lg w-full mx-4 p-6 shadow-2xl">
-      <h2 id="scope-modal-title" class="text-lg font-bold text-slate-100 mb-3">
-        Confirm authorized scope
-      </h2>
-      <p class="text-sm text-slate-300 mb-2">You are about to audit:</p>
-      <ul class="text-sm text-slate-400 list-disc list-inside mb-3 max-h-32 overflow-y-auto">
-        <template x-for="target in targetList()" :key="target">
-          <li x-text="target"></li>
-        </template>
-      </ul>
-      <p class="text-sm text-slate-300 mb-1">Restricted to the authorized scope:</p>
-      <p class="text-sm text-emerald-400 font-mono mb-4" x-text="scopeList().join(', ')"></p>
-      <p class="text-xs text-slate-500 mb-4">
+    <div class="mt-panel max-w-lg w-full flex flex-col gap-4" style="box-shadow: var(--mt-shadow-overlay)">
+      <h2 id="scope-modal-title" class="mt-title">Confirm authorized scope</h2>
+      <div>
+        <p class="mt-body">You are about to audit:</p>
+        <ul class="mt-meta list-disc list-inside max-h-32 overflow-y-auto">
+          <template x-for="target in targetList()" :key="target">
+            <li x-text="target"></li>
+          </template>
+        </ul>
+      </div>
+      <div>
+        <p class="mt-body">Restricted to the authorized scope:</p>
+        <p class="mt-tech" x-text="scopeList().join(', ')"></p>
+      </div>
+      <p class="mt-meta">
         MetaTracer only downloads public documents on these domains, extracts their
         metadata and never attempts exploitation. Scanning systems without explicit
         authorization may be illegal in your jurisdiction.
       </p>
-      <label class="flex items-start gap-2 text-sm text-slate-200 mb-5 cursor-pointer">
-        <input type="checkbox" x-model="confirmed"
-          class="mt-1 rounded border-slate-600 bg-slate-950 text-emerald-600 focus:ring-emerald-500"
+      <label class="flex items-start gap-2 cursor-pointer">
+        <input type="checkbox" x-model="confirmed" class="mt-1"
           aria-label="I confirm I have explicit authorization to audit these targets and that they are inside the stated scope">
-        <span>I confirm I have explicit authorization to audit these targets and that
+        <span class="mt-body">I confirm I have explicit authorization to audit these targets and that
           they are inside the stated scope.</span>
       </label>
-      <div class="flex gap-3">
+      <div class="flex gap-2">
         <button type="button" @click="closeModal" id="scope-modal-cancel"
-          class="flex-1 rounded-md border border-slate-700 text-slate-300 py-2 text-sm hover:bg-slate-800 transition-colors">
+          class="mt-btn mt-btn-secondary flex-1">
           Cancel
         </button>
         <button type="button" @click="startScan" :disabled="!confirmed || starting"
-          class="flex-1 rounded-md bg-emerald-600 text-white font-semibold py-2 text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:bg-emerald-500 disabled:hover:bg-emerald-600"
+          class="mt-btn mt-btn-primary flex-1"
           x-text="starting ? 'Starting scan…' : 'Confirm and start scan'"></button>
       </div>
     </div>
