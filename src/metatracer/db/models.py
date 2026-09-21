@@ -369,11 +369,12 @@ class WebhookDelivery(SQLModel, table=True):
 
 
 class UserRole(StrEnum):
-    """Role of the single installation user (TASK-24, v3.0 Eje C).
+    """Role of an installation user (TASK-24 single operator; TASK-25 multi-user).
 
     ``operator`` can do everything (create scopes, launch scans, feedback,
-    webhooks). ``viewer`` is read-only (dashboards, reports, exports). Values
-    are the lowercase wire strings, like every other closed enum.
+    webhooks, manage users and invitations). ``viewer`` is read-only
+    (dashboards, reports, exports). Values are the lowercase wire strings,
+    like every other closed enum.
     """
 
     operator = "operator"
@@ -381,11 +382,12 @@ class UserRole(StrEnum):
 
 
 class User(SQLModel, table=True):
-    """The single installation user (TASK-24, v3.0 Eje C).
+    """An installation user (TASK-24 single operator; TASK-25 multi-user).
 
-    v3.0 keeps one user per installation (multi-tenant is deferred to v3.1):
-    the table exists, the app only provisions one operator row (created on
-    first boot from ``METATRACER_AUTH_PASSWORD``).
+    TASK-24 provisioned exactly one operator on first boot from
+    ``METATRACER_AUTH_PASSWORD``; TASK-25 adds the multi-user surface (admin
+    panel + single-use invitations) without new enums: ``UserRole`` keeps
+    its two closed values.
 
     Password hashing is stdlib-only (supply-chain review 2026-09-18): PBKDF2-
     HMAC-SHA256 with 600k iterations, stored self-describing and versioned as
@@ -419,3 +421,28 @@ class UserSession(SQLModel, table=True):
     token_hash: str = Field(unique=True, index=True)  # sha256 hex of the token
     expires_at: datetime = Field(sa_type=DateTime(timezone=True))
     created_at: datetime = Field(default_factory=_utc_now, sa_type=DateTime(timezone=True))
+
+
+class InvitationCode(SQLModel, table=True):
+    """One single-use invitation code (TASK-25): a random value, hashed at rest.
+
+    Like :class:`UserSession` tokens, only the SHA-256 of the code is stored,
+    so a database leak never yields a redeemable invitation. Lifecycle:
+    created by an operator (role = the role the redeemer will get), expires
+    after a configurable TTL, redeemed exactly once (``used_at``/``used_by``
+    set together in the register transaction), or revoked by deleting the
+    row. This is a security artifact, never business data: the plaintext code
+    exists exactly once — in the creation response — and never in logs.
+    """
+
+    __tablename__ = "invitation_code"
+
+    id: str = Field(default_factory=_new_uuid, primary_key=True)
+    code_hash: str = Field(unique=True, index=True)  # sha256 hex of the code
+    role: UserRole = UserRole.viewer
+    created_by: str = Field(foreign_key="user.id", index=True)
+    expires_at: datetime = Field(sa_type=DateTime(timezone=True))
+    used_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
+    used_by: str | None = Field(default=None, foreign_key="user.id")
+    created_at: datetime = Field(default_factory=_utc_now, sa_type=DateTime(timezone=True))
+

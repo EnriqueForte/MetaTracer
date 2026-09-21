@@ -15,6 +15,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   {% if csrf_token %}<meta name="csrf-token" content="{{ csrf_token }}">{% endif %}
   <title>{% block title %}MetaTracer{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', path='favicon.svg') }}">
   <script src="https://cdn.tailwindcss.com/3.4.16"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
   <link rel="stylesheet" href="{{ url_for('static', path='metatracer.css') }}">
@@ -35,6 +36,12 @@
           <a href="/dashboard" {% if request.url.path == '/dashboard' %}aria-current="page" {% endif %}class="text-slate-400 hover:text-slate-200">Dashboard</a>
           <a href="/runs" {% if request.url.path == '/runs' %}aria-current="page" {% endif %}class="text-slate-400 hover:text-slate-200">History</a>
           <a href="/scopes" {% if request.url.path == '/scopes' %}aria-current="page" {% endif %}class="text-slate-400 hover:text-slate-200">Scopes</a>
+          {# Users admin (TASK-25): always visible when auth is off (the page
+             itself gates nothing then); with auth on it is operator-only —
+             viewers never see the link. #}
+          {% if not auth_enabled or (current_user and current_user.role == 'operator') %}
+          <a href="/users" {% if request.url.path == '/users' %}aria-current="page" {% endif %}class="text-slate-400 hover:text-slate-200">Users</a>
+          {% endif %}
         </nav>
       </div>
       <div class="flex items-center gap-4">
@@ -91,6 +98,12 @@
         {# Native onclick, NOT Alpine @click: this button sits outside the
            notifications_bell x-data scope, so Alpine never evaluates a
            directive here (seen live: the click did nothing). #}
+        {% if current_user %}
+        <p class="text-xs text-slate-500">
+          Signed in as <strong class="font-semibold text-slate-400">{{ current_user.username }}</strong>
+          ({{ current_user.role }})
+        </p>
+        {% endif %}
         <button type="button" onclick="window.MetaTracerUI.logout()"
                 class="text-xs text-slate-400 hover:text-slate-200 border border-slate-700 rounded-md px-2 py-1">
           Sign out

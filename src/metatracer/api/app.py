@@ -26,7 +26,8 @@ from metatracer import __version__
 from metatracer.agents.knowledge import KnowledgeRetriever
 from metatracer.agents.pipeline import AgentPipeline
 from metatracer.api import auth as auth_api
-from metatracer.api import feedback, knowledge, notifications, pages, runs, scopes, stats
+from metatracer.api import feedback, knowledge, notifications, runs, scopes, stats, users
+from metatracer.api.pages import router as pages_router
 from metatracer.api.webhooks import WebhookDispatcher
 from metatracer.api.webhooks import register_routes as register_webhook_routes
 from metatracer.core.config import Settings
@@ -63,7 +64,11 @@ _RATE_LIMIT_EXEMPT_PREFIXES: tuple[str, ...] = (
 # TASK-24: paths reachable without a session when auth is enabled. /login is
 # the login page itself; /api/auth/* is the pre-auth surface (login posts
 # credentials, me/logout self-diagnose); /api/health stays stateless.
-_PAGE_AUTH_EXEMPT: frozenset[str] = frozenset({"/login", "/api/health"})
+# TASK-25: /register and /setup are the invitation-redeem and first-run-setup
+# pages — they gate themselves (404 when auth is off / setup unavailable).
+_PAGE_AUTH_EXEMPT: frozenset[str] = frozenset(
+    {"/login", "/register", "/setup", "/api/health"}
+)
 
 
 def _is_rate_limit_exempt(path: str) -> bool:
@@ -136,8 +141,13 @@ def create_app(
         app.state.rate_limiter = ApiRateLimiter(settings.api_rate_limit_per_minute)
         app.state.max_request_body_bytes = settings.max_request_body_bytes
         # TASK-24 (v3.0, Eje C): provision the initial operator BEFORE any
-        # request can hit an endpoint (fail-closed on missing/short password).
-        await auth_api.ensure_default_user(app.state.session_factory, settings)
+        # request can hit an endpoint. TASK-25 semantics: password in env ->
+        # same provisioning; auth ON + no password + no users -> SETUP MODE
+        # (the app boots; the one-shot setup token is logged to the console
+        # once and parked in memory); users already exist -> no-op.
+        app.state.setup_token = await auth_api.ensure_default_user(
+            app.state.session_factory, settings
+        )
         yield
         await app.state.webhook_dispatcher.shutdown()
         await app.state.orchestrator.shutdown()
@@ -225,7 +235,11 @@ def create_app(
     app.include_router(notifications.router, dependencies=data_deps + action_deps)
     app.include_router(feedback.router, dependencies=data_deps + action_deps)
     app.include_router(knowledge.router, dependencies=data_deps + action_deps)
-    app.include_router(auth_api.router)  # login/logout/me are pre-auth by design
-    app.include_router(pages.router)  # pages gate themselves (redirect to /login)
+    app.include_router(auth_api.router)  # login/logout/me/setup/register are pre-auth by design
+    app.include_router(users.router, dependencies=data_deps + action_deps)
+    app.include_router(
+        users.invitations_router, dependencies=data_deps + action_deps
+    )
+    app.include_router(pages_router)  # pages gate themselves (redirect to /login)
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
     return app

@@ -1,0 +1,421 @@
+{% extends "base.html" %}
+
+{% block title %}Users — MetaTracer{% endblock %}
+
+{% block content %}
+<!--
+  User & invitation admin panel (TASK-25). Data loads from GET /api/users and
+  GET /api/invitations via Alpine (x-text only, never x-html); every mutating
+  fetch goes through window.MetaTracerUI.authFetch so the CSRF header is
+  always attached. The invitation plaintext code exists ONLY in the POST
+  creation response and is shown once in the banner below — it is never
+  persisted in JS state beyond that render and never logged.
+-->
+<div x-data="users_admin" x-init="init()" x-cloak>
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-xl font-bold text-slate-100">Users &amp; invitations</h1>
+    <div class="flex items-center gap-2 text-sm" role="tablist" aria-label="Admin sections">
+      <button type="button" role="tab" :aria-selected="tab === 'users'"
+              @click="tab = 'users'"
+              :class="tab === 'users' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-slate-200 border border-slate-700'"
+              class="rounded-md px-3 py-1.5">Users</button>
+      <button type="button" role="tab" :aria-selected="tab === 'invitations'"
+              @click="tab = 'invitations'"
+              :class="tab === 'invitations' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-slate-200 border border-slate-700'"
+              class="rounded-md px-3 py-1.5">Invitations</button>
+    </div>
+  </div>
+
+  <div x-show="loadError" role="alert"
+       class="bg-red-950/50 border border-red-800 rounded-lg p-3 mb-4 flex items-center justify-between">
+    <p class="text-sm text-red-200" x-text="errorMessage"></p>
+    <button type="button" @click="loadAll()"
+            class="text-xs text-red-200 hover:text-white border border-red-800 rounded-md px-2 py-1">Retry</button>
+  </div>
+
+  <!-- ============ Users tab ============ -->
+  <section x-show="tab === 'users'" aria-label="User accounts">
+    <p x-show="forbidden" role="alert" class="bg-amber-950/50 border border-amber-800 rounded-lg p-3 mb-4 text-sm text-amber-200">
+      Operator role required
+    </p>
+
+    <div class="bg-slate-900/60 border border-slate-800 rounded-lg p-4 mb-6">
+      <h2 class="text-sm font-semibold text-slate-300 mb-3">Create user</h2>
+      <form @submit.prevent="createUser()" class="flex flex-wrap items-end gap-3">
+        <div class="grow min-w-[160px]">
+          <label for="new-username" class="block text-xs font-medium text-slate-400 mb-1">Username</label>
+          <input id="new-username" name="username" type="text" required x-model="newUsername"
+                 class="w-full rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none">
+        </div>
+        <div class="grow min-w-[160px]">
+          <label for="new-password" class="block text-xs font-medium text-slate-400 mb-1">Password</label>
+          <input id="new-password" name="password" type="password" required autocomplete="new-password" x-model="newPassword"
+                 class="w-full rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none">
+        </div>
+        <div>
+          <label for="new-role" class="block text-xs font-medium text-slate-400 mb-1">Role</label>
+          <select id="new-role" name="role" x-model="newRole"
+                  class="rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none">
+            <option value="operator">operator</option>
+            <option value="viewer">viewer</option>
+          </select>
+        </div>
+        <button type="submit" :disabled="busy"
+                class="rounded-md bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-3 py-2 text-sm font-semibold text-white">Create</button>
+      </form>
+      <p x-show="actionError" role="alert" class="text-sm text-red-300 mt-3" x-text="actionError"></p>
+      <p class="text-xs text-slate-500 mt-3">Passwords: minimum 8 characters.</p>
+    </div>
+
+    <div class="bg-slate-900/60 border border-slate-800 rounded-lg p-4">
+      <p x-show="loadingUsers" class="text-sm text-slate-400 py-4">Loading users…</p>
+      <p x-show="!loadingUsers && users.length === 0" class="text-sm text-slate-500 py-4">No users yet.</p>
+      <div x-show="!loadingUsers && users.length > 0" class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-xs uppercase tracking-wide text-slate-500 border-b border-slate-800">
+              <th scope="col" class="py-2 pr-4">Username</th>
+              <th scope="col" class="py-2 pr-4">Role</th>
+              <th scope="col" class="py-2 pr-4">Created</th>
+              <th scope="col" class="py-2">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="user in users" :key="user.id">
+              <tr class="border-b border-slate-800/60">
+                <td class="py-2 pr-4 font-medium text-slate-200" x-text="user.username"></td>
+                <td class="py-2 pr-4 text-slate-300" x-text="user.role"></td>
+                <td class="py-2 pr-4 text-slate-500" x-text="formatWhen(user.created_at)"></td>
+                <td class="py-2">
+                  <div class="flex items-center gap-2">
+                    <button type="button" @click="toggleRole(user)"
+                            class="text-xs text-emerald-400 hover:text-emerald-300">Change role</button>
+                    <button type="button" @click="deleteUser(user)"
+                            class="text-xs text-rose-400 hover:text-rose-300">Delete</button>
+                  </div>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Invitations tab ============ -->
+  <section x-show="tab === 'invitations'" aria-label="Invitation codes">
+    <p x-show="forbidden" role="alert" class="bg-amber-950/50 border border-amber-800 rounded-lg p-3 mb-4 text-sm text-amber-200">
+      Operator role required
+    </p>
+
+    <!-- One-shot code banner: rendered ONLY from the creation response. -->
+    <div x-show="freshCode" role="status"
+         class="bg-emerald-950/50 border border-emerald-700 rounded-lg p-4 mb-6">
+      <h2 class="text-sm font-semibold text-emerald-300 mb-2">Invitation created — copy the code now</h2>
+      <div class="flex items-center gap-3">
+        <code class="text-sm bg-slate-950 border border-emerald-800 rounded-md px-3 py-2 text-emerald-200 break-all"
+              x-text="freshCode"></code>
+        <button type="button" @click="copyCode()"
+                class="text-xs bg-emerald-600 hover:bg-emerald-500 text-white rounded-md px-3 py-2 font-semibold">Copy</button>
+      </div>
+      <p class="text-xs text-amber-400/90 mt-2">This code will not be shown again.</p>
+      <p x-show="copied" class="text-xs text-emerald-300 mt-1" x-text="'Copied to clipboard.'"></p>
+    </div>
+
+    <div class="bg-slate-900/60 border border-slate-800 rounded-lg p-4 mb-6">
+      <h2 class="text-sm font-semibold text-slate-300 mb-3">Generate invitation</h2>
+      <form @submit.prevent="createInvitation()" class="flex flex-wrap items-end gap-3">
+        <div>
+          <label for="invite-role" class="block text-xs font-medium text-slate-400 mb-1">Role</label>
+          <select id="invite-role" x-model="inviteRole"
+                  class="rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none">
+            <option value="operator">operator</option>
+            <option value="viewer">viewer</option>
+          </select>
+        </div>
+        <div>
+          <label for="invite-ttl" class="block text-xs font-medium text-slate-400 mb-1">Expires in (hours)</label>
+          <input id="invite-ttl" type="number" min="1" max="720" step="1" x-model.number="inviteTtlHours"
+                 class="w-28 rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none">
+          <p class="text-xs text-slate-500 mt-1">Default 7 days (168 h).</p>
+        </div>
+        <button type="submit" :disabled="busy"
+                class="rounded-md bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-3 py-2 text-sm font-semibold text-white">Generate invitation</button>
+      </form>
+      <p x-show="actionError" role="alert" class="text-sm text-red-300 mt-3" x-text="actionError"></p>
+    </div>
+
+    <div class="bg-slate-900/60 border border-slate-800 rounded-lg p-4">
+      <p x-show="loadingInvitations" class="text-sm text-slate-400 py-4">Loading invitations…</p>
+      <p x-show="!loadingInvitations && invitations.length === 0" class="text-sm text-slate-500 py-4">No invitations yet.</p>
+      <div x-show="!loadingInvitations && invitations.length > 0" class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-xs uppercase tracking-wide text-slate-500 border-b border-slate-800">
+              <th scope="col" class="py-2 pr-4">Role</th>
+              <th scope="col" class="py-2 pr-4">Status</th>
+              <th scope="col" class="py-2 pr-4">Created</th>
+              <th scope="col" class="py-2 pr-4">Expires</th>
+              <th scope="col" class="py-2 pr-4">Used by</th>
+              <th scope="col" class="py-2">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="invitation in invitations" :key="invitation.id">
+              <tr class="border-b border-slate-800/60">
+                <td class="py-2 pr-4 text-slate-300" x-text="invitation.role"></td>
+                <td class="py-2 pr-4">
+                  <span x-text="invitation.status"
+                        :class="invitation.status === 'active' ? 'bg-emerald-900/60 text-emerald-300 border-emerald-700'
+                                : invitation.status === 'expired' ? 'bg-amber-900/60 text-amber-300 border-amber-700'
+                                : 'bg-slate-800 text-slate-400 border-slate-700'"
+                        class="inline-block rounded-full border px-2 py-0.5 text-xs"></span>
+                </td>
+                <td class="py-2 pr-4 text-slate-500" x-text="formatWhen(invitation.created_at)"></td>
+                <td class="py-2 pr-4 text-slate-500" x-text="formatWhen(invitation.expires_at)"></td>
+                <td class="py-2 pr-4 text-slate-500" x-text="usedBy(invitation)"></td>
+                <td class="py-2">
+                  <button type="button" x-show="invitation.status === 'active'" @click="revokeInvitation(invitation)"
+                          class="text-xs text-rose-400 hover:text-rose-300">Revoke</button>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+  document.addEventListener('alpine:init', () => {
+    Alpine.data('users_admin', () => ({
+      tab: 'users',
+      loadingUsers: false,
+      loadingInvitations: false,
+      loadError: false,
+      errorMessage: '',
+      forbidden: false,
+      busy: false,
+      actionError: '',
+      users: [],
+      invitations: [],
+      newUsername: '',
+      newPassword: '',
+      newRole: 'viewer',
+      inviteRole: 'viewer',
+      inviteTtlHours: 168,
+      freshCode: '',
+      copied: false,
+
+      init() {
+        this.loadAll();
+      },
+
+      async loadAll() {
+        this.loadError = false;
+        this.errorMessage = '';
+        this.forbidden = false;
+        await Promise.all([this.loadUsers(), this.loadInvitations()]);
+      },
+
+      async loadUsers() {
+        this.loadingUsers = true;
+        try {
+          const response = await window.MetaTracerUI.authFetch('/api/users');
+          if (!response.ok) {
+            this.forbidden = this.forbidden || response.status === 403;
+            this.loadError = true;
+            this.errorMessage = await window.MetaTracerUI.readError(
+              response, 'Could not load users (HTTP ' + response.status + ').'
+            );
+            return;
+          }
+          const payload = await response.json();
+          this.users = payload.users || [];
+        } catch (err) {
+          if (err.message !== 'unauthenticated') {
+            this.loadError = true;
+            this.errorMessage = 'Network error: the API is unreachable.';
+          }
+        } finally {
+          this.loadingUsers = false;
+        }
+      },
+
+      async loadInvitations() {
+        this.loadingInvitations = true;
+        try {
+          const response = await window.MetaTracerUI.authFetch('/api/invitations');
+          if (!response.ok) {
+            this.forbidden = this.forbidden || response.status === 403;
+            this.loadError = true;
+            this.errorMessage = await window.MetaTracerUI.readError(
+              response, 'Could not load invitations (HTTP ' + response.status + ').'
+            );
+            return;
+          }
+          const payload = await response.json();
+          this.invitations = payload.invitations || [];
+        } catch (err) {
+          if (err.message !== 'unauthenticated') {
+            this.loadError = true;
+            this.errorMessage = 'Network error: the API is unreachable.';
+          }
+        } finally {
+          this.loadingInvitations = false;
+        }
+      },
+
+      async createUser() {
+        this.busy = true;
+        this.actionError = '';
+        try {
+          const response = await window.MetaTracerUI.authFetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              username: this.newUsername,
+              password: this.newPassword,
+              role: this.newRole,
+            }),
+          });
+          if (response.ok) {
+            this.newUsername = '';
+            this.newPassword = '';
+            this.newRole = 'viewer';
+            await this.loadUsers();
+            return;
+          }
+          this.actionError = response.status === 409
+            ? 'That username already exists.'
+            : response.status === 422
+              ? 'Invalid data: password must be at least 8 characters and the role must be operator or viewer.'
+              : response.status === 403
+                ? 'Operator role required'
+                : await window.MetaTracerUI.readError(response, 'Could not create the user (HTTP ' + response.status + ').');
+        } catch (err) {
+          if (err.message !== 'unauthenticated') this.actionError = 'Network error: the API is unreachable.';
+        } finally {
+          this.busy = false;
+        }
+      },
+
+      async toggleRole(user) {
+        this.actionError = '';
+        const nextRole = user.role === 'operator' ? 'viewer' : 'operator';
+        try {
+          const response = await window.MetaTracerUI.authFetch('/api/users/' + user.id, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role: nextRole }),
+          });
+          if (response.ok) {
+            await this.loadUsers();
+            return;
+          }
+          this.actionError = response.status === 409
+            ? 'Cannot remove the last operator'
+            : response.status === 403
+              ? 'Operator role required'
+              : await window.MetaTracerUI.readError(response, 'Could not update the user (HTTP ' + response.status + ').');
+        } catch (err) {
+          if (err.message !== 'unauthenticated') this.actionError = 'Network error: the API is unreachable.';
+        }
+      },
+
+      async deleteUser(user) {
+        if (!window.confirm('Delete user "' + user.username + '"? This cannot be undone.')) return;
+        this.actionError = '';
+        try {
+          const response = await window.MetaTracerUI.authFetch('/api/users/' + user.id, { method: 'DELETE' });
+          if (response.ok || response.status === 404) {
+            await this.loadUsers();
+            return;
+          }
+          this.actionError = response.status === 409
+            ? 'Cannot remove the last operator or your own account (HTTP 409).'
+            : response.status === 403
+              ? 'Operator role required'
+              : await window.MetaTracerUI.readError(response, 'Could not delete the user (HTTP ' + response.status + ').');
+        } catch (err) {
+          if (err.message !== 'unauthenticated') this.actionError = 'Network error: the API is unreachable.';
+        }
+      },
+
+      // The caller's own id is not in the list payload; the backend 409
+      // covers both "own account" and "last operator" — the message names
+      // both instead of making an extra /api/auth/me round-trip.
+
+      async createInvitation() {
+        this.busy = true;
+        this.actionError = '';
+        this.freshCode = '';
+        this.copied = false;
+        const body = { role: this.inviteRole };
+        const ttl = Number(this.inviteTtlHours);
+        if (ttl > 0) body.ttl_seconds = Math.round(ttl * 3600);
+        try {
+          const response = await window.MetaTracerUI.authFetch('/api/invitations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          if (response.ok) {
+            // The plaintext code arrives ONLY here. It is kept in this
+            // banner's state until the next creation and never logged.
+            const payload = await response.json();
+            this.freshCode = payload.code || '';
+            this.inviteTtlHours = 168;
+            await this.loadInvitations();
+            return;
+          }
+          this.actionError = response.status === 422
+            ? 'Invalid TTL: between 1 minute and 30 days.'
+            : response.status === 403
+              ? 'Operator role required'
+              : await window.MetaTracerUI.readError(response, 'Could not create the invitation (HTTP ' + response.status + ').');
+        } catch (err) {
+          if (err.message !== 'unauthenticated') this.actionError = 'Network error: the API is unreachable.';
+        } finally {
+          this.busy = false;
+        }
+      },
+
+      async copyCode() {
+        try {
+          await navigator.clipboard.writeText(this.freshCode);
+          this.copied = true;
+        } catch (err) {
+          this.copied = false;
+        }
+      },
+
+      async revokeInvitation(invitation) {
+        if (!window.confirm('Revoke this ' + invitation.role + ' invitation? Any link holding the code stops working.')) return;
+        this.actionError = '';
+        try {
+          const response = await window.MetaTracerUI.authFetch('/api/invitations/' + invitation.id, { method: 'DELETE' });
+          if (response.ok || response.status === 404) {
+            await this.loadInvitations();
+            return;
+          }
+          this.actionError = response.status === 403
+            ? 'Operator role required'
+            : await window.MetaTracerUI.readError(response, 'Could not revoke the invitation (HTTP ' + response.status + ').');
+        } catch (err) {
+          if (err.message !== 'unauthenticated') this.actionError = 'Network error: the API is unreachable.';
+        }
+      },
+
+      usedBy(invitation) {
+        return invitation.used_by || '';
+      },
+
+      formatWhen(value) {
+        return window.MetaTracerUI.formatWhen(value);
+      },
+    }));
+  });
+</script>
+{% endblock %}

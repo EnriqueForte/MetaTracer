@@ -1,7 +1,7 @@
 # TASK-25 — Multi-usuario v3.1: first-run setup, panel de admin e invitaciones
 
 **Fuente:** decisión de producto 2026-09-19 tras el análisis de estado post-TASK-24; extiende [12-platform-v3.md](../features/12-platform-v3.md) §4 (el multi-tenant se dejó a v3.1).
-**Estado:** **planificada 2026-09-19**.
+**Estado:** **implementada 2026-09-19** — backend (modelo `InvitationCode` + migración Alembic `9d4b1f2a6c70`, setup/register en `api/auth.py`, router admin `api/users.py`), Web UI (`setup.html`, `register.html`, `users.html`, link en login, nav Users y "Signed in as" en base) y 77+14 tests nuevos. **Security review PASS** tras corregir: (1) MEDIUM — canje de invitaciones no atómico → claim por `UPDATE` condicional (`synchronize_session=False`, rollback del usuario perdedor incluido); (2) FKs de la migración sin `ondelete` → `created_by` CASCADE / `used_by` SET NULL; (3) `used_by` (username) expuesto en las respuestas de invitaciones. Suite: **684 passed** + ruff limpio.
 **Dependencias:** TASK-00 a TASK-24.
 
 ## Objetivo

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<!--
+  First-run setup page (TASK-25). Standalone ON PURPOSE, exactly like
+  login.html: it does NOT extend base.html because the shared chrome starts
+  the notifications bell, which polls the API on init — an anonymous visitor
+  (setup is pre-session) would get 401 on every page load. Same Tailwind CDN
+  + CSS contract as the rest of the UI; no Alpine beyond the inline form.
+-->
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Initial setup — MetaTracer</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+  <link rel="stylesheet" href="/static/metatracer.css">
+</head>
+<body class="bg-slate-950 text-slate-200 min-h-screen antialiased">
+  <main id="main-content" class="max-w-md mx-auto px-4 py-16">
+    <div class="bg-slate-900/60 border border-slate-800 rounded-lg p-8">
+      <h1 class="text-xl font-bold text-slate-100 mb-1">Initial setup</h1>
+      <p class="text-sm text-slate-400 mb-6">Create the first operator account.</p>
+
+      <div x-data="setup_form" x-cloak>
+        <div x-show="error" role="alert"
+             class="bg-red-950/50 border border-red-800 rounded-lg p-3 mb-4">
+          <p class="text-sm text-red-200" x-text="error"></p>
+        </div>
+
+        <form @submit.prevent="submit()" class="space-y-4">
+          <div>
+            <label for="setup_token" class="block text-sm font-medium text-slate-300 mb-1">Setup token</label>
+            <input id="setup_token" name="setup_token" type="password" required autocomplete="off"
+                   x-model="setupToken"
+                   class="w-full rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none">
+            <p class="text-xs text-slate-500 mt-1">The one-time token printed to the server console on startup.</p>
+          </div>
+          <div>
+            <label for="username" class="block text-sm font-medium text-slate-300 mb-1">Username</label>
+            <input id="username" name="username" type="text" required autocomplete="username"
+                   x-model="username"
+                   class="w-full rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none">
+          </div>
+          <div>
+            <label for="password" class="block text-sm font-medium text-slate-300 mb-1">Password</label>
+            <input id="password" name="password" type="password" required autocomplete="new-password"
+                   x-model="password"
+                   class="w-full rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none">
+            <p class="text-xs text-slate-500 mt-1">Minimum 8 characters.</p>
+          </div>
+          <button type="submit" :disabled="busy"
+                  class="w-full rounded-md bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-3 py-2 text-sm font-semibold text-white">
+            <span x-show="!busy">Complete setup</span>
+            <span x-show="busy" x-cloak>Creating account…</span>
+          </button>
+        </form>
+      </div>
+    </div>
+    <p class="text-xs text-slate-500 mt-4 text-center">
+      This page is only available while the installation has no users.
+    </p>
+  </main>
+
+  <script>
+    document.addEventListener('alpine:init', () => {
+      Alpine.data('setup_form', () => ({
+        setupToken: '',
+        username: '',
+        password: '',
+        busy: false,
+        error: '',
+        async submit() {
+          this.busy = true;
+          this.error = '';
+          try {
+            const response = await fetch('/api/auth/setup', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                // Pre-session CSRF (double-submit): the page render set the
+                // csrf_token cookie; echo it back in the header.
+                'X-CSRF-Token': (document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'))
+                  || document.cookie.split('; ').find((c) => c.startsWith('csrf_token='))?.split('=')[1]
+                  || '',
+              },
+              body: JSON.stringify({
+                setup_token: this.setupToken,
+                username: this.username,
+                password: this.password,
+              }),
+            });
+            if (response.ok) {
+              window.location.href = '/';
+              return;
+            }
+            this.error = response.status === 401
+              ? 'Invalid setup token.'
+              : response.status === 409
+                ? 'Setup has already been completed.'
+                : response.status === 422
+                  ? 'Password must be at least 8 characters.'
+                  : response.status === 403
+                    ? 'CSRF check failed; reload the page and retry.'
+                    : 'Setup failed (HTTP ' + response.status + ').';
+          } catch (err) {
+            this.error = 'Could not reach the server.';
+          } finally {
+            this.busy = false;
+          }
+        },
+      }));
+    });
+  </script>
+</body>
+</html>
