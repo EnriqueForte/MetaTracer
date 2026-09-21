@@ -343,8 +343,10 @@ def serve(
 ) -> None:
     """Start the local Web UI + API server.
 
-    No authentication in v1.0: the bind address is the only protection, so the
-    default is localhost / trusted networks only.
+    Authentication is optional (TASK-24/TASK-25): when ``METATRACER_AUTH_ENABLED``
+    is true the Web UI/API demand a session (first boot without users enters
+    setup mode — see the console banner). With auth disabled the bind address
+    remains the only protection: keep it on localhost / a trusted network.
     """
     import uvicorn  # deferred: keeps scan/report/list-runs startup light
 
@@ -354,10 +356,12 @@ def serve(
     configure_logging(settings.log_level)
     bind_host = host or settings.bind_host
     formatters.print_banner(console)
-    console.print(
-        f"Web UI + API on http://{bind_host}:{port} "
-        "[dim](no authentication in v1.0 — localhost / trusted network only)[/dim]"
+    posture = (
+        "authentication ENABLED — login required (first boot: setup mode)"
+        if settings.auth_enabled
+        else "authentication disabled — localhost / trusted network only"
     )
+    console.print(f"Web UI + API on http://{bind_host}:{port} [dim]({posture})[/dim]")
     uvicorn.run(create_app(settings), host=bind_host, port=port)
 
 
