@@ -3,12 +3,12 @@
 **Proyecto:** MetaTracer — AI-powered sensitive metadata discovery for Bug Bounty & Red Team
 **PRD:** [índice](../.aicontext/PRD.md) · **Backlog:** [tasks](../.aicontext/tasks/README.md)
 **Documento hermano:** [skills.md](skills.md) (define las skills; este define los agentes)
-**Versión:** 1.4
-**Estado:** Operativo — 2 rules, 3 skills transversales y los 6 subagentes; backlog `TASK-00` → `TASK-09` (v1.2 cerrada)
-**Fecha:** 6 de septiembre de 2026
+**Versión:** 1.5
+**Estado:** Operativo — 2 rules, 3 skills transversales + `metatracer-ui` materializada y los **7 subagentes** (incluye `ui-architect`); backlog `TASK-00` → `TASK-26` (v3.1, rediseño de UI aplicado 2026-09-21)
+**Fecha:** 21 de septiembre de 2026
 
 Este documento define qué capacidades (rules, skills) y qué agentes (subagentes) necesita el
-desarrollo de MetaTracer, derivados del análisis del PRD y del backlog `TASK-00` → `TASK-09`.
+desarrollo de MetaTracer, derivados del análisis del PRD y del backlog `TASK-00` → `TASK-26`.
 
 MetaTracer es una herramienta de seguridad ofensiva **autorizada**: escanea assets públicos de
 targets que no controlamos, guarda datos personales (GPS, emails) y pasa texto escrito por el
@@ -33,10 +33,12 @@ Toda la configuración se navega desde aquí, aunque no toda pueda vivir en la m
 | Skill — safety rules | `.cursor/skills/metatracer-safety-rules/SKILL.md` | [ver](../.cursor/skills/metatracer-safety-rules/SKILL.md) |
 | Skill — data contracts | `.cursor/skills/metatracer-data-contracts/SKILL.md` | [ver](../.cursor/skills/metatracer-data-contracts/SKILL.md) |
 | Skill — supply chain | `.cursor/skills/metatracer-supply-chain/SKILL.md` | [ver](../.cursor/skills/metatracer-supply-chain/SKILL.md) |
+| Skill — UI | `.cursor/skills/metatracer-ui/SKILL.md` | [ver](../.cursor/skills/metatracer-ui/SKILL.md) |
 | Subagente — safety-guardian | `.cursor/agents/safety-guardian.md` | [ver](../.cursor/agents/safety-guardian.md) |
 | Subagente — pipeline-engineer | `.cursor/agents/pipeline-engineer.md` | [ver](../.cursor/agents/pipeline-engineer.md) |
 | Subagente — llm-agent-engineer | `.cursor/agents/llm-agent-engineer.md` | [ver](../.cursor/agents/llm-agent-engineer.md) |
 | Subagente — ui-engineer | `.cursor/agents/ui-engineer.md` | [ver](../.cursor/agents/ui-engineer.md) |
+| Subagente — ui-architect | `.cursor/agents/ui-architect.md` | [ver](../.cursor/agents/ui-architect.md) |
 | Subagente — test-engineer | `.cursor/agents/test-engineer.md` | [ver](../.cursor/agents/test-engineer.md) |
 | Subagente — docs-architect | `.cursor/agents/docs-architect.md` | [ver](../.cursor/agents/docs-architect.md) |
 
@@ -45,9 +47,9 @@ Toda la configuración se navega desde aquí, aunque no toda pueda vivir en la m
 | Documento | Ruta | Contenido |
 | :--- | :--- | :--- |
 | Este archivo | `.agents/agents.md` | Capas, perfil base, modelo de amenazas, agentes, flujo |
-| Diseño de skills | [`.agents/skills.md`](skills.md) | Catálogo de las 9 skills y matriz skill × agente |
+| Diseño de skills | [`.agents/skills.md`](skills.md) | Catálogo de las 10 skills y matriz skill × agente |
 | PRD y features | [`.aicontext/`](../.aicontext/PRD.md) | Especificación de producto |
-| Backlog de tasks | [`.aicontext/tasks/`](../.aicontext/tasks/README.md) | Contratos de implementación `TASK-00` → `TASK-09` |
+| Backlog de tasks | [`.aicontext/tasks/`](../.aicontext/tasks/README.md) | Contratos de implementación `TASK-00` → `TASK-26` |
 
 ### Por qué no está todo en `.agents/`
 
@@ -120,17 +122,17 @@ diseño detallado de cada una está en [skills.md](skills.md).
 | 6 | `risk-rubric` | Rúbrica de severidad, techos heurísticos (GPS máx `high`, software máx `low`, email máx `medium`), anclaje anti-alucinación, plantillas de impacto/remediación | TASK-03 (+ prompts de TASK-05) | Alta | Pendiente |
 | 7 | `langgraph-agent-patterns` | Grafo LangGraph (nodos, estado, topología), ContextOptimizer, structured output, routing modelo fuerte/barato, fallback con tenacity, evidence guard | TASK-05 | Alta | Pendiente |
 | 8 | `report-engine` | Ficha de finding en inglés, orden Critical→Info, exportadores Markdown/JSON/HTML, compliance notice, run vacío | TASK-04, TASK-08 | Media | Pendiente |
-| 9 | `metatracer-ui` | FastAPI + Jinja2 + Tailwind (CDN) + Alpine.js, SSE de progreso, CLI Typer/Rich, modal bloqueante de scope, paridad CLI/UI | TASK-06 | Media | Pendiente |
+| 9 | `metatracer-ui` | Design system propio (tokens `.mt-*`), sidebar, layout por breakpoint, estados de TASK-20, Alpine CSP y Tailwind compilado en `/static`, prohibición de CDN, paridad CLI/UI | TASK-06, TASK-20, TASK-26 | Media | Creado |
 | 10 | `metatracer-testing` | Fixtures sintéticos (Pillow/pypdf/reportlab), servidor mock, bypass loopback solo-test, marcas pytest, cobertura ≥85%, Docker multi-stage | TASK-07 (+ tests de cada slice) | Media | Pendiente |
 
 **Regla de adopción:** crear cada skill al abrir su slice, no antes. Los skills 1-3 ya existen
-porque son transversales y condicionan todo el código posterior.
+(transversales) y `metatracer-ui` (skill 9) se materializó con el cierre de TASK-26.
 
 ---
 
 ## 4. Perfil base de un agente desarrollador de MetaTracer
 
-Todo lo de esta sección aplica a **los seis agentes custom**, independientemente del módulo. Es
+Todo lo de esta sección aplica a **los siete agentes custom**, independientemente del módulo. Es
 el perfil de contratación: si un agente no exhibe estos rasgos, su diff no entra. Cada archivo de
 `.cursor/agents/` referencia esta sección en lugar de duplicarla.
 
@@ -235,17 +237,25 @@ anti-patrones propios.
 | `safety-guardian` | [safety-guardian.md](../.cursor/agents/safety-guardian.md) | Revisa diffs contra las 7 reglas inviolables y el modelo de amenazas; único con derecho de veto | Transversal | Sí |
 | `pipeline-engineer` | [pipeline-engineer.md](../.cursor/agents/pipeline-engineer.md) | Núcleo determinista: safety core, persistencia, extracción, detección, heurístico y reportes | 00 → 04, 09 | No |
 | `llm-agent-engineer` | [llm-agent-engineer.md](../.cursor/agents/llm-agent-engineer.md) | Grafo LangGraph, prompts versionados, validador post-LLM y fallback heurístico | 05 | No |
-| `ui-engineer` | [ui-engineer.md](../.cursor/agents/ui-engineer.md) | CLI, API y Web UI sobre un único `ScanOrchestratorService` | 06 | No |
+| `ui-engineer` | [ui-engineer.md](../.cursor/agents/ui-engineer.md) | CLI, API y Web UI sobre un único `ScanOrchestratorService` | 06, 08, 20, 25 (UI), 26 | No |
+| `ui-architect` | [ui-architect.md](../.cursor/agents/ui-architect.md) | Arquitecto de UI/UX: analiza la UI y produce contratos de diseño (`.aicontext/ui/`) para `ui-engineer`, sin tocar implementación | 26 (contrato) | Sí |
 | `test-engineer` | [test-engineer.md](../.cursor/agents/test-engineer.md) | Fixtures sintéticos, mock local, e2e, cobertura y Docker | 07 + DoD de cada task | No |
 | `docs-architect` | [docs-architect.md](../.cursor/agents/docs-architect.md) | Explicabilidad: README, ADRs, walkthrough y coherencia `.aicontext` ↔ código | Cierre de slice | No |
 
 **Invocación.** Cursor delega automáticamente según la `description`, y también se pueden llamar
-de forma explícita (`/safety-guardian revisa el diff del crawler`). `safety-guardian` va en
-`readonly` a propósito: revisa y reporta, no edita.
+de forma explícita (`/safety-guardian revisa el diff del crawler`). `safety-guardian` y
+`ui-architect` van en `readonly` a propósito: revisan y producen especificaciones, no editan.
 
 **Por qué `pipeline-engineer` también cubre TASK-03:** el clasificador heurístico es código
 determinista sin red ni LLM (rúbrica, techos, plantillas). `llm-agent-engineer` empieza en
 TASK-05, cuando entra el modelo.
+
+**Por qué existe `ui-architect`:** el rediseño de la Web UI (TASK-26) es una decisión de producto
+con superficie HIGH RISK (modal de scope, SSE, drawer). `ui-architect` separa el diseño visual de
+la implementación: analiza la UI actual y emite contratos (`.aicontext/ui/` — `ui-architecture.md`,
+`design-system.md`, `component-map.md`, `redesign-plan.md`) que `ui-engineer` implementa sin
+decidir arquitectura de UI sobre la marcha. Su archivo está marcado `readonly` y la orden de
+parada del rediseño exige que nada de esa fase toque `.cursor/agents/ui-architect.md`.
 
 ### 5.2 Propiedad de módulos
 
@@ -259,7 +269,8 @@ Quién escribe dónde, para que dos agentes no se pisen y para saber a quién re
 | `src/metatracer/detectors/` | pipeline-engineer | — |
 | `src/metatracer/reports/` | pipeline-engineer | ui-engineer (consumidor) |
 | `src/metatracer/agents/` | llm-agent-engineer | safety-guardian |
-| `src/metatracer/services/`, `api/`, `cli/`, templates | ui-engineer | safety-guardian |
+| `src/metatracer/services/`, `api/`, `cli/`, templates, `api/static/` | ui-engineer | safety-guardian |
+| `.aicontext/ui/` (contratos de diseño) | ui-architect | ui-engineer (consumidor) |
 | `tests/`, fixtures | test-engineer | safety-guardian (bypass loopback) |
 | `pyproject.toml` | pipeline-engineer | safety-guardian (lista cerrada de dependencias) |
 | `Dockerfile`, `docker-compose.yml`, `.dockerignore` | test-engineer | safety-guardian (superficie de la imagen) |
@@ -287,11 +298,12 @@ genéricas; el custom verifica las 7 reglas específicas de este producto.
 
 ```text
 1. explore                 consulta la spec si hay dudas
-2. <engineer del slice>    implementa la task + sus tests
-3. safety-guardian         revisa el diff        →  bloqueante = no avanza
-4. test-engineer           consolida DoD / fixtures
-5. bugbot + security-review en el PR             →  merge
-6. docs-architect          cierra el slice (README / ADR / walkthrough)
+2. ui-architect            (solo rediseños de UI) analiza y emite contratos en .aicontext/ui/
+3. <engineer del slice>    implementa la task + sus tests
+4. safety-guardian         revisa el diff        →  bloqueante = no avanza
+5. test-engineer           consolida DoD / fixtures
+6. bugbot + security-review en el PR             →  merge
+7. docs-architect          cierra el slice (README / ADR / walkthrough)
 ```
 
 Reglas de orquestación:
@@ -316,8 +328,10 @@ Reglas de orquestación:
 | 1 — Pipeline determinista | 1-2 | Crear skills `metadata-extraction` y `detector-patterns`; trabajar con `pipeline-engineer` y `safety-guardian` |
 | 2 — IA e interfaces | 3-4 | Crear skills `risk-rubric`, `langgraph-agent-patterns`, `report-engine`, `metatracer-ui`; entran `llm-agent-engineer` y `ui-engineer` |
 | 3 — Cierre MVP | 5 | Crear skill `metatracer-testing`; entran `test-engineer` y `docs-architect`; activar `bugbot`/`security-review` en PRs |
-| 4 — Post-MVP | 6-7 | TASK-08 (v1.1) y TASK-09 (v1.2) **cerradas**. Reusan skills de módulo; materializar las skills 4-10 sigue pendiente. Siguiente producto: v2.0 Plataforma |
+| 4 — Post-MVP | 6-7 | TASK-08 (v1.1) y TASK-09 (v1.2) **cerradas**. Reusan skills de módulo; materializar las skills 4-8 y 10 sigue pendiente |
+| 5 — Plataforma | 8+ | TASK-10 → TASK-26 (v2.0 → v3.1) **cerradas**. Entra `ui-architect` para el rediseño de UI (TASK-26); se materializan los skills del módulo al abrir su task |
 
-Los subagentes ya existen, pero **las skills siguen creándose al abrir su slice**: el agente sin
-su skill funciona con las rules y su propio prompt; con la skill, además conoce los valores
-exactos del módulo.
+Los subagentes ya existen (7 desde la incorporación de `ui-architect`), pero **las skills siguen
+creándose al abrir su slice**: el agente sin su skill funciona con las rules y su propio prompt;
+con la skill, además conoce los valores exactos del módulo. `metatracer-ui` es la primera skill
+de módulo materializada (cubre el design system de TASK-26).

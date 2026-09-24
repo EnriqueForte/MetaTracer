@@ -20,6 +20,11 @@ validation/results/
 # Manual ground truths of real documents (personal metadata)
 validation/ground-truths/
 
+# Tailwind standalone CLI (build tool only; the compiled CSS is committed)
+tailwindcss-windows-*
+tailwindcss-linux-*
+tailwindcss-macos-*
+
 # Python
 __pycache__/
 .venv/

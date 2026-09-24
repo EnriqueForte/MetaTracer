@@ -3,8 +3,9 @@
   First-run setup page (TASK-25). Standalone ON PURPOSE, exactly like
   login.html: it does NOT extend base.html because the shared chrome starts
   the notifications bell, which polls the API on init — an anonymous visitor
-  (setup is pre-session) would get 401 on every page load. Same Tailwind CDN
-  + CSS contract as the rest of the UI; no Alpine beyond the inline form.
+  (setup is pre-session) would get 401 on every page load. Same vendored
+  Tailwind stylesheet and Alpine file as the rest of the UI; no Alpine beyond
+  the inline form.
 -->
 <html lang="en" class="dark">
 <head>
@@ -12,9 +13,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Initial setup — MetaTracer</title>
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
-  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+  <link rel="stylesheet" href="/static/tailwind.css">
   <link rel="stylesheet" href="/static/metatracer.css">
+  <script defer src="/static/alpine-csp-3.17.4.min.js"></script>
 </head>
 <body class="min-h-screen">
   <main id="main-content" class="max-w-md mx-auto w-full min-h-screen flex flex-col justify-center px-4 py-16 gap-4">

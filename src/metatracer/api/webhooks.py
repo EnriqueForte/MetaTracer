@@ -90,8 +90,8 @@ class WebhookCreate(BaseModel):
 
     @model_validator(mode="after")
     def _terminal_event(self) -> WebhookCreate:
-        if self.event not in (RunStatus.completed, RunStatus.failed):
-            raise ValueError("event must be a terminal status (completed|failed)")
+        if self.event not in (RunStatus.completed, RunStatus.failed, RunStatus.aborted):
+            raise ValueError("event must be a terminal status (completed|failed|aborted)")
         return self
 
 
@@ -115,8 +115,12 @@ class WebhookUpdate(BaseModel):
 
     @model_validator(mode="after")
     def _terminal_event(self) -> WebhookUpdate:
-        if self.event is not None and self.event not in (RunStatus.completed, RunStatus.failed):
-            raise ValueError("event must be a terminal status (completed|failed)")
+        if self.event is not None and self.event not in (
+            RunStatus.completed,
+            RunStatus.failed,
+            RunStatus.aborted,
+        ):
+            raise ValueError("event must be a terminal status (completed|failed|aborted)")
         return self
 
 
@@ -327,7 +331,7 @@ class WebhookDispatcher:
         broken consumer never raises (inviolable rule 5). The actual HTTP send
         is scheduled as a background task.
         """
-        if status not in (RunStatus.completed, RunStatus.failed):
+        if status not in (RunStatus.completed, RunStatus.failed, RunStatus.aborted):
             return
         # Opportunistic recovery of a previous process's pending deliveries
         # before we add new ones (the relay buffer is idempotent).

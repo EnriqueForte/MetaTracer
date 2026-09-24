@@ -593,9 +593,13 @@ class ScanOrchestratorService:
             )
         except (ScopeNotConfirmedError, SecurityViolationError) as exc:
             # Safety aborts are expected control flow: clear message, no traceback.
+            # Persisted as ``aborted``, not ``failed``, so clients can tell a
+            # safety stop from an infrastructure error without parsing the text.
             message = sanitize_for_log(exc, max_length=500)
             logger.error("scan aborted by the safety layer: %s", message)
-            return await self._fail(run.id, current_step, message, on_progress)
+            return await self._fail(
+                run.id, current_step, message, on_progress, status=RunStatus.aborted
+            )
         except Exception as exc:
             # Orchestration bug or infrastructure failure: fail the run loudly
             # with a sanitized message and keep the traceback in the log.
@@ -631,19 +635,27 @@ class ScanOrchestratorService:
         current_step: int,
         message: str,
         on_progress: Callable[[ProgressEvent], None] | None,
+        *,
+        status: RunStatus = RunStatus.failed,
     ) -> ScanResult:
-        """Finalize the run as failed and return the failure as a ScanResult."""
-        finished = await self._finalize_run(run_id, RunStatus.failed, message)
+        """Finalize a terminal non-success and return it as a ScanResult.
+
+        ``status`` is ``aborted`` for a safety exception and ``failed`` for
+        anything else. The SSE stage stays ``failed``: it only means the
+        stream should stop. The persisted status is the discriminator.
+        """
+        finished = await self._finalize_run(run_id, status, message)
+        label = "Scan aborted" if status is RunStatus.aborted else "Scan failed"
         self._emit(
             on_progress,
             run_id,
             ProgressStage.failed,
-            f"Scan failed: {message}",
+            f"{label}: {message}",
             step=current_step,
         )
         return ScanResult(
             run_id=run_id,
-            status=RunStatus.failed,
+            status=status,
             total_assets=finished.total_assets,
             total_findings=finished.total_findings,
             error_message=message,

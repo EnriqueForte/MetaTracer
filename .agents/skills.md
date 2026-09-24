@@ -3,8 +3,8 @@
 **Proyecto:** MetaTracer — AI-powered sensitive metadata discovery for Bug Bounty & Red Team
 **PRD:** [índice](../.aicontext/PRD.md) · **Backlog:** [tasks](../.aicontext/tasks/README.md)
 **Documento hermano:** [agents.md](agents.md) (define los agentes; este define sus skills)
-**Versión:** 1.2
-**Fecha:** 29 de agosto de 2026
+**Versión:** 1.3
+**Fecha:** 21 de septiembre de 2026
 
 > **Este archivo es especificación de diseño, no un skill cargable.** Se llama `skills.md` (y no
 > `skills/SKILL.md`) a propósito: `.agents/skills/` es una raíz de skills que Cursor recorre, así
@@ -26,8 +26,9 @@ contexto si estuviera siempre presente.
   conciso con progressive disclosure.
 - **Regla de oro de autoría:** referenciar los documentos fuente (`.aicontext/tasks/...`) en
   lugar de duplicarlos. Cuando el PRD evolucione, solo hay un sitio que actualizar.
-- **Regla de adopción:** crear cada skill al abrir su slice, no antes. Los dos skills
-  transversales ya existen porque condicionan todo el código posterior.
+- **Regla de adopción:** crear cada skill al abrir su slice, no antes. Los tres skills
+  transversales (1-3) existen porque condicionan todo el código posterior; `metatracer-ui` se
+  materializó con el cierre de TASK-26.
 
 ### 1.1 Qué capa se lleva cada conocimiento
 
@@ -147,9 +148,12 @@ consultar la lista aprobada ni el procedimiento.
   volúmenes solo `data/` y `reports/`, Compose sin `ALLOW_LOOPBACK`.
 - Secretos: `.env` nunca versionado ni dentro de la imagen; `.env.example` con nombres, jamás
   valores.
-- **Assets de terceros por CDN:** Tailwind y Alpine son cadena de suministro ejecutándose en el
-  navegador del hunter. Versión fija en la URL (nunca `@latest`), solo dominios oficiales por
-  `https`, sin orígenes adicionales. Sin SRI ni vendorizado en el MVP: limitación documentada.
+- **Assets de terceros de la UI (cerrado en TASK-26):** Tailwind y Alpine eran cadena de
+  suministro ejecutándose en el navegador del hunter. Desde el rediseño (2026-09-21) no hay CDN:
+  Tailwind 3.4.16 está compilado offline a `static/tailwind.css` y Alpine es el build CSP
+  3.17.4 vendorizado (`static/alpine-csp-3.17.4.min.js`); el CLI compilador no se versiona, no
+  entra en Docker y la app no lo descarga. Regla vigente: nunca re-introducir un `<script src>`
+  de terceros, ni `@latest`, ni orígenes adicionales (fuentes, iconos remotos).
 - Huecos conocidos de la lista, empezando por `langchain-openai` (ver §3.4).
 
 **Amenazas que cubre:** 15.
@@ -353,11 +357,12 @@ mocks del grafo.
 
 ---
 
-### 2.9 `metatracer-ui` — TASK-06 · Prioridad media · Pendiente
+### 2.9 `metatracer-ui` — TASK-06 + TASK-20 + TASK-26 · Prioridad media · **Creado**
 
-**Ubicación prevista:** `.cursor/skills/metatracer-ui/SKILL.md`
+**Ubicación:** `.cursor/skills/metatracer-ui/SKILL.md`
 
-**Se activa cuando:** se trabaja en `services/`, `api/`, `cli/` o templates/estáticos.
+**Se activa cuando:** se trabaja en `services/`, `api/`, `cli/` o templates/estáticos, y en
+cualquier rediseño de la Web UI.
 
 **Conocimiento que encapsula:**
 
@@ -368,20 +373,30 @@ mocks del grafo.
   obligatorio, `-y`, `-d`, `-o`, `-f`), prompt de confirmación con default `N`, banner ético,
   tabla coloreada por severidad, exit codes (0 si termina, 1 si error fatal).
 - API FastAPI: contratos de los 5 endpoints (`POST /api/runs` 202/403/409, `GET` status, SSE
-  stream, findings con filtro, export attachment), bind `127.0.0.1` por defecto, sin auth
-  (documentado como localhost/red de confianza).
-- Web UI: stack cerrado (Jinja2 + Tailwind CDN + Alpine.js, sin Node/React en v1.0), modal
-  bloqueante de scope, EventSource para progreso, dashboard con badges filtrantes + tabla +
-  drawer, botones de descarga, estado vacío digno, tema oscuro táctico.
+  stream, findings con filtro, export attachment), bind `127.0.0.1` por defecto, auth opcional
+  desde TASK-24 (`METATRACER_AUTH_ENABLED`; roles `operator`/`viewer`).
+- **Web UI (stack real tras TASK-26):** Jinja2 + Alpine CSP 3.17.4 vendorizado
+  (`static/alpine-csp-3.17.4.min.js`) + Tailwind 3.4.16 **compilado offline**
+  (`static/tailwind.css`, sin CDN) + design system propio `static/metatracer.css` (tokens
+  `.mt-*`, sidebar, layout por breakpoint, matrices de estado de TASK-20). Modal bloqueante de
+  scope, EventSource para progreso, dashboard con tarjetas y barras por severidad, drawer de
+  finding con separación evidencia / `AI analysis — not evidence`, estado vacío digno, tema
+  oscuro táctico (dark-only).
 - **Renderizado de contenido del target:** autoescape de Jinja2 siempre activo; nunca `|safe`
-  ni `x-html` sobre snippets, URLs o mensajes de error.
-- Paridad: CLI y UI muestran los mismos findings/severities para el mismo `run_id`.
+  ni `x-html` sobre snippets, URLs o mensajes de error; URLs de asset solo por `safeUrl()`.
+- **Cadena de suministro de la UI:** cero scripts de terceros en runtime; CSS y Alpine sirven
+  de `/static` con hash documentado en TASK-26; iconos SVG inline; cabeceras de respuesta las
+  pone `api/security_headers.py` (CSP conserva `'unsafe-inline'` por los scripts inline y el
+  `onclick` de Sign out; sin `unsafe-eval`, sin orígenes de terceros, HSTS tras proxy TLS).
+- Paridad: CLI y UI muestran los mismos findings/severidades para el mismo `run_id`.
 
-**Amenazas que cubre:** 10, 11, 12.
+**Amenazas que cubre:** 10, 11, 12, 15.
 
-**Lo usan:** `ui-engineer` (núcleo).
+**Lo usan:** `ui-engineer` (núcleo), `ui-architect` (al diseñar contratos de UI) y
+`safety-guardian` (al revisar plantillas y estáticos).
 
-**Fuente:** `.aicontext/tasks/06-interfaces.md`.
+**Fuente:** `.aicontext/tasks/06-interfaces.md`, `.aicontext/tasks/20-ui-polish.md`,
+`.aicontext/tasks/26-ui-redesign.md`, `.aicontext/ui/`.
 
 ---
 
@@ -431,23 +446,23 @@ allí; si divergen, manda el archivo del agente y esta tabla se corrige.
 Leyenda: `N` = núcleo (el agente no puede trabajar sin ella) · `S` = soporte declarado ·
 `r` = recomendada pero **no** declarada todavía en el archivo del agente · vacío = no aplica.
 
-| Skill | safety-guardian | pipeline-engineer | llm-agent-engineer | ui-engineer | test-engineer |
-| :--- | :-: | :-: | :-: | :-: | :-: |
-| `metatracer-safety-rules` | N | S | | | S (bypass loopback) |
-| `metatracer-data-contracts` | | S | S | S | |
-| `metatracer-supply-chain` | N (auditoría) | S (`pyproject.toml`) | | S (CDN) | S (imagen) |
-| `metadata-extraction` | S (revisión del crawler) | N | | | r (fixtures) |
-| `detector-patterns` | | N | | | r (casos negativos) |
-| `risk-rubric` | | N (TASK-03) | N (prompts y guard) | | |
-| `langgraph-agent-patterns` | | | N | | r (mocks) |
-| `report-engine` | | N | | S | |
-| `metatracer-ui` | | | | N | |
-| `metatracer-testing` | | r (DoD) | r (DoD) | r (DoD) | N |
+| Skill | safety-guardian | pipeline-engineer | llm-agent-engineer | ui-engineer | ui-architect | test-engineer |
+| :--- | :-: | :-: | :-: | :-: | :-: | :-: |
+| `metatracer-safety-rules` | N | S | | | S (restricciones al proponer) | S (bypass loopback) |
+| `metatracer-data-contracts` | | S | S | S | S (enums de presentación) | |
+| `metatracer-supply-chain` | N (auditoría) | S (`pyproject.toml`) | | S (CDN/static) | S (assets propuestos) | S (imagen) |
+| `metadata-extraction` | S (revisión del crawler) | N | | | | r (fixtures) |
+| `detector-patterns` | | N | | | | r (casos negativos) |
+| `risk-rubric` | | N (TASK-03) | N (prompts y guard) | | | |
+| `langgraph-agent-patterns` | | | N | | | r (mocks) |
+| `report-engine` | | N | | S | | |
+| `metatracer-ui` | | | | N | N (contratos de diseño) | |
+| `metatracer-testing` | | r (DoD) | r (DoD) | r (DoD) | | N |
 
 Notas de lectura:
 
 - Las **rules** son otra capa y aplican siempre: `safety-invariants` y `data-contracts` están en
-  el contexto de los seis agentes sin necesidad de declararlas. Por eso un agente puede no
+  el contexto de los siete agentes sin necesidad de declararlas. Por eso un agente puede no
   cargar la skill `metatracer-data-contracts` y aun así conocer los enums.
 - Las celdas `r` son deuda de configuración conocida, no un error de funcionamiento: el agente
   puede leer la skill si la necesita, pero no la tiene en su lista de arranque. Se resuelven
@@ -456,6 +471,9 @@ Notas de lectura:
   heurístico y agente) y también su principal riesgo de deriva.
 - `docs-architect` no aparece a propósito: no escribe código de producto, así que no carga skills
   de módulo. Su contexto son el PRD, el backlog y [agents.md](agents.md).
+- `metatracer-ui` y `metatracer-supply-chain` son las únicas skills con más de un núcleo
+  declarado: `ui-architect` necesita la primera para que sus contratos sean implementables y la
+  segunda para no proponer assets de terceros (amenaza 15).
 
 ### 3.2 Orden de creación por slice
 
@@ -466,10 +484,11 @@ Alineado con las fases de [tasks/README.md](../.aicontext/tasks/README.md).
 | 1 | TASK-00 | `metatracer-safety-rules`, `metatracer-data-contracts`, `metatracer-supply-chain` | Creadas |
 | 2 | TASK-01, TASK-02 | `metadata-extraction`, `detector-patterns` | Pendientes |
 | 3 | TASK-03, TASK-05 | `risk-rubric`, `langgraph-agent-patterns` | Pendientes |
-| 4 | TASK-04, TASK-06 | `report-engine`, `metatracer-ui` | Pendientes |
+| 4 | TASK-04, TASK-06 | `report-engine`, `metatracer-ui` | `metatracer-ui` **creada** (TASK-26); `report-engine` pendiente |
 | 5 | TASK-07 | `metatracer-testing` | Pendiente |
 | 6 | TASK-08 | (reusa `metatracer-ui`, `report-engine`, guard de TASK-05) | v1.1 cerrada; sin skill nueva |
 | 7 | TASK-09 | (reusa y actualiza el diseño de `metadata-extraction` / `detector-patterns`) | v1.2 cerrada; skill de extracción sigue pendiente de materializar |
+| 8 | TASK-20, TASK-26 | (reusa y **actualiza** `metatracer-ui`) | v2.3/v3.1 cerradas; `metatracer-ui` materializada con el design system de TASK-26 |
 
 Un agente sin su skill no está roto: funciona con las rules y su propio prompt. Con la skill,
 además conoce los valores exactos del módulo y sus trampas conocidas.
@@ -497,7 +516,7 @@ se queda sin dueño documental, su mitigación depende de que alguien se acuerde
 | 12 XSS en la Web UI | `metatracer-ui` |
 | 13 Log injection | `metatracer-safety-rules` |
 | 14 Datos personales | `metatracer-data-contracts`, `report-engine`, `metatracer-testing` |
-| 15 Cadena de suministro | `metatracer-supply-chain` |
+| 15 Cadena de suministro | `metatracer-supply-chain`, `metatracer-ui` |
 
 Las quince amenazas tienen ya al menos una skill que las documenta. La 13 tiene su formato
 fijado en `metatracer-safety-rules` (sección "Logging seguro") y la 14 su ciclo de vida en
@@ -523,7 +542,7 @@ Este hueco no se resuelve dentro del código: aplica el protocolo de escalado
 ### 4.1 Plantilla
 
 Al materializar cada skill en `.cursor/skills/<nombre>/SKILL.md`, este es el esqueleto (el
-frontmatter usa solo `name` y `description`, igual que las dos skills ya creadas):
+frontmatter usa solo `name` y `description`, igual que las cuatro skills ya creadas):
 
 ```markdown
 ---

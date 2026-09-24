@@ -1,10 +1,13 @@
 # Plan de rediseño — MetaTracer
 
-Implementación incremental. Cada fase: implementar → tests de `test-engineer` → revisión de `safety-guardian` cuando la fase lo marca → seguir.
+Implementación incremental. Cada fase: implementar → tests de `test-engineer` → revisión de
+`safety-guardian` cuando la fase lo marca → seguir.
 
 Ninguna fase cambia contratos de API, el orquestador, la CLI ni la forma de `ProgressEvent`.
 
-Ninguna fase retira el CDN. Eso queda en el seguimiento final.
+El CDN ya no forma parte de la UI de destino: la opción A de TASK-26 (Tailwind compilado +
+Alpine vendorizado en `/static`) se aplicó al cerrar el rediseño (2026-09-21) y se verificó en la
+regresión final (ver "SUPPLY-CHAIN FOLLOW-UP" al final).
 
 ## Fase 0 — Tokens
 
@@ -27,7 +30,7 @@ Ninguna fase retira el CDN. Eso queda en el seguimiento final.
 - **Aceptación:**
   - No hay `{% extends "base.html" %}`.
   - No aparece `notifications_bell` ni `MetaTracerUI`.
-  - Los `<script>` siguen siendo exactamente `https://cdn.tailwindcss.com/3.4.16` y `https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js`.
+  - Los assets de UI salen de `/static/tailwind.css` y `/static/alpine-csp-3.17.4.min.js`. No hay `<script src>` de terceros.
   - `id="main-content"` presente.
   - Campos, `autocomplete`, `type="password"` y ramificación de status HTTP sin cambios.
   - Enlace register solo si `auth_enabled`. Setup no revela el token fuera del input password.
@@ -196,14 +199,16 @@ Ninguna fase retira el CDN. Eso queda en el seguimiento final.
 
 ### SUPPLY-CHAIN FOLLOW-UP
 
-TASK-26 opciones A (Tailwind standalone CLI) y B (CSS a mano que reemplace Tailwind) quedan fuera. Este rediseño mantiene:
-
-- `https://cdn.tailwindcss.com/3.4.16`
-- `https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js`
+**Cerrado (2026-09-21).** Opción A aplicada: Tailwind CSS 3.4.16 compilado offline a
+`static/tailwind.css` (CLI oficial `tailwindcss-windows-x64.exe`, hash en TASK-26; el binario no
+se versiona, no entra en Docker y la app no lo descarga) y Alpine servido desde
+`static/alpine-csp-3.17.4.min.js` (build `@alpinejs/csp` 3.17.4, sin `unsafe-eval`). No queda
+ningún `<script src>` de terceros en las plantillas; la regresión final (`pytest` 675 passed,
+5 skipped, ruff limpio y revisión de `safety-guardian` sin bloqueantes) lo verificó.
 
 ### SECURITY FOLLOW-UP
 
-Hoy no hay CSP, `X-Frame-Options`, HSTS, `Referrer-Policy` ni `Permissions-Policy`. No se diseña un mecanismo de cabeceras en plantillas.
+Las cabeceras de respuesta las envía `api/security_headers.py`. Una CSP sin `'unsafe-inline'` sigue fuera.
 
 ### REQUIRED BACKEND DATA
 

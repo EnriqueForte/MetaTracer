@@ -2,16 +2,16 @@
 
 Contrato para `ui-engineer`. Documentación en español. Identificadores, rutas, enums y cadenas de UI en inglés.
 
-Este rediseño sustituye el planteamiento visual de TASK-26 (borrador 2026-09-19) en lo que el operador ha redefinido abajo. TASK-26 sigue siendo la deuda de **quitar el CDN**; eso no forma parte de este trabajo.
+Este rediseño sustituye el planteamiento visual de TASK-26 (borrador 2026-09-19) en lo que el operador ha redefinido abajo. El CDN de scripts ya no forma parte de la UI: Tailwind está compilado y Alpine es el build CSP servido desde `/static`.
 
 ## 0. Decisiones cerradas
 
-1. Stack: FastAPI + Jinja2 autoescape + Alpine.js 3.14.8 + Tailwind 3.4.16 (CDN ya fijado) + `metatracer.css`. Sin React, Next, Vite, Node ni bundlers.
-2. Los CDN fijados se quedan. Las opciones A (Tailwind standalone CLI) y B (CSS a mano que reemplace Tailwind) de TASK-26 son **SUPPLY-CHAIN FOLLOW-UP** y exigen `safety-guardian`. Sin dependencias nuevas, sin CDN de fuentes, sin CDN de iconos, sin `@latest`, sin experimento SRI que rompa el play CDN de Tailwind.
+1. Stack: FastAPI + Jinja2 autoescape + Alpine CSP 3.17.4 vendorizado + Tailwind 3.4.16 compilado en `/static` + `metatracer.css`. Sin React, Next, Vite, Node ni bundlers en runtime.
+2. No hay scripts de terceros. La opción A de TASK-26 está aplicada: el CLI de Tailwind no se versiona y la app no lo descarga. Sin CDN de fuentes, sin CDN de iconos, sin `@latest`, sin `unsafe-eval`.
 3. No hay rutas ni features nuevas. La IA conceptual se apoya solo en páginas que ya existen (sección 3).
 4. Comportamiento protegido: no cambiar `ScanOrchestratorService`, CLI, contratos request/response, forma SSE, scope gate, CSRF double-submit, autoescape, prohibición de `|safe` / `x-html` / `innerHTML` sobre datos del target, `safeUrl()` en `run.html`, un scan `running` → 409, fallo de asset continúa frente a fallo de safety que aborta, inglés de UI, skip-link, contrato de foco del modal de scope y del drawer (TASK-20).
 5. La UI no calcula `severity`. Los enums viajan en minúsculas; Title Case solo en presentación.
-6. Cabeceras CSP, `X-Frame-Options`, HSTS, `Referrer-Policy` y `Permissions-Policy` no existen hoy. **SECURITY FOLLOW-UP.** No diseñar un mecanismo de cabeceras que el backend no tiene.
+6. Las cabeceras de respuesta las pone `api/security_headers.py`. La CSP no permite orígenes de terceros ni `unsafe-eval`. Alpine es el build CSP 3.17.4. `'unsafe-inline'` se queda por los `<script>` de página, el `onclick` de Sign out y algunos atributos `style`. HSTS usa el mismo corte que la cookie `Secure`.
 7. No tocar `.cursor/agents/ui-architect.md`.
 
 ## 1. Current UI assessment
@@ -322,10 +322,10 @@ Amenazas relevantes (`.agents/agents.md` §4.2):
 - **10 — escritura fuera de `reports/`.** La UI no elige el path. Solo el query `format` ya permitido.
 - **11 — bloque de evidencia.** `evidence_snippet` va en `<pre>` con `x-text` y `whitespace-pre-wrap`. No se reescriben backticks ni saltos. No se parte el snippet para “resaltar”.
 - **12 — XSS.** Autoescape Jinja siempre. Prohibido `|safe`, `x-html` e `innerHTML` para datos del target, del modelo o de `error_message`. URLs de asset solo como `href` si `safeUrl()` las acepta (`^https?:\/\/`). Si no, `#`. `target="_blank"` conserva `rel="noopener noreferrer"`.
-- **15 — cadena de suministro.** Únicas URLs de terceros, en `base.html` y en los tres shells de auth:
+- **15 — cadena de suministro.** La UI no carga scripts de terceros. En `base.html` y en los tres shells de auth:
 
-  - `https://cdn.tailwindcss.com/3.4.16`
-  - `https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js`
+  - `static/tailwind.css` — Tailwind 3.4.16 compilado offline (CLI oficial, hash en TASK-26)
+  - `static/alpine-csp-3.17.4.min.js` — Alpine CSP 3.17.4 (sin `unsafe-eval`)
 
   Iconos: el SVG de la campana ya está inline. Los nuevos iconos, si hacen falta, son SVG inline en la plantilla, sin red.
 
@@ -347,24 +347,38 @@ Feedback de severidad (TASK-13) sigue siendo una corrección local del operador.
 - `pages.py` no cambia de plantilla ni de contexto (`version`, `auth_enabled`, `current_user`, `csrf_token`, `depths` en el index).
 - El `run_id` de `run.html` se lee del path en el cliente, no se interpola en el script.
 - Clases de layout Tailwind sí. Colores de marca y componentes, no: van a clases `.mt-*` para no duplicar `emerald-*` / `slate-*` con un significado distinto en cada página.
-- El play CDN no recibe un `tailwind.config` nuevo en esta fase (evita un segundo mecanismo de tema). Los colores salen de variables CSS referenciadas por clases propias.
-- Rendimiento: no añadir librerías, fuentes, ni un segundo stream. El sidebar es HTML estático. Partials Jinja que solo parten el markup, no el JS.
+- El build compilado de Tailwind no recibe un `tailwind.config` nuevo en esta fase (evita un
+  segundo mecanismo de tema). Los colores salen de variables CSS referenciadas por clases
+  propias.
+- Rendimiento: no añadir librerías, fuentes, ni un segundo stream. El sidebar es HTML estático.
+  Partials Jinja que solo parten el markup, no el JS.
 
 ## 13. Fuera de este rediseño
 
-- **SUPPLY-CHAIN FOLLOW-UP:** retirar CDN (TASK-26 opciones A o B). Requiere `safety-guardian`. Hasta entonces los tests no deben exigir ausencia del CDN.
-- **SECURITY FOLLOW-UP:** cabeceras HTTP de seguridad. No hay middleware que las envíe. No diseñar nonces CSP ni SRI en plantillas “por si el backend aparece”.
-- **REQUIRED BACKEND DATA (no bloquea el rediseño):** un discriminador explícito safety-abort frente a `failed` genérico. Mientras no exista, la UI muestra `failed` y `aborted` como estados distintos solo cuando el JSON trae ese `status`.
+- **Discriminador de aborto:** `ScopeNotConfirmedError` y `SecurityViolationError` persisten
+  `run.status = aborted`. Cualquier otra excepción de orquestación persiste `failed`. La UI lee
+  ese status; no interpreta `error_message`. El evento SSE terminal sigue siendo `failed`
+  (parar el stream).
 - No hay página Targets, Settings, AI ni Reports.
 - No se añade el flag `watch` al wizard.
-- No se migra a SPA. Si algún día se hace, es **FUTURE ARCHITECTURE OPTION**: la API ya está separada del HTML; el coste es reimplementar foco, CSRF, SSE y autoescape en un runtime Node que este repo no tiene. No forma parte del diseño actual.
+- No se migra a SPA. Si algún día se hace, es **FUTURE ARCHITECTURE OPTION**: la API ya está
+  separada del HTML; el coste es reimplementar foco, CSRF, SSE y autoescape en un runtime Node
+  que este repo no tiene. No forma parte del diseño actual.
+
+El **SUPPLY-CHAIN FOLLOW-UP quedó cerrado con la opción A de TASK-26** (2026-09-21): Tailwind
+3.4.16 compilado offline a `static/tailwind.css` y Alpine CSP 3.17.4 vendorizado como
+`static/alpine-csp-3.17.4.min.js`; la app no descarga el CLI ni scripts de terceros; los hashes
+están en `.aicontext/tasks/26-ui-redesign.md`. La CSP de `api/security_headers.py` conserva
+`'unsafe-inline'` (scripts inline y `onclick` de Sign out); una CSP sin `'unsafe-inline'` sigue
+fuera.
 
 ## 14. Checklist de esta arquitectura
 
 - [x] Nav real, sin Targets / Settings / AI / Reports como páginas
 - [x] Flujo target → scope → confirmación → scan → progreso → resultados → análisis → descarga
 - [x] Estados de fallo, asset y vacío separados, con la salvedad del status `failed` documentada
-- [x] Compatible con FastAPI, Jinja2, Tailwind CDN fijado, Alpine, SSE
+- [x] Compatible con FastAPI, Jinja2, Tailwind compilado en `/static`, Alpine CSP, SSE
 - [x] Scope sigue siendo un gate
 - [x] Sin HTML inseguro propuesto
+- [x] Sin scripts de terceros: Tailwind y Alpine sirven de `/static` (supply chain cerrada)
 - [x] Orquestador, CLI, DB y contratos API fuera de alcance

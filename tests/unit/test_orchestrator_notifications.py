@@ -98,13 +98,13 @@ async def test_happy_path_emits_one_completed_notification(
 
 
 class _SafetyFailingIngestion:
-    """Test double: a safety violation escaping ingestion -> failed run."""
+    """Test double: a safety violation escaping ingestion -> aborted run."""
 
     async def execute(self, run_id: str) -> NoReturn:
         raise SecurityViolationError("host resolved to a blocked private address")
 
 
-async def test_failed_run_emits_one_failed_notification(
+async def test_safety_abort_emits_one_aborted_notification(
     session_factory, tmp_path
 ) -> None:
     bus = NotificationBus()
@@ -113,12 +113,12 @@ async def test_failed_run_emits_one_failed_notification(
     )
 
     result = await orchestrator.scan(_request(), output_dir=tmp_path)
-    assert result.status is RunStatus.failed
+    assert result.status is RunStatus.aborted
 
     events = bus.list()
     assert len(events) == 1
     event = events[0]
-    assert event.kind is RunStatus.failed
+    assert event.kind is RunStatus.aborted
     assert event.run_id == result.run_id
     assert event.error_message is not None
     assert "blocked private address" in event.error_message

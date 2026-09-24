@@ -120,7 +120,7 @@ Clases visuales: las de `design-system.md`. Los nombres Alpine de la columna Est
 | Tablas | Refactor | Misma semántica de columnas |
 | Badges | Replace visual | De utilidades Tailwind sueltas a `.mt-badge-*` |
 | `.severity-bar` | Replace | Barras por severidad, cuando el dashboard deje de usarla |
-| CDN Tailwind + Alpine | Keep | Follow-up de supply chain, no esta tarea |
+| Tailwind + Alpine | Replace (a `/static`) | TASK-26 opción A: CSS compilado y Alpine vendored; sin CDN de scripts |
 | Auth shells | Refactor visual, Keep aislamiento | Prohibido `{% extends "base.html" %}` |
 
 ## Archivos que ui-engineer no modifica

@@ -77,18 +77,23 @@ dependencia de test en dependencia de producto. Lo mismo con `pytest` y `ruff`.
 - `METATRACER_ALLOW_LOOPBACK` puede aparecer en `.env.example` marcado como "test only".
 - Ninguna clave se loguea ni se persiste en `AgentLog`.
 
-## Assets de terceros por CDN (TASK-06)
+## Assets de terceros de la UI (TASK-06; sin CDN desde TASK-26)
 
-La Web UI carga Tailwind y Alpine.js desde CDN, así que **también es cadena de suministro**, solo
-que ejecutándose en el navegador del hunter:
+La Web UI cargaba Tailwind y Alpine.js desde CDN — cadena de suministro ejecutándose en el
+navegador del hunter. **Cerrado con la opción A de TASK-26** (2026-09-21):
 
-- Fijar la **versión exacta** en la URL. Nunca un tag flotante tipo `@latest`, que convierte al
-  CDN en capaz de cambiar el código servido sin avisar.
-- Cargar únicamente desde los dominios oficiales de cada librería, y solo por `https`.
-- No añadir más orígenes de terceros (fuentes, analytics, iconos remotos). Una herramienta de
-  seguridad que ejecuta en la máquina del auditor no llama a servicios que no necesita.
-- Limitación aceptada del MVP: sin Subresource Integrity ni vendorizado local. Si se endurece
-  más adelante, el paso es SRI o servir los assets desde `static/`.
+- Tailwind CSS 3.4.16 se compiló offline a `static/tailwind.css` con el CLI oficial
+  (`tailwindcss-windows-x64.exe`, hash en TASK-26) y Alpine se sirve como build CSP 3.17.4
+  vendorizado (`static/alpine-csp-3.17.4.min.js`) — sin `unsafe-eval`, sin orígenes de
+  terceros.
+- El binario compilador no se versiona, no entra en la imagen Docker y la app no lo descarga en
+  runtime.
+- Regla vigente: **no re-introducir ningún `<script src>` de terceros**, ni `@latest`, ni
+  fuentes/iconos remotos. Las versiones de los assets servidos desde `static/` quedan fijadas
+  por su contenido y su hash documentado.
+
+Si algún día se añadiera un asset remoto (no previsto), aplicaría el régimen anterior: versión
+exacta, dominio oficial, solo `https`, y revisión de `safety-guardian` (amenaza 15).
 
 ## Huecos conocidos de la lista
 

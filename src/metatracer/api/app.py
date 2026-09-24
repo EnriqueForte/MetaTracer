@@ -28,6 +28,7 @@ from metatracer.agents.pipeline import AgentPipeline
 from metatracer.api import auth as auth_api
 from metatracer.api import feedback, knowledge, notifications, runs, scopes, stats, users
 from metatracer.api.pages import router as pages_router
+from metatracer.api.security_headers import apply_security_headers
 from metatracer.api.webhooks import WebhookDispatcher
 from metatracer.api.webhooks import register_routes as register_webhook_routes
 from metatracer.core.config import Settings
@@ -199,15 +200,21 @@ def create_app(
                 try:
                     await auth_api._resolve_session(request)
                 except auth_api._InvalidSession:
-                    return RedirectResponse("/login", status_code=307)
-            return await call_next(request)
+                    return apply_security_headers(
+                        RedirectResponse("/login", status_code=307), request
+                    )
+            response = await call_next(request)
+            return apply_security_headers(response, request)
         except HTTPException as exc:
             # Middleware-raised HTTPExceptions do not flow through FastAPI's
             # exception handlers outside the router, so render the JSON here.
-            return JSONResponse(
-                status_code=exc.status_code,
-                content={"detail": exc.detail},
-                headers=exc.headers,
+            return apply_security_headers(
+                JSONResponse(
+                    status_code=exc.status_code,
+                    content={"detail": exc.detail},
+                    headers=exc.headers,
+                ),
+                request,
             )
 
     @app.get("/api/health")

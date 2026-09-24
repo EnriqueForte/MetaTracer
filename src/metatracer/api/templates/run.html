@@ -553,7 +553,7 @@ document.addEventListener('alpine:init', () => {
       if (this.pollTimer) return;
       this.pollTimer = setInterval(async () => {
         await this.refreshRun();
-        if (this.run && (this.run.status === 'completed' || this.run.status === 'failed')) {
+        if (this.run && (this.run.status === 'completed' || this.run.status === 'failed' || this.run.status === 'aborted')) {
           clearInterval(this.pollTimer);
           this.pollTimer = null;
         }

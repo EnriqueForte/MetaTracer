@@ -88,7 +88,7 @@ Aplican a **todas** las tasks. Un PR que las viole no está done.
 | **TASK-23** | [23-postgres-pgvector.md](23-postgres-pgvector.md) | Eje B: PostgreSQL + asyncpg + Alembic + índice pgvector + `METATRACER_MAX_CONCURRENT_RUNS` (v3.0) — **cerrada 2026-09-17** | TASK-00 a TASK-22 |
 | **TASK-24** | [24-auth-basic.md](24-auth-basic.md) | Eje C: auth básica 1 usuario — cookie `HttpOnly` + CSRF, roles `operator`/`viewer`, PBKDF2 stdlib, kill-switch `METATRACER_AUTH_ENABLED` (v3.0) — **cerrada 2026-09-18** | TASK-00 a TASK-23 |
 | **TASK-25** | [25-user-registration.md](25-user-registration.md) | Multi-usuario v3.1: first-run setup desde la UI, panel de admin de usuarios, invitaciones de un solo uso y registro desde Sign In — **planificada 2026-09-19** | TASK-00 a TASK-24 |
-| **TASK-26** | [26-ui-redesign.md](26-ui-redesign.md) | Rediseño visual de la Web UI (sidebar, tokens `.mt-*`, páginas existentes) — **aplicado 2026-09-21**; quitar el CDN de Tailwind y las cabeceras HTTP quedan como seguimiento | TASK-00 a TASK-25 |
+| **TASK-26** | [26-ui-redesign.md](26-ui-redesign.md) | Rediseño visual de la Web UI — **aplicado 2026-09-21**; cabeceras HTTP añadidas; Tailwind compilado y Alpine vendorizado en `/static` (CDN de scripts fuera) | TASK-00 a TASK-25 |
 
 `TASK-04` **no** depende de `TASK-05`: el motor de reportes debe funcionar con clasificaciones heurísticas (campos de explicación vacíos o plantilla). `TASK-05` rellena justificación, impacto, remediación y repro. `TASK-06` orquesta el pipeline completo.
 
@@ -156,7 +156,7 @@ Alineado con [Timeline y roadmap](../features/10-timeline-and-roadmap.md).
 | 21 | v3.0 | `TASK-23` | Eje B: PostgreSQL + asyncpg + Alembic + pgvector + concurrencia acotada — **cerrada 2026-09-17** |
 | 22 | v3.0 | `TASK-24` | Eje C: auth básica 1 usuario (cookie + CSRF + roles) — **cerrada 2026-09-18** |
 | 23 | v3.1 | `TASK-25` | Multi-usuario: first-run setup + panel admin + invitaciones + registro en Sign In — **planificada 2026-09-19** |
-| 24 | v3.1 | `TASK-26` | Rediseño visual de la Web UI (sidebar + tokens) — **aplicado 2026-09-21**; CDN compilado y cabeceras HTTP siguen pendientes |
+| 24 | v3.1 | `TASK-26` | Rediseño visual de la Web UI — **aplicado 2026-09-21**; cabeceras HTTP y assets de UI servidos desde `/static` |
 
 Si hay que recortar, proteger los [criterios de éxito](../features/09-success-criteria.md) antes que pulido de UI.
 

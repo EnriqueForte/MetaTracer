@@ -1,0 +1,5 @@
+/* Source for the committed stylesheet in static/tailwind.css.
+   Rebuild with the pinned Tailwind standalone CLI 3.4.16. See TASK-26. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

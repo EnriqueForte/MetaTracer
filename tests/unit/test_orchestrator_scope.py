@@ -134,7 +134,7 @@ class _SafetyFailingIngestion:
         raise SecurityViolationError("host resolved to a blocked private address")
 
 
-async def test_safety_error_marks_run_failed(session_factory, tmp_path) -> None:
+async def test_safety_error_marks_run_aborted(session_factory, tmp_path) -> None:
     events: list[ProgressEvent] = []
     orchestrator = ScanOrchestratorService(
         session_factory, _settings(), ingestion=_SafetyFailingIngestion()
@@ -143,14 +143,14 @@ async def test_safety_error_marks_run_failed(session_factory, tmp_path) -> None:
         _request(), output_dir=tmp_path, on_progress=events.append
     )
 
-    assert result.status is RunStatus.failed
+    assert result.status is RunStatus.aborted
     assert result.error_message is not None
     assert "blocked private address" in result.error_message
     assert result.report_paths == {}
     async with session_factory() as session:
         run = await RunRepository(session).get(result.run_id)
     assert run is not None
-    assert run.status is RunStatus.failed
+    assert run.status is RunStatus.aborted
     assert run.error_message is not None and "blocked private address" in run.error_message
     assert run.completed_at is not None
     assert events[-1].stage is ProgressStage.failed
