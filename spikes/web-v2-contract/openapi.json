@@ -1,0 +1,3131 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "MetaTracer",
+    "description": "Sensitive metadata discovery for authorized security audits. Authentication is optional (METATRACER_AUTH_ENABLED): when off, bind to localhost / trusted networks only.",
+    "version": "0.6.0"
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "summary": "Health",
+        "description": "Liveness probe for the Docker HEALTHCHECK (TASK-07, subtask 7.3.5).\n\nDeliberately stateless: it reveals no configuration, counters or\nversion beyond what the API schema already exposes.",
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Health Api Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs": {
+      "get": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "List Runs",
+        "description": "Local run history, newest first (TASK-08). Not a multi-tenant dashboard.\n\nTASK-21 (v2.4): cursor pagination. The repo fetches ``limit + 1`` rows so\n``has_more`` needs no extra query; ``next_cursor`` is the last row's\n``(started_at, id)`` anchor when more rows exist. Keyset stays stable when\na new run lands between two pages — nothing is duplicated or dropped.\n``limit`` remains bounded by ``_MAX_HISTORY``.",
+        "operationId": "list_runs_api_runs_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/RunStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by run status",
+              "title": "Status"
+            },
+            "description": "Filter by run status"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "Newest N runs",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Newest N runs"
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Opaque keyset anchor from a previous page's next_cursor (<started_at_iso>_<run_id>)",
+              "title": "Cursor"
+            },
+            "description": "Opaque keyset anchor from a previous page's next_cursor (<started_at_iso>_<run_id>)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Create Run",
+        "description": "Start a scan in the background; the run_id is known immediately.\n\nThe scope gate and the single-scan lock live in the orchestrator and raise\nsynchronously inside :meth:`ScanOrchestratorService.start_scan`, so the\n403/409 answers happen within this request — never after a 202.",
+        "operationId": "create_run_api_runs_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScanRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunCreatedResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}": {
+      "get": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Get Run",
+        "description": "Status, counters, timestamps and the failed/skipped asset issues.",
+        "operationId": "get_run_api_runs__run_id__get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/stream": {
+      "get": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Stream Run",
+        "description": "Server-sent events stream of ProgressEvent (one JSON object per event).\n\nThe bus replays the run's full history into the subscriber queue, so a\nclient connecting late or reconnecting still sees every stage; the stream\ncloses after the terminal ``completed``/``failed`` event.",
+        "operationId": "stream_run_api_runs__run_id__stream_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/findings": {
+      "get": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "List Findings",
+        "description": "Findings in report order (critical -> info, unclassified last).\n\nFilters are exploration-only: exported reports stay complete. Invalid enum\nvalues are rejected by FastAPI with 422.",
+        "operationId": "list_findings_api_runs__run_id__findings_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "severity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Severity"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by severity",
+              "title": "Severity"
+            },
+            "description": "Filter by severity"
+          },
+          {
+            "name": "finding_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/FindingType"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by finding type",
+              "title": "Finding Type"
+            },
+            "description": "Filter by finding type"
+          },
+          {
+            "name": "confidence",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Confidence"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by confidence",
+              "title": "Confidence"
+            },
+            "description": "Filter by confidence"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Case-insensitive substring search",
+              "title": "Q"
+            },
+            "description": "Case-insensitive substring search"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FindingsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/export": {
+      "get": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Export Run",
+        "description": "Regenerate the report from the database and serve it as an attachment.\n\nThe file name comes from the exporter (sanitized slug + run id +\ntimestamp), never from raw user input.",
+        "operationId": "export_run_api_runs__run_id__export_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "md",
+                "json",
+                "html",
+                "csv",
+                "bounty"
+              ],
+              "type": "string",
+              "description": "Report format",
+              "title": "Format"
+            },
+            "description": "Report format"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scopes": {
+      "get": {
+        "tags": [
+          "scopes"
+        ],
+        "summary": "List Scopes",
+        "description": "List persisted scopes, newest first (TASK-08-style local data).",
+        "operationId": "list_scopes_api_scopes_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScopeListResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "scopes"
+        ],
+        "summary": "Create Scope",
+        "description": "Create a scope; ``name`` must be unique case-insensitively (409).",
+        "operationId": "create_scope_api_scopes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScopeCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScopeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scopes/{scope_id}": {
+      "get": {
+        "tags": [
+          "scopes"
+        ],
+        "summary": "Get Scope",
+        "description": "Detail of one scope.",
+        "operationId": "get_scope_api_scopes__scope_id__get",
+        "parameters": [
+          {
+            "name": "scope_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Scope Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScopeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "scopes"
+        ],
+        "summary": "Update Scope",
+        "description": "Full replacement (no PATCH); the same name-uniqueness rule applies.",
+        "operationId": "update_scope_api_scopes__scope_id__put",
+        "parameters": [
+          {
+            "name": "scope_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Scope Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScopeUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScopeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "scopes"
+        ],
+        "summary": "Delete Scope",
+        "description": "Delete a scope; persisted runs keep their own copied scope.",
+        "operationId": "delete_scope_api_scopes__scope_id__delete",
+        "parameters": [
+          {
+            "name": "scope_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Scope Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scopes/import": {
+      "post": {
+        "tags": [
+          "scopes"
+        ],
+        "summary": "Import Scope File",
+        "description": "Import scopes from a portable JSON file (idempotent, non-destructive).\n\nThe body is the raw portable-scopes JSON (no multipart, keeping the\ndependency list closed, same postura as ``import_kb_endpoint`` in TASK-17).\nThe file format is the portable scopes contract of\n:mod:`metatracer.scopes.portable` (``format_version`` 1, ``scopes`` list).\nExisting names are skipped — importing the same file twice creates nothing\nnew. Invalid files are rejected with 422 (never partially inserted, never\nreassigned).",
+        "operationId": "import_scope_file_api_scopes_import_post",
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScopeImportResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stats": {
+      "get": {
+        "tags": [
+          "stats"
+        ],
+        "summary": "Get Stats",
+        "description": "One aggregated snapshot of runs, findings, top domains and agent usage.",
+        "operationId": "get_stats_api_stats_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardStatsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "List Notifications",
+        "description": "List the in-memory queue, newest first. Read-only: never writes.",
+        "operationId": "list_notifications_api_notifications_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications/{index}": {
+      "delete": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Delete Notification",
+        "description": "Delete one notification by list index (manual cleanup).\n\n404 when the index is out of range (or the entry was already deleted):\nevents are ephemeral, so a stale index can never resolve to another event.",
+        "operationId": "delete_notification_api_notifications__index__delete",
+        "parameters": [
+          {
+            "name": "index",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Index"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feedback/{finding_id}": {
+      "put": {
+        "tags": [
+          "feedback"
+        ],
+        "summary": "Upsert Feedback",
+        "description": "Create, or replace, the operator feedback for one finding.\n\nThe current severity of the finding at vote time is recorded as\n``severity_before`` so the few-shot example stays truthful even if the\nfinding is re-classified later.",
+        "operationId": "upsert_feedback_api_feedback__finding_id__put",
+        "parameters": [
+          {
+            "name": "finding_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Finding Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "feedback"
+        ],
+        "summary": "Get Feedback",
+        "description": "Return the active feedback of one finding, if any.",
+        "operationId": "get_feedback_api_feedback__finding_id__get",
+        "parameters": [
+          {
+            "name": "finding_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Finding Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "feedback"
+        ],
+        "summary": "Delete Feedback",
+        "description": "Remove the operator feedback (the memory forgets that finding).",
+        "operationId": "delete_feedback_api_feedback__finding_id__delete",
+        "parameters": [
+          {
+            "name": "finding_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Finding Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/knowledge/search": {
+      "get": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Search Knowledge",
+        "description": "Rank the historical findings most similar to ``q``.\n\nThe retriever is built from the app's engine/factory on first use and\nreused for the life of the process. ``finding_type``, when given, must be\na closed enum value; anything else is rejected with 422 by the Query\ndependency (FastAPI validates the Literal-style check below).",
+        "operationId": "search_knowledge_api_knowledge_search_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "evidence snippet or field source to match",
+              "title": "Q"
+            },
+            "description": "evidence snippet or field source to match"
+          },
+          {
+            "name": "finding_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "optional filter; one of the closed finding_type values",
+              "title": "Finding Type"
+            },
+            "description": "optional filter; one of the closed finding_type values"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 20,
+              "minimum": 1,
+              "default": 5,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/knowledge/export": {
+      "post": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Export Kb Endpoint",
+        "description": "Export the historical precedents as a downloadable portable KB JSON.\n\nThe writer streams to a temporary file (never persists a copy on the\nserver); the operator downloads it and owns the file. Only the portable-KB\ncontract fields leave the machine — never run/asset ids, raw metadata or\nbytes.",
+        "operationId": "export_kb_endpoint_api_knowledge_export_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/knowledge/import": {
+      "post": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Import Kb Endpoint",
+        "description": "Import a portable KB JSON into the local database (idempotent).\n\nRows whose original finding id was already imported are skipped; nothing\nis deleted. ``finding_type``/``severity`` are validated against the\nclosed enums and an invalid file is rejected with 422 (never reassigned).\nThe body is the raw portable JSON (no multipart, keeping the dependency\nlist closed).",
+        "operationId": "import_kb_endpoint_api_knowledge_import_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Login Endpoint",
+        "description": "Verify credentials, create a fresh session, set cookies.\n\nRotation: every successful login creates a NEW session row and deletes\nthe user's previous sessions (one active session per user keeps the\nsurface tiny; a re-login also invalidates a stale stolen cookie).\nUnknown usernames burn one PBKDF2 verification to even out timing.\n\nLogin-CSRF (review 2026-09-18): a cross-site POST could log the victim\ninto the attacker's account (or rotate away a legitimate session with\nSameSite=Lax). Mitigation: the double-submit check applies here too —\nthe CSRF cookie is issued by any page render (middleware-protected pages\nand /login itself always fetch a fresh one via _ensure_csrf_cookie), so\nan attacker without that random value cannot mount login-CSRF.",
+        "operationId": "login_endpoint_api_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Login Endpoint Api Auth Login Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Logout Endpoint",
+        "description": "Delete the session row (if any) and expire both cookies.\n\nCSRF applies here too (review 2026-09-18): a cross-site POST could force\na logout (session DoS). The caller holds a valid session anyway, so the\nsame double-submit check costs nothing.",
+        "operationId": "logout_endpoint_api_auth_logout_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Logout Endpoint Api Auth Logout Post"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Me Endpoint",
+        "description": "Diagnostic: who is the caller (never exposes hashes or tokens).",
+        "operationId": "me_endpoint_api_auth_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Me Endpoint Api Auth Me Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/setup": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Setup Endpoint",
+        "description": "Create the first operator with the one-shot console setup token.\n\nReachable only when ALL of these hold: auth ON, no user provisioned from\nthe environment, no user in the table and a live setup token on\n``app.state``. Any other posture answers 404 (setup disabled) or 409\n(already has users) so the endpoint never becomes a standing account\nfactory. On success it behaves like a login: fresh session + CSRF\ncookies, and the token is burned from memory.",
+        "operationId": "setup_endpoint_api_auth_setup_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Setup Endpoint Api Auth Setup Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Register Endpoint",
+        "description": "Redeem an invitation code: create the user, mark the code used, log in.\n\nThe code is looked up by its SHA-256 (only hashes are persisted). Unknown,\nused and expired codes all answer the SAME generic 401, and an unknown\ncode burns one PBKDF2 verification so the response time does not reveal\nwhether a code hash exists (same technique as the login dummy hash).\nThe redeemed user gets the role recorded in the code by its creator.",
+        "operationId": "register_endpoint_api_auth_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Register Endpoint Api Auth Register Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "List Users",
+        "description": "List accounts (no hash material), newest first.",
+        "operationId": "list_users_api_users_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserListResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Create User",
+        "description": "Create an account directly (operator-only; CSRF enforced upstream).",
+        "operationId": "create_user_api_users_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/{user_id}": {
+      "patch": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Update User",
+        "description": "Change a user's role, guarding the last-operator invariant.\n\nDemoting the only operator would leave the installation without anyone\nable to administer users, so it is refused (409). Any other change is\nallowed — including an operator promoting a viewer.",
+        "operationId": "update_user_api_users__user_id__patch",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Delete User",
+        "description": "Delete an account (sessions cascade via the migration's ON DELETE).\n\nSelf-deletion is refused (nobody locks themselves out) and the last\noperator cannot be deleted (409) — the installation must keep one admin.",
+        "operationId": "delete_user_api_users__user_id__delete",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/invitations": {
+      "get": {
+        "tags": [
+          "invitations"
+        ],
+        "summary": "List Invitations",
+        "description": "List invitation metadata (never the codes), newest first.",
+        "operationId": "list_invitations_api_invitations_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationListResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "invitations"
+        ],
+        "summary": "Create Invitation",
+        "description": "Mint one single-use invitation; the code is shown EXACTLY here, once.\n\nOnly the SHA-256 of the code is persisted (same technique as session\ntokens), so the plaintext exists in this response and nowhere else — not\nin the database, not in logs, not in later GET responses.",
+        "operationId": "create_invitation_api_invitations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvitationCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationCreatedResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/invitations/{invitation_id}": {
+      "delete": {
+        "tags": [
+          "invitations"
+        ],
+        "summary": "Delete Invitation",
+        "description": "Revoke an invitation by physical delete; idempotent 404 when gone.",
+        "operationId": "delete_invitation_api_invitations__invitation_id__delete",
+        "parameters": [
+          {
+            "name": "invitation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Invitation Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/webhooks": {
+      "get": {
+        "summary": "List Webhooks",
+        "operationId": "list_webhooks_api_webhooks_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "type": "array",
+                  "title": "Response List Webhooks Api Webhooks Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create Webhook",
+        "operationId": "create_webhook_api_webhooks_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Create Webhook Api Webhooks Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/webhooks/{webhook_id}": {
+      "put": {
+        "summary": "Update Webhook",
+        "operationId": "update_webhook_api_webhooks__webhook_id__put",
+        "parameters": [
+          {
+            "name": "webhook_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Webhook Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Update Webhook Api Webhooks  Webhook Id  Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Webhook",
+        "operationId": "delete_webhook_api_webhooks__webhook_id__delete",
+        "parameters": [
+          {
+            "name": "webhook_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Webhook Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/webhooks/{webhook_id}/deliveries": {
+      "get": {
+        "summary": "List Webhook Deliveries",
+        "operationId": "list_webhook_deliveries_api_webhooks__webhook_id__deliveries_get",
+        "parameters": [
+          {
+            "name": "webhook_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Webhook Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response List Webhook Deliveries Api Webhooks  Webhook Id  Deliveries Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AssetIssue": {
+        "properties": {
+          "asset_id": {
+            "type": "string",
+            "title": "Asset Id"
+          },
+          "source_url": {
+            "type": "string",
+            "title": "Source Url"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ExtractionStatus"
+          },
+          "skip_reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SkipReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "asset_id",
+          "source_url",
+          "status",
+          "skip_reason",
+          "error_message"
+        ],
+        "title": "AssetIssue",
+        "description": "One failed/skipped asset, surfaced so a broken asset is never invisible."
+      },
+      "Confidence": {
+        "type": "string",
+        "enum": [
+          "high",
+          "medium",
+          "low"
+        ],
+        "title": "Confidence"
+      },
+      "DashboardStatsResponse": {
+        "properties": {
+          "runs": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Runs"
+          },
+          "assets": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Assets"
+          },
+          "findings": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Findings"
+          },
+          "top_domains": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Top Domains"
+          },
+          "top_evidence": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Top Evidence"
+          },
+          "agent_usage": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Agent Usage"
+          }
+        },
+        "type": "object",
+        "required": [
+          "runs",
+          "assets",
+          "findings",
+          "top_domains",
+          "top_evidence",
+          "agent_usage"
+        ],
+        "title": "DashboardStatsResponse",
+        "description": "GET /api/stats: one aggregated snapshot of the local data (TASK-11).\n\nRead-only and agent-agnostic: built entirely from persisted counters, so\nit works with zero runs and with zero agent_log rows."
+      },
+      "ExtractionStatus": {
+        "type": "string",
+        "enum": [
+          "ok",
+          "skipped",
+          "failed"
+        ],
+        "title": "ExtractionStatus"
+      },
+      "FeedbackCreate": {
+        "properties": {
+          "vote": {
+            "$ref": "#/components/schemas/FeedbackVote"
+          },
+          "severity_after": {
+            "$ref": "#/components/schemas/Severity"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "vote",
+          "severity_after"
+        ],
+        "title": "FeedbackCreate",
+        "description": "PUT body: the operator's correction of one finding's severity."
+      },
+      "FeedbackResponse": {
+        "properties": {
+          "finding_id": {
+            "type": "string",
+            "title": "Finding Id"
+          },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "vote": {
+            "$ref": "#/components/schemas/FeedbackVote"
+          },
+          "severity_before": {
+            "$ref": "#/components/schemas/Severity"
+          },
+          "severity_after": {
+            "$ref": "#/components/schemas/Severity"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "finding_id",
+          "run_id",
+          "vote",
+          "severity_before",
+          "severity_after",
+          "reason",
+          "created_at"
+        ],
+        "title": "FeedbackResponse",
+        "description": "One persisted feedback row, returned on GET/PUT."
+      },
+      "FeedbackVote": {
+        "type": "string",
+        "enum": [
+          "up",
+          "down"
+        ],
+        "title": "FeedbackVote",
+        "description": "Operator correction direction (TASK-13, v2.1+).\n\n``up`` means the human considers the finding more severe than the model\nsaid; ``down`` means less severe. Values are the lowercase wire strings."
+      },
+      "FindingResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "finding_type": {
+            "$ref": "#/components/schemas/FindingType"
+          },
+          "type_label": {
+            "type": "string",
+            "title": "Type Label"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Severity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "confidence": {
+            "$ref": "#/components/schemas/Confidence"
+          },
+          "field_source": {
+            "type": "string",
+            "title": "Field Source"
+          },
+          "evidence_snippet": {
+            "type": "string",
+            "title": "Evidence Snippet"
+          },
+          "severity_justification": {
+            "type": "string",
+            "title": "Severity Justification"
+          },
+          "impact_analysis": {
+            "type": "string",
+            "title": "Impact Analysis"
+          },
+          "remediation_advice": {
+            "type": "string",
+            "title": "Remediation Advice"
+          },
+          "reproduction_steps": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reproduction Steps"
+          },
+          "asset_source_url": {
+            "type": "string",
+            "title": "Asset Source Url"
+          },
+          "asset_final_url": {
+            "type": "string",
+            "title": "Asset Final Url"
+          },
+          "asset_content_type": {
+            "type": "string",
+            "title": "Asset Content Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "finding_type",
+          "type_label",
+          "severity",
+          "confidence",
+          "field_source",
+          "evidence_snippet",
+          "severity_justification",
+          "impact_analysis",
+          "remediation_advice",
+          "reproduction_steps",
+          "asset_source_url",
+          "asset_final_url",
+          "asset_content_type"
+        ],
+        "title": "FindingResponse",
+        "description": "One finding card, mapped 1:1 from the ReportBuilder entry (parity)."
+      },
+      "FindingType": {
+        "type": "string",
+        "enum": [
+          "gps",
+          "email",
+          "internal_path",
+          "software_version",
+          "debug_comment"
+        ],
+        "title": "FindingType"
+      },
+      "FindingsResponse": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/FindingResponse"
+            },
+            "type": "array",
+            "title": "Findings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "total",
+          "findings"
+        ],
+        "title": "FindingsResponse",
+        "description": "GET /api/runs/{run_id}/findings: the report-ordered list."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "ImportResponse": {
+        "properties": {
+          "imported": {
+            "type": "integer",
+            "title": "Imported"
+          }
+        },
+        "type": "object",
+        "required": [
+          "imported"
+        ],
+        "title": "ImportResponse",
+        "description": "Number of rows actually inserted by a portable-KB import (TASK-17)."
+      },
+      "InvitationCreate": {
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/UserRole"
+          },
+          "ttl_seconds": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 2592000.0,
+                "minimum": 60.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ttl Seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role"
+        ],
+        "title": "InvitationCreate",
+        "description": "POST /api/invitations body; ``ttl_seconds`` defaults to the instance TTL."
+      },
+      "InvitationCreatedResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "role": {
+            "$ref": "#/components/schemas/UserRole"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "used_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Used At"
+          },
+          "used_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Used By"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "role",
+          "status",
+          "created_at",
+          "expires_at",
+          "used_at",
+          "used_by",
+          "created_by",
+          "code"
+        ],
+        "title": "InvitationCreatedResponse",
+        "description": "POST /api/invitations response: the ONLY place the plaintext code appears."
+      },
+      "InvitationListResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "invitations": {
+            "items": {
+              "$ref": "#/components/schemas/InvitationResponse"
+            },
+            "type": "array",
+            "title": "Invitations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "invitations"
+        ],
+        "title": "InvitationListResponse",
+        "description": "GET /api/invitations: newest first."
+      },
+      "InvitationResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "role": {
+            "$ref": "#/components/schemas/UserRole"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "used_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Used At"
+          },
+          "used_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Used By"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "role",
+          "status",
+          "created_at",
+          "expires_at",
+          "used_at",
+          "used_by",
+          "created_by"
+        ],
+        "title": "InvitationResponse",
+        "description": "Metadata of one invitation — NEVER the plaintext code."
+      },
+      "LoginRequest": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "LoginRequest",
+        "description": "Body of POST /api/auth/login."
+      },
+      "NotificationListResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "notifications": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationResponse"
+            },
+            "type": "array",
+            "title": "Notifications"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "notifications"
+        ],
+        "title": "NotificationListResponse",
+        "description": "GET /api/notifications: the in-memory queue, newest first."
+      },
+      "NotificationResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/RunStatus"
+          },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "target": {
+            "type": "string",
+            "title": "Target"
+          },
+          "total_assets": {
+            "type": "integer",
+            "title": "Total Assets"
+          },
+          "total_findings": {
+            "type": "integer",
+            "title": "Total Findings"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "run_id",
+          "target",
+          "total_assets",
+          "total_findings",
+          "error_message",
+          "created_at"
+        ],
+        "title": "NotificationResponse",
+        "description": "One terminal-run notification (TASK-12, v2.0).\n\n``kind`` reuses the ``run.status`` enum (``completed`` | ``failed``) and\ntravels lowercase per the data contract; ``error_message`` is present only\nfor ``failed`` (the orchestrator already sanitized it)."
+      },
+      "ReasoningDepth": {
+        "type": "string",
+        "enum": [
+          "brief",
+          "standard",
+          "detailed"
+        ],
+        "title": "ReasoningDepth"
+      },
+      "RegisterRequest": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Code"
+          },
+          "username": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "username",
+          "password"
+        ],
+        "title": "RegisterRequest",
+        "description": "Body of POST /api/auth/register (invitation redemption)."
+      },
+      "RunCreatedResponse": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id"
+        ],
+        "title": "RunCreatedResponse",
+        "description": "202 body of POST /api/runs."
+      },
+      "RunListItem": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RunStatus"
+          },
+          "target": {
+            "type": "string",
+            "title": "Target"
+          },
+          "scope": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Scope"
+          },
+          "total_assets": {
+            "type": "integer",
+            "title": "Total Assets"
+          },
+          "total_findings": {
+            "type": "integer",
+            "title": "Total Findings"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "status",
+          "target",
+          "scope",
+          "total_assets",
+          "total_findings",
+          "started_at",
+          "completed_at"
+        ],
+        "title": "RunListItem",
+        "description": "One row of GET /api/runs (local history, TASK-08)."
+      },
+      "RunListResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/RunListItem"
+            },
+            "type": "array",
+            "title": "Runs"
+          },
+          "has_more": {
+            "type": "boolean",
+            "title": "Has More",
+            "default": false
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "runs"
+        ],
+        "title": "RunListResponse",
+        "description": "GET /api/runs: newest-first local history (TASK-08).\n\nTASK-21 (v2.4): cursor pagination. ``total`` is the GLOBAL count of runs\nmatching the filter (untruncated, so the UI says \"N runs\" honestly);\n``runs`` is the current page; ``has_more``/``next_cursor`` drive the\nprev/next UI."
+      },
+      "RunStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "running",
+          "completed",
+          "failed",
+          "aborted"
+        ],
+        "title": "RunStatus"
+      },
+      "RunStatusResponse": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RunStatus"
+          },
+          "target": {
+            "type": "string",
+            "title": "Target"
+          },
+          "scope": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Scope"
+          },
+          "reasoning_depth": {
+            "$ref": "#/components/schemas/ReasoningDepth"
+          },
+          "total_assets": {
+            "type": "integer",
+            "title": "Total Assets"
+          },
+          "total_findings": {
+            "type": "integer",
+            "title": "Total Findings"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "asset_issues": {
+            "items": {
+              "$ref": "#/components/schemas/AssetIssue"
+            },
+            "type": "array",
+            "title": "Asset Issues"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "status",
+          "target",
+          "scope",
+          "reasoning_depth",
+          "total_assets",
+          "total_findings",
+          "error_message",
+          "started_at",
+          "completed_at",
+          "asset_issues"
+        ],
+        "title": "RunStatusResponse",
+        "description": "GET /api/runs/{run_id}: status, counters, timestamps and asset issues.\n\n``asset_issues`` feeds the collapsible \"Asset issues\" section of the\ndashboard (6.4): the simplest place for it, since the page already polls\nthis endpoint."
+      },
+      "ScanRequest": {
+        "properties": {
+          "targets": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Targets"
+          },
+          "scope_domains": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope Domains"
+          },
+          "scope_confirmed": {
+            "type": "boolean",
+            "title": "Scope Confirmed"
+          },
+          "reasoning_depth": {
+            "$ref": "#/components/schemas/ReasoningDepth",
+            "default": "standard"
+          },
+          "scope_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope Id"
+          },
+          "scope_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope Ids"
+          },
+          "watch": {
+            "type": "boolean",
+            "title": "Watch",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "targets",
+          "scope_confirmed"
+        ],
+        "title": "ScanRequest",
+        "description": "Validated scan parameters; also the exact POST /api/runs body (6.3).\n\nAt least one target and one confirmed scope source are required, and the\nscope is a deliberate operator input — it is never derived from the\ntargets. The scope source is exactly one of: manual `scope_domains`\n(v1.x), a single saved `scope_id` (TASK-10, v2.0) or the union of many\nsaved scopes `scope_ids` (TASK-21, v2.4); never a mix. `scope_id` is\nkept as an alias of ``scope_ids=[scope_id]`` at the boundary, so none of\nthe v2.0-v2.3 clients break. Export options are NOT part of this\ncontract: they are parameters of\n:meth:`ScanOrchestratorService.scan`, so the API request body stays\nexactly this model."
+      },
+      "ScopeCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "domains": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Domains"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "domains"
+        ],
+        "title": "ScopeCreate",
+        "description": "POST /api/scopes body."
+      },
+      "ScopeImportResponse": {
+        "properties": {
+          "imported": {
+            "type": "integer",
+            "title": "Imported"
+          },
+          "skipped": {
+            "type": "integer",
+            "title": "Skipped"
+          }
+        },
+        "type": "object",
+        "required": [
+          "imported",
+          "skipped"
+        ],
+        "title": "ScopeImportResponse",
+        "description": "TASK-19 (v2.2): outcome of a portable-scopes import."
+      },
+      "ScopeListResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "scopes": {
+            "items": {
+              "$ref": "#/components/schemas/ScopeResponse"
+            },
+            "type": "array",
+            "title": "Scopes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "scopes"
+        ],
+        "title": "ScopeListResponse",
+        "description": "GET /api/scopes: newest first."
+      },
+      "ScopeResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "domains": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Domains"
+          },
+          "total_domains": {
+            "type": "integer",
+            "title": "Total Domains"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "domains",
+          "total_domains",
+          "created_at"
+        ],
+        "title": "ScopeResponse",
+        "description": "One persisted scope, with the domains actually stored (normalized)."
+      },
+      "ScopeUpdate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "domains": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Domains"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "domains"
+        ],
+        "title": "ScopeUpdate",
+        "description": "PUT /api/scopes/{scope_id} body (full replacement, no PATCH)."
+      },
+      "SearchHit": {
+        "properties": {
+          "finding_id": {
+            "type": "string",
+            "title": "Finding Id"
+          },
+          "finding_type": {
+            "type": "string",
+            "title": "Finding Type"
+          },
+          "evidence_snippet": {
+            "type": "string",
+            "title": "Evidence Snippet"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "finding_id",
+          "finding_type",
+          "evidence_snippet",
+          "severity",
+          "title",
+          "score"
+        ],
+        "title": "SearchHit",
+        "description": "One ranked hit, surface-safe: no run_id, no raw ids beyond finding_id."
+      },
+      "SearchResponse": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "hits": {
+            "items": {
+              "$ref": "#/components/schemas/SearchHit"
+            },
+            "type": "array",
+            "title": "Hits"
+          }
+        },
+        "type": "object",
+        "required": [
+          "query",
+          "total",
+          "hits"
+        ],
+        "title": "SearchResponse"
+      },
+      "SetupRequest": {
+        "properties": {
+          "setup_token": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Setup Token"
+          },
+          "username": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "setup_token",
+          "username",
+          "password"
+        ],
+        "title": "SetupRequest",
+        "description": "Body of POST /api/auth/setup (first operator creation)."
+      },
+      "Severity": {
+        "type": "string",
+        "enum": [
+          "critical",
+          "high",
+          "medium",
+          "low",
+          "info"
+        ],
+        "title": "Severity"
+      },
+      "SkipReason": {
+        "type": "string",
+        "enum": [
+          "unsupported_type",
+          "too_large",
+          "out_of_scope",
+          "duplicate_hash",
+          "empty_body"
+        ],
+        "title": "SkipReason"
+      },
+      "UserCreate": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Password"
+          },
+          "role": {
+            "$ref": "#/components/schemas/UserRole"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "password",
+          "role"
+        ],
+        "title": "UserCreate",
+        "description": "POST /api/users body."
+      },
+      "UserListResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "users": {
+            "items": {
+              "$ref": "#/components/schemas/UserResponse"
+            },
+            "type": "array",
+            "title": "Users"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "users"
+        ],
+        "title": "UserListResponse",
+        "description": "GET /api/users: newest first."
+      },
+      "UserResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "role": {
+            "$ref": "#/components/schemas/UserRole"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "role",
+          "created_at"
+        ],
+        "title": "UserResponse",
+        "description": "One account, without any secret material."
+      },
+      "UserRole": {
+        "type": "string",
+        "enum": [
+          "operator",
+          "viewer"
+        ],
+        "title": "UserRole",
+        "description": "Role of an installation user (TASK-24 single operator; TASK-25 multi-user).\n\n``operator`` can do everything (create scopes, launch scans, feedback,\nwebhooks, manage users and invitations). ``viewer`` is read-only\n(dashboards, reports, exports). Values are the lowercase wire strings,\nlike every other closed enum."
+      },
+      "UserUpdate": {
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/UserRole"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role"
+        ],
+        "title": "UserUpdate",
+        "description": "PATCH /api/users/{id} body: role changes only (passwords stay private)."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "WebhookCreate": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "maxLength": 2083,
+            "minLength": 1,
+            "format": "uri",
+            "title": "Url"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "event": {
+            "$ref": "#/components/schemas/RunStatus",
+            "default": "completed"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Headers"
+          },
+          "max_retries": {
+            "type": "integer",
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Max Retries",
+            "default": 3
+          },
+          "active": {
+            "type": "boolean",
+            "title": "Active",
+            "default": true
+          },
+          "signature_secret": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 256
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signature Secret"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "WebhookCreate",
+        "description": "POST /api/webhooks body. URL is HTTPS-only; everything else optional."
+      },
+      "WebhookUpdate": {
+        "properties": {
+          "url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "event": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RunStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "headers": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Headers"
+          },
+          "max_retries": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Retries"
+          },
+          "active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active"
+          },
+          "signature_secret": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 256
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signature Secret"
+          }
+        },
+        "type": "object",
+        "title": "WebhookUpdate",
+        "description": "PUT /api/webhooks/{id} body. All fields optional; unchanged when absent."
+      }
+    }
+  }
+}

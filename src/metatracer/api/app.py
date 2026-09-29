@@ -204,6 +204,18 @@ def create_app(
                         RedirectResponse("/login", status_code=307), request
                     )
             response = await call_next(request)
+            # Web V2 does not render the FastAPI login page, which is what
+            # used to issue the pre-session CSRF cookie. A same-origin GET
+            # /api/auth/me is the bootstrap: the cookie is set here, on the
+            # response that actually leaves, including a 401.
+            if (
+                settings is not None
+                and settings.auth_enabled
+                and path == "/api/auth/me"
+                and request.method == "GET"
+                and not request.cookies.get(auth_api.CSRF_COOKIE_NAME)
+            ):
+                auth_api._ensure_csrf_cookie(request, response, settings)
             return apply_security_headers(response, request)
         except HTTPException as exc:
             # Middleware-raised HTTPExceptions do not flow through FastAPI's

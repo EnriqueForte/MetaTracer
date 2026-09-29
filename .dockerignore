@@ -23,6 +23,11 @@ reports/
 .cursor/
 tests/
 
+# Web V2 is a separate process. The Python image does not run Node.
+# Exclude the whole trees so a future COPY . cannot pull npm into the image.
+web/
+spikes/web-v2-contract/
+
 # Docker's own files (except docker/entrypoint.sh: the image COPYs it)
 Dockerfile
 .dockerignore

@@ -1,0 +1,11 @@
+{
+  "name": "metatracer-web-v2-contract-spike",
+  "private": true,
+  "description": "Phase 2 only. Generates TypeScript from the FastAPI OpenAPI document. This is not the Web V2 application.",
+  "scripts": {
+    "generate": "openapi-typescript openapi.json -o schema.d.ts"
+  },
+  "devDependencies": {
+    "openapi-typescript": "7.13.0"
+  }
+}

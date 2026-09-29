@@ -25,6 +25,17 @@ tailwindcss-windows-*
 tailwindcss-linux-*
 tailwindcss-macos-*
 
+# Web V2 contract spike: local Node and the type generator. The OpenAPI
+# snapshot and the generated schema.d.ts stay in the tree.
+spikes/web-v2-contract/.tools/
+spikes/web-v2-contract/node_modules/
+spikes/web-v2-contract/*.db
+web/node_modules/
+web/.next/
+web/test-results/
+web/playwright-report/
+web/tsconfig.tsbuildinfo
+
 # Python
 __pycache__/
 .venv/

@@ -159,6 +159,14 @@ class TestLoginFlow:
         )
         assert response.status_code == 401
 
+    async def test_me_issues_pre_session_csrf_when_cookie_missing(
+        self, client: httpx.AsyncClient
+    ):
+        client.cookies.clear()
+        response = await client.get("/api/auth/me")
+        assert response.status_code == 401
+        assert response.cookies.get("csrf_token")
+
     async def test_login_without_csrf_is_403(self, client: httpx.AsyncClient):
         await client.get("/login")  # cookie set, but no header sent
         response = await client.post(

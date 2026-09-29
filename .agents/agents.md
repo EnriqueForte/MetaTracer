@@ -4,7 +4,7 @@
 **PRD:** [índice](../.aicontext/PRD.md) · **Backlog:** [tasks](../.aicontext/tasks/README.md)
 **Documento hermano:** [skills.md](skills.md) (define las skills; este define los agentes)
 **Versión:** 1.5
-**Estado:** Operativo — 2 rules, 3 skills transversales + `metatracer-ui` materializada y los **7 subagentes** (incluye `ui-architect`); backlog `TASK-00` → `TASK-26` (v3.1, rediseño de UI aplicado 2026-09-21)
+**Estado:** Operativo — 2 rules, 3 skills transversales + `metatracer-ui` materializada y los **8 subagentes** (incluye `ui-architect` y `v2-ui-engineer`); backlog `TASK-00` → `TASK-26` (v3.1, rediseño de UI aplicado 2026-09-21). El retoque de Web V2 está planificado en `.aicontext/architecture/v2-ui-refresh.md` y no es una task del backlog Jinja.
 **Fecha:** 21 de septiembre de 2026
 
 Este documento define qué capacidades (rules, skills) y qué agentes (subagentes) necesita el
@@ -39,6 +39,7 @@ Toda la configuración se navega desde aquí, aunque no toda pueda vivir en la m
 | Subagente — llm-agent-engineer | `.cursor/agents/llm-agent-engineer.md` | [ver](../.cursor/agents/llm-agent-engineer.md) |
 | Subagente — ui-engineer | `.cursor/agents/ui-engineer.md` | [ver](../.cursor/agents/ui-engineer.md) |
 | Subagente — ui-architect | `.cursor/agents/ui-architect.md` | [ver](../.cursor/agents/ui-architect.md) |
+| Subagente — v2-ui-engineer | `.cursor/agents/v2-ui-engineer.md` | [ver](../.cursor/agents/v2-ui-engineer.md) |
 | Subagente — test-engineer | `.cursor/agents/test-engineer.md` | [ver](../.cursor/agents/test-engineer.md) |
 | Subagente — docs-architect | `.cursor/agents/docs-architect.md` | [ver](../.cursor/agents/docs-architect.md) |
 
@@ -132,7 +133,7 @@ diseño detallado de cada una está en [skills.md](skills.md).
 
 ## 4. Perfil base de un agente desarrollador de MetaTracer
 
-Todo lo de esta sección aplica a **los siete agentes custom**, independientemente del módulo. Es
+Todo lo de esta sección aplica a **los ocho agentes custom**, independientemente del módulo. Es
 el perfil de contratación: si un agente no exhibe estos rasgos, su diff no entra. Cada archivo de
 `.cursor/agents/` referencia esta sección en lugar de duplicarla.
 
@@ -239,6 +240,7 @@ anti-patrones propios.
 | `llm-agent-engineer` | [llm-agent-engineer.md](../.cursor/agents/llm-agent-engineer.md) | Grafo LangGraph, prompts versionados, validador post-LLM y fallback heurístico | 05 | No |
 | `ui-engineer` | [ui-engineer.md](../.cursor/agents/ui-engineer.md) | CLI, API y Web UI sobre un único `ScanOrchestratorService` | 06, 08, 20, 25 (UI), 26 | No |
 | `ui-architect` | [ui-architect.md](../.cursor/agents/ui-architect.md) | Arquitecto de UI/UX: analiza la UI y produce contratos de diseño (`.aicontext/ui/`) para `ui-engineer`, sin tocar implementación | 26 (contrato) | Sí |
+| `v2-ui-engineer` | [v2-ui-engineer.md](../.cursor/agents/v2-ui-engineer.md) | Retoque visual de Web V2 solo en `web/`. No sustituye a `ui-engineer` | R1–R6 de `v2-ui-refresh.md` | No |
 | `test-engineer` | [test-engineer.md](../.cursor/agents/test-engineer.md) | Fixtures sintéticos, mock local, e2e, cobertura y Docker | 07 + DoD de cada task | No |
 | `docs-architect` | [docs-architect.md](../.cursor/agents/docs-architect.md) | Explicabilidad: README, ADRs, walkthrough y coherencia `.aicontext` ↔ código | Cierre de slice | No |
 
@@ -271,6 +273,7 @@ Quién escribe dónde, para que dos agentes no se pisen y para saber a quién re
 | `src/metatracer/agents/` | llm-agent-engineer | safety-guardian |
 | `src/metatracer/services/`, `api/`, `cli/`, templates, `api/static/` | ui-engineer | safety-guardian |
 | `.aicontext/ui/` (contratos de diseño) | ui-architect | ui-engineer (consumidor) |
+| `web/` (Web V2) | v2-ui-engineer | safety-guardian si hay CSP, scope o dependencia |
 | `tests/`, fixtures | test-engineer | safety-guardian (bypass loopback) |
 | `pyproject.toml` | pipeline-engineer | safety-guardian (lista cerrada de dependencias) |
 | `Dockerfile`, `docker-compose.yml`, `.dockerignore` | test-engineer | safety-guardian (superficie de la imagen) |
@@ -331,7 +334,7 @@ Reglas de orquestación:
 | 4 — Post-MVP | 6-7 | TASK-08 (v1.1) y TASK-09 (v1.2) **cerradas**. Reusan skills de módulo; materializar las skills 4-8 y 10 sigue pendiente |
 | 5 — Plataforma | 8+ | TASK-10 → TASK-26 (v2.0 → v3.1) **cerradas**. Entra `ui-architect` para el rediseño de UI (TASK-26); se materializan los skills del módulo al abrir su task |
 
-Los subagentes ya existen (7 desde la incorporación de `ui-architect`), pero **las skills siguen
+Los subagentes ya existen (8 desde la incorporación de `v2-ui-engineer`), pero **las skills siguen
 creándose al abrir su slice**: el agente sin su skill funciona con las rules y su propio prompt;
 con la skill, además conoce los valores exactos del módulo. `metatracer-ui` es la primera skill
 de módulo materializada (cubre el design system de TASK-26).
