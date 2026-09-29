@@ -174,7 +174,7 @@ export function UsersView() {
       {forbidden ? <p role="alert" className="text-sm text-mt-warning">Operator role required</p> : null}
       {tab === "users" ? (
         <section className="flex flex-col gap-4" aria-label="User accounts">
-          <h2 className="text-xs font-semibold tracking-wide text-mt-muted uppercase">Create user</h2>
+          <h2 className="text-sm font-semibold">Create user</h2>
           <form className="flex flex-wrap items-end gap-2" onSubmit={(event) => { event.preventDefault(); void createUser(); }}>
             <div>
               <label htmlFor="new-username" className="text-xs font-semibold text-mt-muted">Username</label>
@@ -193,18 +193,40 @@ export function UsersView() {
             </div>
             <Button type="submit" disabled={busy}>Create</Button>
           </form>
-          {users.map((user) => (
-            <div key={user.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-mt-border py-2">
-              <p className="text-sm text-mt-fg">{user.username}</p>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-mt-muted">{user.role}</span>
-                <Button variant="secondary" onClick={() => void changeRole(user.id, user.role === "operator" ? "viewer" : "operator")}>
-                  Make {user.role === "operator" ? "viewer" : "operator"}
-                </Button>
-                <Button variant="danger" onClick={() => void removeUser(user.id)}>Delete</Button>
-              </div>
-            </div>
-          ))}
+          {users.length > 0 ? (
+            <table className="w-full text-sm">
+              <caption className="sr-only">User accounts</caption>
+              <thead>
+                <tr className="text-left text-xs text-mt-muted">
+                  <th className="py-1 font-medium">Username</th>
+                  <th className="py-1 font-medium">Role</th>
+                  <th className="py-1 text-right font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((user) => (
+                  <tr key={user.id} className="border-t border-mt-border">
+                    <td className="py-1.5 text-sm text-mt-fg">{user.username}</td>
+                    <td className="py-1.5 text-xs text-mt-muted">{user.role}</td>
+                    <td className="py-1.5 text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="secondary"
+                          className="px-2 py-1 text-xs"
+                          onClick={() => void changeRole(user.id, user.role === "operator" ? "viewer" : "operator")}
+                        >
+                          Make {user.role === "operator" ? "viewer" : "operator"}
+                        </Button>
+                        <Button variant="danger" className="px-2 py-1 text-xs" onClick={() => void removeUser(user.id)}>
+                          Delete
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : null}
         </section>
       ) : (
         <section className="flex flex-col gap-4" aria-label="Invitations">
@@ -229,12 +251,31 @@ export function UsersView() {
             </div>
             <Button type="submit" disabled={busy}>Create invitation</Button>
           </form>
-          {invites.map((invite) => (
-            <div key={invite.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-mt-border py-2">
-              <p className="text-sm text-mt-fg">{invite.role} · {invite.status}</p>
-              <Button variant="danger" onClick={() => void revoke(invite.id)}>Revoke</Button>
-            </div>
-          ))}
+          {invites.length > 0 ? (
+            <table className="w-full text-sm">
+              <caption className="sr-only">Invitations</caption>
+              <thead>
+                <tr className="text-left text-xs text-mt-muted">
+                  <th className="py-1 font-medium">Role</th>
+                  <th className="py-1 font-medium">Status</th>
+                  <th className="py-1 text-right font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invites.map((invite) => (
+                  <tr key={invite.id} className="border-t border-mt-border">
+                    <td className="py-1.5 text-sm text-mt-fg">{invite.role}</td>
+                    <td className="py-1.5 text-sm text-mt-fg">{invite.status}</td>
+                    <td className="py-1.5 text-right">
+                      <Button variant="danger" className="px-2 py-1 text-xs" onClick={() => void revoke(invite.id)}>
+                        Revoke
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : null}
         </section>
       )}
     </div>

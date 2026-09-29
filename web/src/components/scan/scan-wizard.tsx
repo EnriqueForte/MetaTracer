@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiFetch } from "@/lib/api/browser";
 import { BASE_PATH } from "@/lib/constants";
+import { STAGE_LABELS, STAGES } from "@/lib/sse/progress";
 
 const DEPTHS = ["brief", "standard", "detailed"] as const;
 
@@ -187,106 +188,87 @@ export function ScanWizard() {
       : manualDomains.join(", ");
 
   return (
-    <div className="mx-auto flex min-w-0 max-w-2xl flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-3">
       <div>
         <h1 className="mt-title">New scan</h1>
-        <p className="mt-2 text-sm text-mt-fg">
+        <p className="text-sm text-mt-muted">
           Discover sensitive metadata (GPS, emails, internal paths, software versions, debug comments)
           in publicly available documents inside your authorized scope.
         </p>
       </div>
 
       <form
-        className="flex flex-col gap-6 rounded-md border border-mt-border bg-mt-surface p-4"
+        className="mt-command"
         onSubmit={(event) => {
           event.preventDefault();
           openModal();
         }}
       >
-        <section className="flex flex-col gap-2">
-          <h2 className="text-xs font-semibold tracking-wide text-mt-muted uppercase">1. Targets</h2>
-          <label htmlFor="targets" className="text-xs font-semibold text-mt-muted">
+        <div className="mt-command-field">
+          <label htmlFor="targets" className="text-xs text-mt-muted">
             Targets
           </label>
           <textarea
             id="targets"
-            rows={4}
+            rows={1}
             value={targets}
             onChange={(event) => setTargets(event.target.value)}
-            className="mt-tech w-full rounded-md border border-mt-border-strong bg-mt-bg px-3 py-2 text-sm text-mt-fg placeholder:text-mt-faint focus:border-mt-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mt-focus"
-            placeholder={"One target per line: domains or URLs of public documents, e.g.\nexample.com\nhttps://example.com/investor-report.pdf"}
+            className="mt-tech w-full resize-y rounded-md border border-mt-border-strong bg-mt-bg px-3 py-2 text-sm text-mt-fg placeholder:text-mt-faint focus:border-mt-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mt-focus"
+            placeholder="One target per line"
           />
-        </section>
-
-        <section className="flex flex-col gap-3">
-          <h2 className="text-xs font-semibold tracking-wide text-mt-muted uppercase">2. Scope</h2>
-          <p className="text-xs text-mt-muted">
-            Choose one or more saved scopes, or enter domains below. The scope is never inferred
-            from the targets: only documents on these domains are ever requested.
-          </p>
-          <fieldset className="flex flex-col gap-2">
-            <legend className="text-xs font-semibold text-mt-muted">Saved scopes</legend>
-            {savedScopes.length > 0 ? (
-              <div className="flex flex-col gap-2">
-                {savedScopes.map((scope) => (
-                  <label key={scope.id} className="flex cursor-pointer items-start gap-2">
-                    <input
-                      type="checkbox"
-                      className="mt-1"
-                      checked={selectedScopeIds.includes(scope.id)}
-                      onChange={(event) => {
-                        setSelectedScopeIds((current) =>
-                          event.target.checked
-                            ? [...current, scope.id]
-                            : current.filter((id) => id !== scope.id),
-                        );
-                      }}
-                    />
-                    <span className="min-w-0">
-                      <span className="text-sm text-mt-fg">{scope.name}</span>{" "}
-                      <span className="text-xs text-mt-muted">— {scope.total_domains} domain(s)</span>
-                      <span className="mt-tech block">{scope.domains.join(", ")}</span>
-                    </span>
-                  </label>
-                ))}
-                <a href={`${BASE_PATH}/scopes`} className="text-xs text-mt-muted underline">
-                  Manage scopes…
-                </a>
-              </div>
-            ) : (
-              <p className="text-xs text-mt-muted">
-                No saved scopes yet —{" "}
-                <a href={`${BASE_PATH}/scopes`} className="underline">
-                  create one
-                </a>
-                .
-              </p>
-            )}
-          </fieldset>
-          <div>
-            <label htmlFor="scope" className="text-xs font-semibold text-mt-muted">
-              Authorized scope domains
-            </label>
-            <Input
-              id="scope"
-              type="text"
-              value={scopeDomains}
-              onChange={(event) => setScopeDomains(event.target.value)}
-              className="mt-tech"
-              placeholder="One per line or comma-separated, e.g. example.com, static.example.com"
-            />
-            <p className="mt-1 text-xs text-mt-muted">
-              Only when you are not using a saved scope. The scope is never inferred from the
-              targets.
+        </div>
+        <div className="mt-command-field">
+          <label htmlFor="scope" className="text-xs text-mt-muted">
+            Authorized scope domains
+          </label>
+          <Input
+            id="scope"
+            type="text"
+            value={scopeDomains}
+            onChange={(event) => setScopeDomains(event.target.value)}
+            className="mt-tech"
+            placeholder="example.com, static.example.com"
+          />
+        </div>
+        <fieldset className="mt-command-field">
+          <legend className="text-xs text-mt-muted">Saved scopes</legend>
+          {savedScopes.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              {savedScopes.map((scope) => (
+                <label key={scope.id} className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={selectedScopeIds.includes(scope.id)}
+                    onChange={(event) => {
+                      setSelectedScopeIds((current) =>
+                        event.target.checked
+                          ? [...current, scope.id]
+                          : current.filter((id) => id !== scope.id),
+                      );
+                    }}
+                  />
+                  <span className="text-sm text-mt-fg">
+                    {scope.name}{" "}
+                    <span className="text-xs text-mt-muted">({scope.total_domains})</span>
+                  </span>
+                </label>
+              ))}
+              <a href={`${BASE_PATH}/scopes`} className="text-xs text-mt-muted underline">
+                Manage scopes…
+              </a>
+            </div>
+          ) : (
+            <p className="py-2 text-xs text-mt-muted">
+              No saved scopes yet —{" "}
+              <a href={`${BASE_PATH}/scopes`} className="underline">
+                create one
+              </a>
+              .
             </p>
-          </div>
-        </section>
-
-        <section className="flex flex-col gap-2">
-          <h2 className="text-xs font-semibold tracking-wide text-mt-muted uppercase">
-            3. Reasoning depth
-          </h2>
-          <label htmlFor="depth" className="text-xs font-semibold text-mt-muted">
+          )}
+        </fieldset>
+        <div className="mt-command-field mt-command-depth">
+          <label htmlFor="depth" className="text-xs text-mt-muted">
             Reasoning depth
           </label>
           <select
@@ -304,27 +286,44 @@ export function ScanWizard() {
               </option>
             ))}
           </select>
-        </section>
-
-        <section className="flex flex-col gap-2">
-          <h2 className="text-xs font-semibold tracking-wide text-mt-muted uppercase">
-            4. Confirmation
-          </h2>
-          <p className="text-xs text-mt-muted">
-            Start scan opens the authorization dialog. The scan does not start until you confirm
-            the scope.
-          </p>
-          <Button type="submit" className="w-full">
-            Start scan
-          </Button>
-        </section>
-
-        {error ? (
-          <p role="alert" className="rounded-md border border-mt-danger-border bg-mt-danger-bg px-3 py-2 text-sm text-mt-danger">
-            {error}
-          </p>
-        ) : null}
+        </div>
+        <Button type="submit" className="mt-command-start">
+          Start scan
+        </Button>
       </form>
+      <p className="text-xs text-mt-muted">
+        Only when you are not using a saved scope. The scope is never inferred from the targets.
+      </p>
+
+      <section className="mt-card flex flex-col gap-3 p-4" aria-labelledby="scan-pipeline-title">
+        <div>
+          <h2 id="scan-pipeline-title" className="mt-section-title">
+            Trace
+          </h2>
+          <p className="mt-meta mt-1">
+            After you start, this chain follows the live scan. A step lights only when the server
+            reports it. The model step classifies evidence already collected; it does not open new
+            targets.
+          </p>
+        </div>
+        <ol className="mt-stages" aria-label="Scan pipeline">
+          {STAGES.map((key) => (
+            <li key={key} className="mt-stage" data-state="pending" data-stage={key}>
+              <span className="mt-stage-line" aria-hidden="true" />
+              <span className="mt-stage-node">
+                <span className="mt-stage-dot" aria-hidden="true" />
+                <span>{STAGE_LABELS[key]}</span>
+              </span>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      {error ? (
+        <p role="alert" className="rounded-md border border-mt-danger-border bg-mt-danger-bg px-3 py-2 text-sm text-mt-danger">
+          {error}
+        </p>
+      ) : null}
 
       {modalOpen ? (
         <div

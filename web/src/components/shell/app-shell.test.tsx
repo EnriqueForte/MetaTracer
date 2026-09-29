@@ -1,8 +1,10 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const navState = vi.hoisted(() => ({ pathname: "/dashboard" }));
+
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/dashboard",
+  usePathname: () => navState.pathname,
   useRouter: () => ({ replace: vi.fn() }),
 }));
 
@@ -10,6 +12,7 @@ import { AppShell } from "@/components/shell/app-shell";
 
 afterEach(() => {
   cleanup();
+  navState.pathname = "/dashboard";
   vi.unstubAllGlobals();
 });
 
@@ -45,7 +48,11 @@ describe("AppShell coexistence", () => {
     expect(
       await screen.findByText("Signing out also ends the session used by the classic UI."),
     ).toBeInTheDocument();
+    expect(screen.getByText("Security Intelligence")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("API reachable");
     expect(screen.getByRole("link", { name: "Classic UI" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Reconnaissance" })).not.toHaveAttribute("aria-current");
   });
 
   it("keeps the classic link when auth is off and does not offer sign out", async () => {
@@ -68,5 +75,22 @@ describe("AppShell coexistence", () => {
     expect(await screen.findByRole("link", { name: "Classic UI" })).toHaveAttribute("href", "/");
     expect(screen.queryByRole("button", { name: "Sign out" })).not.toBeInTheDocument();
     expect(screen.queryByText("Signing out also ends the session used by the classic UI.")).not.toBeInTheDocument();
+  });
+
+  it("marks History while a run is open", async () => {
+    stubMedia();
+    navState.pathname = "/runs/abc";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ notifications: [] }), { status: 200 })),
+    );
+    render(
+      <AppShell>
+        <p>page</p>
+      </AppShell>,
+    );
+    expect(await screen.findByRole("link", { name: "History" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Dashboard" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", { name: "Reconnaissance" })).not.toHaveAttribute("aria-current");
   });
 });

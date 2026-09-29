@@ -1,27 +1,17 @@
 "use client";
 
+import { Files, ScanSearch, ShieldAlert, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
+import { EvidenceTable } from "@/components/dashboard/evidence-table";
+import { FindingsTypeChart } from "@/components/dashboard/findings-type-chart";
+import { MetricCard } from "@/components/dashboard/metric-card";
+import { SeverityOverview } from "@/components/dashboard/severity-overview";
+import { TopDomains } from "@/components/dashboard/top-domains";
 import { Button } from "@/components/ui/button";
+import { ErrorState, LoadingState } from "@/components/ui/states";
 import { apiFetch } from "@/lib/api/browser";
-
-const SEVERITIES = ["critical", "high", "medium", "low", "info", "unclassified"] as const;
-const TYPE_LABELS: Record<string, string> = {
-  gps: "GPS",
-  email: "Email",
-  internal_path: "Internal path",
-  software_version: "Software version",
-  debug_comment: "Debug comment",
-};
-const SEVERITY_LABEL: Record<string, string> = {
-  critical: "Critical",
-  high: "High",
-  medium: "Medium",
-  low: "Low",
-  info: "Info",
-  unclassified: "Unclassified",
-};
 
 type Stats = {
   runs: Record<string, number>;
@@ -45,6 +35,10 @@ type Stats = {
 
 function num(value: unknown): number | null {
   return typeof value === "number" ? value : null;
+}
+
+function formatCount(value: number): string {
+  return value.toLocaleString("en-US");
 }
 
 function parseStats(value: unknown): Stats | null {
@@ -169,175 +163,94 @@ export function DashboardView() {
     void load();
   }, [load]);
 
-  const maxSeverity = stats
-    ? Math.max(1, ...SEVERITIES.map((key) => stats.findings.severity_breakdown[key] ?? 0))
-    : 1;
+  const typeRank = stats
+    ? Object.entries(stats.findings.by_type)
+        .filter((entry): entry is [string, number] => entry[1] > 0)
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    : [];
+  const domainRank = stats
+    ? [...stats.top_domains].sort((a, b) => b.count - a.count || a.domain.localeCompare(b.domain))
+    : [];
 
   return (
-    <div className="flex min-w-0 flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-5">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="mt-title">Dashboard</h1>
-          <p className="text-sm text-mt-fg">Aggregated view of every scan stored in this installation.</p>
+        <div className="flex min-w-0 flex-col gap-1">
+          <h1 className="mt-page-title">Dashboard</h1>
+          <p className="mt-meta">Security overview of every scan stored in this installation.</p>
         </div>
         <Button variant="secondary" asChild>
           <Link href="/">New scan</Link>
         </Button>
       </div>
-      {loading && !stats ? (
-        <p className="flex items-center gap-2 text-sm text-mt-muted">
-          <span className="mt-spin" aria-hidden="true" /> Loading dashboard…
+      {loading && !stats ? <LoadingState label="Loading dashboard" /> : null}
+      {error ? <ErrorState message={error} onRetry={() => void load()} /> : null}
+      {stats && stats.runs.total === 0 ? (
+        <p className="text-sm text-mt-muted">
+          No data yet. Run a scan to start building the dashboard — runs, findings, domains and agent usage will appear here.
         </p>
       ) : null}
-      {error ? (
-        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-mt-danger-border bg-mt-danger-bg p-3 text-sm">
-          <p>{error}</p>
-          <Button variant="secondary" onClick={() => void load()}>Retry</Button>
-        </div>
-      ) : null}
-      {stats && stats.runs.total === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-md border border-mt-border bg-mt-surface p-6 text-center">
-          <p className="text-base font-semibold">No data yet</p>
-          <p className="text-sm text-mt-muted">
-            Run a scan to start building the dashboard — runs, findings, domains and agent usage will appear here.
-          </p>
-          <Button variant="secondary" asChild>
-            <Link href="/">New scan</Link>
-          </Button>
-        </div>
-      ) : null}
       {stats && stats.runs.total > 0 ? (
-        <div className="flex flex-col gap-6">
-          <div className="grid grid-cols-2 gap-4 rounded-md border border-mt-border bg-mt-surface p-4 lg:grid-cols-4">
-            <div>
-              <p className="text-xs font-semibold tracking-wide text-mt-muted uppercase">Runs</p>
-              <p className="text-2xl text-mt-fg">{stats.runs.total}</p>
-              <p className="text-xs text-mt-muted">
-                Completed {stats.runs.completed ?? 0} · Failed {stats.runs.failed ?? 0}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold tracking-wide text-mt-muted uppercase">Findings</p>
-              <p className="text-2xl text-mt-fg">{stats.findings.total}</p>
-              <p className="text-xs text-mt-muted">Unclassified {stats.findings.unclassified}</p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold tracking-wide text-mt-muted uppercase">Assets</p>
-              <p className="text-2xl text-mt-fg">{stats.assets.total}</p>
-              <p className="text-xs text-mt-muted">With issues {stats.assets.with_issues}</p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold tracking-wide text-mt-muted uppercase">Total tokens</p>
-              <p className="text-2xl text-mt-fg">{stats.agent_usage.total_tokens}</p>
-              <p className="text-xs text-mt-muted">{stats.agent_usage.calls} calls</p>
-            </div>
+        <div className="flex flex-col gap-5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <MetricCard
+              label="Scans"
+              value={formatCount(stats.runs.total)}
+              detail={`Completed ${stats.runs.completed ?? 0} · Failed ${stats.runs.failed ?? 0}`}
+              icon={ScanSearch}
+              accentClass="bg-mt-secondary"
+            />
+            <MetricCard
+              label="Findings"
+              value={formatCount(stats.findings.total)}
+              detail={`High ${stats.findings.severity_breakdown.high ?? 0} · Unclassified ${stats.findings.unclassified}`}
+              icon={ShieldAlert}
+              accentClass="bg-mt-sev-high"
+            />
+            <MetricCard
+              label="Assets"
+              value={formatCount(stats.assets.total)}
+              detail={`With issues ${stats.assets.with_issues}`}
+              icon={Files}
+              accentClass="bg-mt-chart-3"
+            />
+            <MetricCard
+              label="AI usage"
+              value={formatCount(stats.agent_usage.total_tokens)}
+              detail={`${formatCount(stats.agent_usage.calls)} calls`}
+              icon={Sparkles}
+              accentClass="bg-mt-accent"
+            />
           </div>
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <div className="rounded-md border border-mt-border bg-mt-surface p-4">
-              <h2 className="mb-4 text-xs font-semibold tracking-wide text-mt-muted uppercase">Severity</h2>
-              <div className="flex flex-col gap-3">
-                {SEVERITIES.map((severity) => {
-                  const count = stats.findings.severity_breakdown[severity] ?? 0;
-                  return (
-                    <div key={severity} className="flex flex-col gap-1">
-                      <div className="flex justify-between text-xs text-mt-muted">
-                        <span>{SEVERITY_LABEL[severity]}</span>
-                        <span>{count}</span>
-                      </div>
-                      <div className="h-2 overflow-hidden rounded-sm bg-mt-border">
-                        <div
-                          className="h-2 bg-mt-accent"
-                          style={{ width: `${(count / maxSeverity) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="rounded-md border border-mt-border bg-mt-surface p-4">
-              <h2 className="mb-4 text-xs font-semibold tracking-wide text-mt-muted uppercase">Findings by type</h2>
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(stats.findings.by_type).map(([type, count]) => (
-                  <span key={type} className="rounded-sm border border-mt-border-strong px-1.5 py-0.5 text-[11px] font-semibold">
-                    {TYPE_LABELS[type] ?? type} {count}
-                  </span>
-                ))}
-              </div>
-            </div>
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            <SeverityOverview total={stats.findings.total} breakdown={stats.findings.severity_breakdown} />
+            <FindingsTypeChart rows={typeRank} />
           </div>
-          <div>
-            <h2 className="mb-3 text-xs font-semibold tracking-wide text-mt-muted uppercase">Top domains</h2>
-            {stats.top_domains.length === 0 ? (
-              <p className="text-xs text-mt-muted">No scopes or assets scanned yet.</p>
-            ) : (
-              <table className="w-full text-sm">
-                <caption className="sr-only">Top domains by asset mentions</caption>
-                <thead>
-                  <tr className="text-left text-xs text-mt-muted uppercase">
-                    <th>Domain</th>
-                    <th className="text-right">Mentions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stats.top_domains.map((entry) => (
-                    <tr key={entry.domain} className="border-t border-mt-border">
-                      <td className="mt-tech py-2">{entry.domain}</td>
-                      <td className="py-2 text-right">{entry.count}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+            <TopDomains rows={domainRank} />
+            <EvidenceTable rows={stats.top_evidence} />
           </div>
-          <div>
-            <h2 className="mb-3 text-xs font-semibold tracking-wide text-mt-muted uppercase">Most repeated evidence</h2>
-            {stats.top_evidence.length === 0 ? (
-              <p className="text-xs text-mt-muted">No findings yet.</p>
-            ) : (
-              <table className="w-full text-sm">
-                <caption className="sr-only">Most repeated evidence snippets</caption>
-                <thead>
-                  <tr className="text-left text-xs text-mt-muted uppercase">
-                    <th>Evidence</th>
-                    <th>Type</th>
-                    <th className="text-right">Occurrences</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stats.top_evidence.map((entry) => (
-                    <tr key={entry.signature} className="border-t border-mt-border">
-                      <td className="mt-tech py-2">{entry.evidence_snippet.slice(0, 90)}</td>
-                      <td className="py-2">{TYPE_LABELS[entry.finding_type] ?? entry.finding_type}</td>
-                      <td className="py-2 text-right">{entry.occurrences}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-          <div className="grid grid-cols-2 gap-4 rounded-md border border-mt-border bg-mt-surface p-4 lg:grid-cols-5">
-            <div>
-              <p className="text-xs font-semibold tracking-wide text-mt-muted uppercase">Calls</p>
-              <p className="text-2xl">{stats.agent_usage.calls}</p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold tracking-wide text-mt-muted uppercase">Prompt tokens</p>
-              <p className="text-2xl">{stats.agent_usage.prompt_tokens}</p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold tracking-wide text-mt-muted uppercase">Completion tokens</p>
-              <p className="text-2xl">{stats.agent_usage.completion_tokens}</p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold tracking-wide text-mt-muted uppercase">Total tokens</p>
-              <p className="text-2xl">{stats.agent_usage.total_tokens}</p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold tracking-wide text-mt-muted uppercase">Latency (ms)</p>
-              <p className="text-2xl">{stats.agent_usage.latency_ms}</p>
-            </div>
-          </div>
+          <section
+            aria-label="Agent usage"
+            className="flex flex-wrap gap-x-5 gap-y-1 border-t border-mt-border pt-3 text-xs text-mt-muted"
+          >
+            <p>
+              Calls <span className="text-mt-fg tabular-nums">{stats.agent_usage.calls}</span>
+            </p>
+            <p>
+              Prompt tokens <span className="text-mt-fg tabular-nums">{stats.agent_usage.prompt_tokens}</span>
+            </p>
+            <p>
+              Completion tokens{" "}
+              <span className="text-mt-fg tabular-nums">{stats.agent_usage.completion_tokens}</span>
+            </p>
+            <p>
+              Total tokens <span className="text-mt-fg tabular-nums">{stats.agent_usage.total_tokens}</span>
+            </p>
+            <p>
+              Latency (ms) <span className="text-mt-fg tabular-nums">{stats.agent_usage.latency_ms}</span>
+            </p>
+          </section>
         </div>
       ) : null}
     </div>

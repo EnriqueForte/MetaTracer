@@ -382,10 +382,10 @@ export function FindingsPanel({ runId, totalAssets }: { runId: string; totalAsse
           <caption className="sr-only">Findings of this scan, in API order</caption>
           <TableHeader>
             <TableRow>
-              <TableHead>Severity</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Evidence</TableHead>
-              <TableHead>Asset</TableHead>
+              <TableHead className="px-2 py-1 font-medium tracking-normal normal-case">Severity</TableHead>
+              <TableHead className="px-2 py-1 font-medium tracking-normal normal-case">Type</TableHead>
+              <TableHead className="px-2 py-1 font-medium tracking-normal normal-case">Evidence</TableHead>
+              <TableHead className="px-2 py-1 font-medium tracking-normal normal-case">Asset</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -399,14 +399,14 @@ export function FindingsPanel({ runId, totalAssets }: { runId: string; totalAsse
                   if (event.key === "Enter") setSelected(finding);
                 }}
               >
-                <TableCell>
+                <TableCell className="px-2 py-1">
                   <Badge variant={severityKey(finding.severity)}>
                     {SEVERITY_LABEL[severityKey(finding.severity)]}
                   </Badge>
                 </TableCell>
-                <TableCell>{finding.type_label}</TableCell>
-                <TableCell className="mt-tech">{truncate(finding.evidence_snippet, 90)}</TableCell>
-                <TableCell className="mt-tech">{truncate(finding.asset_final_url, 60)}</TableCell>
+                <TableCell className="px-2 py-1">{finding.type_label}</TableCell>
+                <TableCell className="mt-tech px-2 py-1">{truncate(finding.evidence_snippet, 90)}</TableCell>
+                <TableCell className="mt-tech px-2 py-1">{truncate(finding.asset_final_url, 60)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

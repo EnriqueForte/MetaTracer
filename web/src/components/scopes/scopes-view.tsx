@@ -161,7 +161,7 @@ export function ScopesView() {
         </Button>
       </div>
       <section className="flex flex-col gap-3 rounded-md border border-mt-border bg-mt-surface p-4">
-        <h2 className="text-xs font-semibold tracking-wide text-mt-muted uppercase">Import scopes from a file</h2>
+        <h2 className="text-sm font-semibold">Import scopes from a file</h2>
         <p className="text-sm text-mt-fg">
           Upload a portable scopes JSON. Existing names are skipped — nothing is overwritten.
         </p>
@@ -171,7 +171,7 @@ export function ScopesView() {
         {importError ? <p role="alert" className="text-sm text-mt-danger">{importError}</p> : null}
       </section>
       <section className="flex flex-col gap-4 rounded-md border border-mt-border bg-mt-surface p-4">
-        <h2 className="text-xs font-semibold tracking-wide text-mt-muted uppercase">{editing ? "Edit scope" : "New scope"}</h2>
+        <h2 className="text-sm font-semibold">{editing ? "Edit scope" : "New scope"}</h2>
         <label htmlFor="scope-name" className="text-xs font-semibold text-mt-muted">Name</label>
         <input id="scope-name" value={name} maxLength={64} onChange={(event) => setName(event.target.value)} className="mt-tech rounded-md border border-mt-border-strong bg-mt-bg px-3 py-2 text-sm" placeholder="e.g. acme-2026-engagement" />
         <label htmlFor="scope-desc" className="text-xs font-semibold text-mt-muted">Description (optional)</label>
@@ -188,30 +188,51 @@ export function ScopesView() {
       {error ? <p role="alert" className="text-sm text-mt-danger">{error}</p> : null}
       {!loaded ? <p className="text-sm text-mt-muted">Loading scopes…</p> : null}
       {loaded && scopes.length === 0 ? <p className="text-sm text-mt-muted">No scopes yet.</p> : null}
-      {scopes.map((scope) => (
-        <div key={scope.id} className="flex flex-wrap items-start justify-between gap-3 border-t border-mt-border py-3">
-          <div>
-            <p className="text-sm font-semibold text-mt-fg">{scope.name}</p>
-            {scope.description ? <p className="text-xs text-mt-muted">{scope.description}</p> : null}
-            <p className="mt-tech">{scope.domains.join(", ")}</p>
-            <p className="text-xs text-mt-muted">{scope.total_domains} domain(s)</p>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setEditing(scope.id);
-                setName(scope.name);
-                setDescription(scope.description ?? "");
-                setDomainsText(scope.domains.join("\n"));
-              }}
-            >
-              Edit
-            </Button>
-            <Button variant="danger" onClick={() => void remove(scope.id)}>Delete</Button>
-          </div>
-        </div>
-      ))}
+      {scopes.length > 0 ? (
+        <table className="w-full text-sm">
+          <caption className="sr-only">Saved scopes</caption>
+          <thead>
+            <tr className="text-left text-xs text-mt-muted">
+              <th className="py-1 font-medium">Name</th>
+              <th className="py-1 font-medium">Domains</th>
+              <th className="py-1 text-right font-medium">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {scopes.map((scope) => (
+              <tr key={scope.id} className="border-t border-mt-border">
+                <td className="py-1.5">
+                  <p className="text-sm text-mt-fg">{scope.name}</p>
+                  {scope.description ? <p className="text-xs text-mt-muted">{scope.description}</p> : null}
+                </td>
+                <td className="py-1.5">
+                  <p className="mt-tech">{scope.domains.join(", ")}</p>
+                  <p className="text-xs text-mt-muted">{scope.total_domains} domain(s)</p>
+                </td>
+                <td className="py-1.5 text-right">
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="secondary"
+                      className="px-2 py-1 text-xs"
+                      onClick={() => {
+                        setEditing(scope.id);
+                        setName(scope.name);
+                        setDescription(scope.description ?? "");
+                        setDomainsText(scope.domains.join("\n"));
+                      }}
+                    >
+                      Edit
+                    </Button>
+                    <Button variant="danger" className="px-2 py-1 text-xs" onClick={() => void remove(scope.id)}>
+                      Delete
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : null}
     </div>
   );
 }

@@ -2,6 +2,8 @@
 
 Aceptada junto con [ADR-001](ADR-001-nextjs-react-migration.md) el 2026-09-26. Obliga a las fases de UI del [plan](../migrations/v1-to-v2-frontend.md). No obliga a Web V1: `.aicontext/ui/*` sigue siendo el contrato Jinja.
 
+**Actualización 2026-09-29.** La paleta de acero y la severidad apagada dejan de aplicar a Web V2. Los tokens, la jerarquía y las fases siguientes están en [v2-analytics-ui.md](v2-analytics-ui.md). Siguen vigentes el resto de este documento: no inventar producto, no copiar la demo, datos del target como texto, y scope como gate.
+
 Referencia observada: demo BugTrace (`https://demo.bugtraceai.com/bugtraceai`), revisión del 2026-09-26. Se toma la estructura de trabajo. No se toma el catálogo de producto ni la marca.
 
 ## Qué se adopta

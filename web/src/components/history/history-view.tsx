@@ -174,6 +174,7 @@ export function HistoryView() {
           <Button
             key={status}
             variant="secondary"
+            className="px-2 py-1 text-xs"
             aria-pressed={statusFilter === status}
             aria-label={`Filter by status ${status}`}
             onClick={() => setStatusFilter(status)}
@@ -193,41 +194,35 @@ export function HistoryView() {
         </div>
       ) : null}
       {loaded && !error && runs.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-md border border-mt-border bg-mt-surface p-6 text-center">
-          <p className="text-base font-semibold">No runs yet</p>
-          <p className="text-sm text-mt-muted">Start a scan to build a local history.</p>
-          <Button variant="secondary" asChild>
-            <Link href="/">New scan</Link>
-          </Button>
-        </div>
+        <p className="text-sm text-mt-muted">No runs yet. Start a scan to build a local history.</p>
       ) : null}
       {runs.length > 0 ? (
         <table className="w-full text-sm">
           <caption className="sr-only">Local scan history</caption>
           <thead>
-            <tr className="text-left text-xs text-mt-muted uppercase">
-              <th>Status</th>
-              <th>Target</th>
-              <th className="text-right">Assets</th>
-              <th className="text-right">Findings</th>
-              <th>Started (UTC)</th>
+            <tr className="text-left text-xs text-mt-muted">
+              <th className="py-1 font-medium">Status</th>
+              <th className="py-1 font-medium">Target</th>
+              <th className="py-1 text-right font-medium">Assets</th>
+              <th className="py-1 text-right font-medium">Findings</th>
+              <th className="py-1 font-medium">Started (UTC)</th>
             </tr>
           </thead>
           <tbody>
             {runs.map((run) => (
               <tr key={run.run_id} className="border-t border-mt-border">
-                <td className="py-2">
+                <td className="py-1.5">
                   <Badge variant={run.status}>{STATUS_LABEL[run.status]}</Badge>
                 </td>
-                <td className="py-2">
+                <td className="py-1.5">
                   <Link href={`/runs/${encodeURIComponent(run.run_id)}`} className="mt-tech underline">
                     {run.target}
                   </Link>
                   {run.scope.length > 0 ? <p className="mt-tech">{run.scope.join(", ")}</p> : null}
                 </td>
-                <td className="py-2 text-right">{run.total_assets}</td>
-                <td className="py-2 text-right">{run.total_findings}</td>
-                <td className="mt-tech py-2">{formatWhen(run.started_at)}</td>
+                <td className="py-1.5 text-right tabular-nums">{run.total_assets}</td>
+                <td className="py-1.5 text-right tabular-nums">{run.total_findings}</td>
+                <td className="mt-tech py-1.5">{formatWhen(run.started_at)}</td>
               </tr>
             ))}
           </tbody>

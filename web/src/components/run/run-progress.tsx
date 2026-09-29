@@ -254,9 +254,11 @@ export function RunProgress({ runId }: { runId: string }) {
 
   const live = run.status === "pending" || run.status === "running";
 
+  const finished = run.status === "completed";
+
   return (
-    <div className="flex min-w-0 flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="flex min-w-0 flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-mt-border pb-3">
         <div className="min-w-0">
           <h1 className="mt-title">
             Scan of <span className="mt-tech">{run.target}</span>
@@ -266,8 +268,30 @@ export function RunProgress({ runId }: { runId: string }) {
             <p className="text-xs text-mt-muted">Completed at {formatWhen(run.completed_at)}</p>
           ) : null}
         </div>
-        <Badge variant={run.status}>{STATUS_LABEL[run.status]}</Badge>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={run.status}>{STATUS_LABEL[run.status]}</Badge>
+          {finished ? (
+            <>
+              {EXPORTS.map(([format, label]) => (
+                <Button key={format} variant="secondary" className="px-2 py-1 text-xs" asChild>
+                  <a href={exportHref(run.run_id, format)} download>
+                    {label}
+                  </a>
+                </Button>
+              ))}
+              <Button variant="ghost" className="px-2 py-1 text-xs" asChild>
+                <Link href="/runs">History</Link>
+              </Button>
+              <Button variant="secondary" className="px-2 py-1 text-xs" asChild>
+                <Link href="/">New scan</Link>
+              </Button>
+            </>
+          ) : null}
+        </div>
       </div>
+      {finished ? (
+        <p className="text-xs text-mt-muted">The report file is regenerated on the server.</p>
+      ) : null}
 
       {run.status === "failed" ? (
         <div role="alert" className="flex flex-col gap-1 rounded-md border border-mt-danger-border bg-mt-danger-bg p-3">
@@ -284,33 +308,35 @@ export function RunProgress({ runId }: { runId: string }) {
       ) : null}
 
       {live ? (
-        <section className="flex flex-col gap-4 rounded-md border border-mt-border bg-mt-surface p-4">
-          <h2 className="text-xs font-semibold tracking-wide text-mt-muted uppercase">Progress</h2>
-          <ol className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2">
+          <ol className="mt-stages" aria-label="Progress">
             {STAGES.map((key, index) => {
               const state = stages[index];
               return (
-                <li key={key} className="flex items-center gap-3">
-                  {state === "done" ? (
-                    <span aria-hidden="true" className="inline-flex h-4 w-4 items-center justify-center text-mt-success">
-                      ✓
+                <li
+                  key={key}
+                  className="mt-stage"
+                  data-state={state}
+                  data-stage={key}
+                  aria-current={state === "active" ? "step" : undefined}
+                >
+                  <span className="mt-stage-line" aria-hidden="true" />
+                  <span className="mt-stage-node">
+                    <span className="mt-stage-dot" aria-hidden="true" />
+                    <span>
+                      {state === "active" ? <span className="mt-spin" aria-hidden="true" /> : null}
+                      {STAGE_LABELS[key]}
+                      {key === "ai_analysis" && state === "active" ? (
+                        <span className="mt-meta block font-normal">Classifying extracted evidence</span>
+                      ) : null}
                     </span>
-                  ) : null}
-                  {state === "active" ? <span className="mt-spin" aria-hidden="true" /> : null}
-                  {state === "pending" ? (
-                    <span
-                      aria-hidden="true"
-                      className="inline-block h-4 w-4 rounded-full border-2 border-mt-border-strong"
-                    />
-                  ) : null}
-                  {state === "failed" ? (
-                    <span aria-hidden="true" className="inline-flex h-4 w-4 items-center justify-center text-mt-danger">
-                      ✕
-                    </span>
-                  ) : null}
-                  <span className={state === "pending" ? "text-sm text-mt-muted" : "text-sm text-mt-fg"}>
-                    {state === "active" ? <strong>{STAGE_LABELS[key]}</strong> : STAGE_LABELS[key]}
                   </span>
+                  {state === "failed" ? (
+                    <span aria-hidden="true" className="text-mt-danger">
+                      Failed
+                    </span>
+                  ) : null}
+                  <span className="sr-only">{state}</span>
                 </li>
               );
             })}
@@ -325,12 +351,10 @@ export function RunProgress({ runId }: { runId: string }) {
           {contractError ? (
             <p className="text-xs text-mt-muted">A progress event could not be read.</p>
           ) : null}
-        </section>
+        </div>
       ) : null}
 
-      {run.status === "completed" ? (
-        <FindingsPanel runId={run.run_id} totalAssets={run.total_assets} />
-      ) : null}
+      {finished ? <FindingsPanel runId={run.run_id} totalAssets={run.total_assets} /> : null}
 
       {run.asset_issues.length > 0 ? (
         <details className="rounded-md border border-mt-warning-border bg-mt-warning-bg p-3">
@@ -361,29 +385,6 @@ export function RunProgress({ runId }: { runId: string }) {
         </details>
       ) : null}
 
-      {run.status === "completed" ? (
-        <section className="flex flex-col gap-3">
-          <div>
-            <h2 className="text-xs font-semibold tracking-wide text-mt-muted uppercase">Reports</h2>
-            <p className="text-xs text-mt-muted">The report file is regenerated on the server.</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {EXPORTS.map(([format, label]) => (
-              <Button key={format} variant="secondary" asChild>
-                <a href={exportHref(run.run_id, format)} download>
-                  {label}
-                </a>
-              </Button>
-            ))}
-            <Button variant="ghost" asChild>
-              <Link href="/runs">History</Link>
-            </Button>
-            <Button variant="secondary" asChild>
-              <Link href="/">New scan</Link>
-            </Button>
-          </div>
-        </section>
-      ) : null}
     </div>
   );
 }

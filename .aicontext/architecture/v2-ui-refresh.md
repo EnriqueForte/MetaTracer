@@ -1,7 +1,7 @@
 # Retoque visual de Web V2
 
 **Fecha:** 2026-09-29
-**Estado:** Plan. No implementado.
+**Estado:** R1–R6 hechas.
 **Alcance:** solo `web/`. La UI clásica (Jinja) no se toca. No hay fase 16 de migración ni corte de `/`.
 
 Referencias miradas, no copiadas: un tablero operativo denso (riel izquierdo, una sola tinta de acento, cifras arriba, barras de etapa, ranking y tabla) y un tablero violeta de plantilla (aros de arcoíris, calendario, “lorem”, porcentajes decorativos). Del primero se toma la densidad y la jerarquía. Del segundo no se toma nada.

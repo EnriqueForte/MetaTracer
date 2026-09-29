@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { AuthPanel } from "@/components/auth/auth-panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiFetch, csrfTokenFromCookie } from "@/lib/api/browser";
@@ -43,25 +44,21 @@ export function SetupForm() {
   }
 
   return (
-    <main id="main-content" className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center gap-4 px-4 py-16">
-      <div className="flex flex-col gap-4 rounded-md border border-mt-border bg-mt-surface p-4">
-        <div>
-          <p className="text-xs text-mt-muted">MetaTracer</p>
-          <h1 className="mt-title">Initial setup</h1>
-          <p className="text-sm text-mt-fg">Create the first operator with the setup token from the server log.</p>
-        </div>
-        {error ? <p role="alert" className="text-sm text-mt-danger">{error}</p> : null}
-        <form className="flex flex-col gap-4" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-          <label htmlFor="setup-token" className="text-xs font-semibold text-mt-muted">Setup token</label>
-          <Input id="setup-token" type="password" required autoComplete="off" value={setupToken} onChange={(event) => setSetupToken(event.target.value)} />
-          <label htmlFor="username" className="text-xs font-semibold text-mt-muted">Username</label>
-          <Input id="username" required autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} />
-          <label htmlFor="password" className="text-xs font-semibold text-mt-muted">Password</label>
-          <Input id="password" type="password" required autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} />
-          <p className="text-xs text-mt-muted">Minimum 8 characters.</p>
-          <Button type="submit" className="w-full" disabled={busy}>{busy ? "Creating…" : "Create operator"}</Button>
-        </form>
-      </div>
-    </main>
+    <AuthPanel
+      title="Initial setup"
+      lede="Create the first operator with the setup token from the server log."
+    >
+      {error ? <p role="alert" className="text-sm text-mt-danger">{error}</p> : null}
+      <form className="flex flex-col gap-3" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
+        <label htmlFor="setup-token" className="text-xs text-mt-muted">Setup token</label>
+        <Input id="setup-token" type="password" required autoComplete="off" value={setupToken} onChange={(event) => setSetupToken(event.target.value)} />
+        <label htmlFor="username" className="text-xs text-mt-muted">Username</label>
+        <Input id="username" required autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} />
+        <label htmlFor="password" className="text-xs text-mt-muted">Password</label>
+        <Input id="password" type="password" required autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} />
+        <p className="text-xs text-mt-muted">Minimum 8 characters.</p>
+        <Button type="submit" className="w-full" disabled={busy}>{busy ? "Creating…" : "Create operator"}</Button>
+      </form>
+    </AuthPanel>
   );
 }

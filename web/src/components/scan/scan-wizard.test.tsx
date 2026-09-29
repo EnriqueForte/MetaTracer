@@ -32,7 +32,9 @@ describe("ScanWizard scope gate", () => {
 
   it.each([
     [403, "The scope confirmation was rejected by the server."],
+    [404, "The selected saved scope no longer exists; choose or enter domains manually."],
     [409, "Another scan is already running; wait for it to finish."],
+    [429, "Too many requests: the API asked us to slow down; retry in a few seconds."],
   ])("renders HTTP %s as text", async (status, message) => {
     vi.stubGlobal(
       "fetch",

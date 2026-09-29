@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell } from "lucide-react";
+import { Bell, History, LayoutDashboard, Menu, Radar, Shield, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
@@ -18,10 +18,10 @@ import {
 import { APP_VERSION, BASE_PATH } from "@/lib/constants";
 
 const NAV = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/", label: "Reconnaissance" },
-  { href: "/runs", label: "History" },
-  { href: "/scopes", label: "Scopes" },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/", label: "Reconnaissance", icon: Radar },
+  { href: "/runs", label: "History", icon: History },
+  { href: "/scopes", label: "Scopes", icon: Shield },
 ] as const;
 
 function kindLabel(kind: NotificationItem["kind"]): string {
@@ -36,6 +36,11 @@ function kindVariant(kind: NotificationItem["kind"]): "failed" | "aborted" | "co
   return "completed";
 }
 
+function isNavCurrent(href: string, pathname: string): boolean {
+  if (href === "/") return pathname === "/";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -47,10 +52,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [notesOpen, setNotesOpen] = useState(false);
   const [notes, setNotes] = useState<NotificationItem[]>([]);
   const [notesError, setNotesError] = useState("");
+  const [apiStatus, setApiStatus] = useState<"checking" | "reachable" | "unreachable">("checking");
 
   const loadSession = useCallback(async () => {
     try {
       const response = await apiFetch("/api/auth/me");
+      setApiStatus("reachable");
       if (response.status === 401) {
         setSession({ status: "signed-out" });
         router.replace("/login");
@@ -62,6 +69,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       }
       setSession(parseSession(await response.json()));
     } catch {
+      setApiStatus("unreachable");
       setSession({ status: "signed-out" });
     }
   }, [router]);
@@ -147,28 +155,36 @@ export function AppShell({ children }: { children: ReactNode }) {
           className={navOpen ? "mt-sidebar mt-sidebar-open" : "mt-sidebar"}
           inert={narrow && !navOpen ? true : undefined}
         >
-          <Link href="/" className="mt-nav-link" aria-label="MetaTracer home" onClick={() => setNavOpen(false)}>
-            MetaTracer <span className="text-xs font-normal text-mt-muted">v{APP_VERSION}</span>
+          <Link href="/" className="mt-brand" aria-label="MetaTracer home" onClick={() => setNavOpen(false)}>
+            <span className="mt-brand-name">
+              MetaTracer <span className="text-xs font-normal text-mt-faint">v{APP_VERSION}</span>
+            </span>
+            <span className="mt-brand-sub">Security Intelligence</span>
           </Link>
-          <nav className="mt-2 flex flex-col gap-1" aria-label="Primary">
-            {NAV.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="mt-nav-link"
-                aria-current={pathname === item.href ? "page" : undefined}
-                onClick={() => setNavOpen(false)}
-              >
-                {item.label}
-              </Link>
-            ))}
+          <nav className="flex flex-col" aria-label="Primary">
+            {NAV.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="mt-nav-link"
+                  aria-current={isNavCurrent(item.href, pathname) ? "page" : undefined}
+                  onClick={() => setNavOpen(false)}
+                >
+                  <Icon aria-hidden="true" className="size-4" />
+                  {item.label}
+                </Link>
+              );
+            })}
             {showUsers ? (
               <Link
                 href="/users"
                 className="mt-nav-link"
-                aria-current={pathname === "/users" ? "page" : undefined}
+                aria-current={isNavCurrent("/users", pathname) ? "page" : undefined}
                 onClick={() => setNavOpen(false)}
               >
+                <Users aria-hidden="true" className="size-4" />
                 Users
               </Link>
             ) : null}
@@ -178,24 +194,41 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="mt-scrim" onClick={() => setNavOpen(false)} aria-hidden="true" />
         ) : null}
         <div className="mt-main">
-          <header className="mt-topbar flex-wrap">
+          <header className="mt-topbar">
             <Button
               variant="ghost"
-              className="mt-menu-btn"
+              className="mt-menu-btn py-1"
               aria-expanded={navOpen}
               aria-controls="app-sidebar"
               onClick={() => setNavOpen((open) => !open)}
             >
+              <Menu aria-hidden="true" className="size-4" />
               Menu
             </Button>
-            <p className="min-w-0 flex-1 text-xs text-mt-muted">
-              Authorized use only — audit exclusively targets you own or are explicitly authorized to
-              test.
+            <p className="mt-ethics">
+              Authorized use only
+              <span className="sr-only">
+                {" "}
+                — audit exclusively targets you own or are explicitly authorized to test.
+              </span>
             </p>
-            <div className="flex items-center gap-3">
+            <div className="mt-session ml-auto">
+              <p className="mt-status" role="status">
+                <span
+                  className="mt-status-dot"
+                  data-state={apiStatus === "reachable" ? "ok" : apiStatus === "unreachable" ? "down" : undefined}
+                  aria-hidden="true"
+                />
+                {apiStatus === "reachable"
+                  ? "API reachable"
+                  : apiStatus === "unreachable"
+                    ? "API unreachable"
+                    : "Checking API"}
+              </p>
               <div className="relative" ref={panelRef}>
                 <Button
                   variant="ghost"
+                  className="py-1"
                   aria-label="Notifications"
                   aria-haspopup="true"
                   aria-expanded={notesOpen}
@@ -223,9 +256,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     className="absolute right-0 z-20 mt-2 max-h-96 w-80 overflow-y-auto rounded-md border border-mt-border bg-mt-surface p-3"
                   >
                     <div className="mb-2 flex items-center justify-between gap-2 border-b border-mt-border pb-2">
-                      <h2 className="text-xs font-semibold tracking-wide text-mt-muted uppercase">
-                        Notifications
-                      </h2>
+                      <h2 className="text-sm font-semibold text-mt-fg">Notifications</h2>
                       <Button variant="ghost" onClick={() => void loadNotes()}>
                         Refresh
                       </Button>
@@ -272,14 +303,14 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
               {session.status === "signed-in" ? (
                 <>
-                  <p className="text-xs text-mt-muted">
-                    Signed in as <strong className="text-mt-fg">{session.username}</strong> (
-                    {session.role})
+                  <p className="mt-session-meta">
+                    <strong className="font-semibold text-mt-fg">{session.username}</strong>
+                    <span> · {session.role}</span>
                   </p>
-                  <p className="max-w-48 text-xs text-mt-muted">
+                  <p className="mt-session-note">
                     Signing out also ends the session used by the classic UI.
                   </p>
-                  <Button variant="ghost" onClick={() => void signOut()}>
+                  <Button variant="ghost" className="py-1" onClick={() => void signOut()}>
                     Sign out
                   </Button>
                 </>
