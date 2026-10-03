@@ -39,6 +39,7 @@ El orden es orientativo; cada slice debe poder demostrarse.
 | v2.4 | Operación a escala | Multi-engagement (`scope_ids`), paginación por cursor del historial | **Cerrada 2026-09-16** — [TASK-21](../tasks/21-multi-engagement.md) ✅ |
 | v3.0 | Plataforma | Watch/headless (Eje A) ✅, PostgreSQL+pgvector (Eje B) ✅, auth básica (Eje C) ✅ | **Cerrada 2026-09-18** — TASK-22 ✅, [TASK-23](../tasks/23-postgres-pgvector.md) ✅ (Eje B), [TASK-24](../tasks/24-auth-basic.md) ✅ (Eje C) — [12-platform-v3.md](12-platform-v3.md) |
 | v3.1 | Multi-usuario & UI | Multi-usuario (first-run setup, panel admin, invitaciones) + rediseño de UI (design system propio, Tailwind compilado, sidebar) | **Planificada 2026-09-19** — [TASK-25](../tasks/25-user-registration.md) → [TASK-26](../tasks/26-ui-redesign.md) |
+| v3.2 | Hardening post-auditoría | P0 seguridad, recovery/abort de runs, integridad del agente, retención GDPR, authz del API, higiene de core/backend, precisión de detectores | **Planificada 2026-10-03** — [auditoría](../audit-2026-10-03.md), [TASK-27](../tasks/27-security-hardening-p0.md) → [TASK-34](../tasks/34-detector-precision.md) + [TASK-35](../tasks/35-ui-ux-improvements.md) (UI/UX) |
 
 ## Mapeo a características del MVP
 
