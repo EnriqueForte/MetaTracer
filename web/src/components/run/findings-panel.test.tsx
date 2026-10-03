@@ -47,6 +47,16 @@ describe("FindingsPanel hostile content", () => {
     );
   });
 
+  it("groups findings by their real asset URL", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ findings: [finding] }), { status: 200 })),
+    );
+    render(<FindingsPanel runId="run-1" totalAssets={1} />);
+    expect(await screen.findByRole("heading", { name: "Assets with findings" })).toBeInTheDocument();
+    expect(screen.getByText("GPS · Unclassified")).toBeInTheDocument();
+  });
+
   it("keeps a load error distinct from an empty result", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("nope", { status: 500 })));
     render(<FindingsPanel runId="run-2" totalAssets={0} />);

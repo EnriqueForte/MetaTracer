@@ -121,6 +121,7 @@ export function RunProgress({ runId }: { runId: string }) {
   const [currentStep, setCurrentStep] = useState<number | null>(null);
   const [totalSteps, setTotalSteps] = useState<number | null>(null);
   const [contractError, setContractError] = useState(false);
+  const [trace, setTrace] = useState<string[]>([]);
   const sourceRef = useRef<EventSource | null>(null);
   const pollRef = useRef<number | null>(null);
 
@@ -210,6 +211,10 @@ export function RunProgress({ runId }: { runId: string }) {
       setCurrentStep(tick.current_step);
       setTotalSteps(tick.total_steps);
       setStages((current) => applyProgress(current, tick));
+      setTrace((current) => {
+        const next = [...current, tick.message];
+        return next.length > 6 ? next.slice(next.length - 6) : next;
+      });
       if (tick.stage === "completed" || tick.stage === "failed") {
         closeStream();
         void refresh();
@@ -321,6 +326,14 @@ export function RunProgress({ runId }: { runId: string }) {
                   aria-current={state === "active" ? "step" : undefined}
                 >
                   <span className="mt-stage-line" aria-hidden="true" />
+                  {state === "active" ? (
+                    <span
+                      className="mt-stage-asset"
+                      data-stage={key}
+                      aria-hidden="true"
+                      title={currentAsset || STAGE_LABELS[key]}
+                    />
+                  ) : null}
                   <span className="mt-stage-node">
                     <span className="mt-stage-dot" aria-hidden="true" />
                     <span>
@@ -350,6 +363,18 @@ export function RunProgress({ runId }: { runId: string }) {
           ) : null}
           {contractError ? (
             <p className="text-xs text-mt-muted">A progress event could not be read.</p>
+          ) : null}
+          {trace.length > 0 ? (
+            <div className="mt-card flex flex-col gap-2 p-3" aria-label="Recent progress">
+              <p className="mt-kicker">Recent progress</p>
+              <ol className="flex flex-col gap-1">
+                {trace.map((entry, index) => (
+                  <li key={`${index}-${entry}`} className="mt-tech text-xs text-mt-muted">
+                    {entry}
+                  </li>
+                ))}
+              </ol>
+            </div>
           ) : null}
         </div>
       ) : null}

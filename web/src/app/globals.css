@@ -527,6 +527,7 @@ body {
   color: var(--mt-muted);
   font-size: 12px;
   line-height: 1.3;
+  transition: color var(--mt-duration) var(--mt-ease);
 }
 
 .mt-stage-line {
@@ -536,6 +537,7 @@ body {
   right: 0;
   height: 2px;
   background: var(--mt-border);
+  transition: background-color var(--mt-duration) var(--mt-ease);
 }
 
 .mt-stage:last-child .mt-stage-line {
@@ -558,15 +560,21 @@ body {
   border: 2px solid var(--mt-border-strong);
   border-radius: 50%;
   background: var(--mt-bg);
+  transition:
+    border-color var(--mt-duration) var(--mt-ease),
+    background-color var(--mt-duration) var(--mt-ease);
 }
 
 .mt-stage[data-state="done"] {
   color: var(--mt-fg);
 }
 
-.mt-stage[data-state="done"] .mt-stage-dot,
-.mt-stage[data-state="done"] .mt-stage-line {
+.mt-stage[data-state="done"] .mt-stage-dot {
   border-color: var(--mt-accent);
+  background: var(--mt-accent);
+}
+
+.mt-stage[data-state="done"] .mt-stage-line {
   background: var(--mt-accent);
 }
 
@@ -582,6 +590,10 @@ body {
   animation: mt-pulse 1.6s var(--mt-ease) infinite;
 }
 
+.mt-stage[data-state="active"] .mt-stage-line {
+  background: var(--mt-accent-soft);
+}
+
 .mt-stage[data-state="active"][data-stage="ai_analysis"] .mt-stage-dot {
   border-color: var(--mt-secondary-hover);
   background: var(--mt-secondary);
@@ -595,6 +607,41 @@ body {
 .mt-stage[data-state="failed"] .mt-stage-dot {
   border-color: var(--mt-danger);
   background: var(--mt-danger);
+}
+
+.mt-stage-asset {
+  position: absolute;
+  top: -3px;
+  left: 14px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--mt-accent-hover);
+  animation: mt-asset 1.4s var(--mt-ease) infinite;
+}
+
+.mt-stage-asset[data-stage="ai_analysis"] {
+  background: var(--mt-secondary-hover);
+}
+
+.mt-stage-asset[data-stage="report_generation"] {
+  background: var(--mt-success);
+}
+
+@keyframes mt-asset {
+  0% {
+    left: 14px;
+    opacity: 0;
+  }
+
+  20% {
+    opacity: 1;
+  }
+
+  100% {
+    left: calc(100% - 8px);
+    opacity: 0;
+  }
 }
 
 @keyframes mt-pulse {
@@ -664,13 +711,16 @@ body {
   .mt-bar > span,
   .mt-chart-fill,
   .mt-stage,
+  .mt-stage-line,
+  .mt-stage-dot,
   .mt-card-interactive {
     transition: none;
   }
 
   .mt-spin,
   .mt-skeleton,
-  .mt-stage-dot {
+  .mt-stage-dot,
+  .mt-stage-asset {
     animation: none;
   }
 }

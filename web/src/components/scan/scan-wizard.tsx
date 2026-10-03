@@ -301,9 +301,9 @@ export function ScanWizard() {
             Trace
           </h2>
           <p className="mt-meta mt-1">
-            After you start, this chain follows the live scan. A step lights only when the server
-            reports it. The model step classifies evidence already collected; it does not open new
-            targets.
+            After you start, the run page follows this chain live. A step lights only when the
+            server reports it. The model step classifies evidence already collected; it does not
+            open new targets.
           </p>
         </div>
         <ol className="mt-stages" aria-label="Scan pipeline">

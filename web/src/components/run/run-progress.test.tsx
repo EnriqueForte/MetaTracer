@@ -76,7 +76,33 @@ describe("RunProgress", () => {
     expect(active).toHaveTextContent("Discovery");
     expect(active).toHaveAttribute("data-state", "active");
     expect(screen.getByText("https://example.com/a")).toBeInTheDocument();
+    expect(active.querySelector(".mt-stage-asset")).not.toBeNull();
+    expect(active.querySelector(".mt-stage-asset")).toHaveAttribute("title", "https://example.com/a");
+    expect(screen.getByLabelText("Recent progress")).toHaveTextContent("Crawling");
     expect(screen.queryByRole("heading", { name: "Reports" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the moving marker on the active stage without an asset URL", async () => {
+    stub("running");
+    render(<RunProgress runId="run-1" />);
+    expect(await screen.findByRole("list", { name: "Progress" })).toBeInTheDocument();
+    await act(async () => {
+      source?.onmessage?.({
+        data: JSON.stringify({
+          stage: "ai_analysis",
+          message: "Classifying",
+          current_asset: null,
+          current_step: 6,
+          total_steps: 7,
+        }),
+      });
+    });
+    const active = screen.getByRole("listitem", { current: "step" });
+    expect(active).toHaveTextContent("Classification and AI analysis");
+    const marker = active.querySelector(".mt-stage-asset");
+    expect(marker).not.toBeNull();
+    expect(marker).toHaveAttribute("data-stage", "ai_analysis");
+    expect(marker).toHaveAttribute("title", "Classification and AI analysis");
   });
 
   it("puts the five exports in the run bar", async () => {

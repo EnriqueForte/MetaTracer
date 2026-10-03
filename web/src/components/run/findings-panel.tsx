@@ -118,6 +118,44 @@ function AssetLink({ url }: { url: string }) {
   );
 }
 
+function severityBadgeVariant(severity: Finding["severity"]) {
+  return severity ?? "unclassified";
+}
+
+function AssetFindings({ findings }: { findings: Finding[] }) {
+  const byAsset = new Map<string, Finding[]>();
+  for (const finding of findings) {
+    const key = finding.asset_final_url || finding.asset_source_url;
+    if (!key) continue;
+    const list = byAsset.get(key) ?? [];
+    list.push(finding);
+    byAsset.set(key, list);
+  }
+  const rows = [...byAsset.entries()].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
+  if (rows.length === 0) return null;
+  return (
+    <section className="mt-card flex min-w-0 flex-col gap-3 p-4" aria-labelledby="asset-findings-title">
+      <h2 id="asset-findings-title" className="mt-section-title">
+        Assets with findings
+      </h2>
+      <ul className="flex flex-col gap-3">
+        {rows.map(([url, items]) => (
+          <li key={url} className="flex min-w-0 flex-col gap-1 border-t border-mt-border pt-2 first:border-t-0 first:pt-0">
+            <AssetLink url={url} />
+            <div className="flex flex-wrap gap-1.5">
+              {items.map((finding) => (
+                <Badge key={finding.id} variant={severityBadgeVariant(finding.severity)}>
+                  {finding.type_label} · {SEVERITY_LABEL[severityKey(finding.severity)]}
+                </Badge>
+              ))}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export function FindingsPanel({ runId, totalAssets }: { runId: string; totalAssets: number }) {
   const [findings, setFindings] = useState<Finding[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -376,6 +414,8 @@ export function FindingsPanel({ runId, totalAssets }: { runId: string; totalAsse
           </p>
         </div>
       ) : null}
+
+      {findings.length > 0 ? <AssetFindings findings={findings} /> : null}
 
       {findings.length > 0 ? (
         <Table>
