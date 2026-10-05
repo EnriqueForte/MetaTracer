@@ -9,6 +9,7 @@ share the orchestrator. No writes happen anywhere in this module.
 from __future__ import annotations
 
 from collections import Counter
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from pydantic import BaseModel
@@ -22,6 +23,8 @@ from metatracer.db.repositories import (
 )
 
 _DASHBOARD_TOP_LIMIT = 10
+# Days of severity history shown on the dashboard (TASK-35).
+TREND_DAYS = 30
 
 
 class DashboardStats(BaseModel):
@@ -40,6 +43,25 @@ class DashboardStats(BaseModel):
     top_evidence: list[dict[str, Any]]
     # calls, prompt_tokens, completion_tokens, total_tokens, latency_ms
     agent_usage: dict[str, int]
+    # One point per UTC day, oldest first, zeros included (TASK-35).
+    trends: list[dict[str, Any]] = []
+
+
+def build_trends(
+    rows: list[tuple[str, str | None, int]], today: datetime, days: int = TREND_DAYS
+) -> list[dict[str, Any]]:
+    """Fill a fixed window of days so the chart never skips an empty day."""
+    start = (today - timedelta(days=days - 1)).date()
+    points: dict[str, dict[str, Any]] = {}
+    for offset in range(days):
+        day = (start + timedelta(days=offset)).isoformat()
+        points[day] = {"date": day, **{key: 0 for key in _SEVERITY_ORDER}, "unclassified": 0}
+    for day, severity, count in rows:
+        point = points.get(day)
+        if point is None:
+            continue
+        point[severity if severity in _SEVERITY_ORDER else "unclassified"] += count
+    return list(points.values())
 
 
 def _ordered_counter(
@@ -60,13 +82,18 @@ class DashboardStatsService:
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._session_factory = session_factory
 
-    async def build(self) -> DashboardStats:
+    async def build(self, now: datetime | None = None) -> DashboardStats:
+        today = now or datetime.now(UTC)
+        since = (today - timedelta(days=TREND_DAYS - 1)).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
         async with self._session_factory() as session:
             repo = DashboardRepository(session)
             summary = await repo.summary()
             top_domains = await repo.top_domains(_DASHBOARD_TOP_LIMIT)
             top_evidence = await repo.top_evidence(_DASHBOARD_TOP_LIMIT)
             agent_usage = await repo.agent_usage()
+            trend_rows = await repo.severity_by_day(since)
 
         severity_breakdown = _ordered_counter(summary["by_severity"], _SEVERITY_ORDER)
         severity_breakdown["unclassified"] = int(summary["unclassified"])
@@ -82,6 +109,8 @@ class DashboardStatsService:
                 "severity_breakdown": severity_breakdown,
                 "by_type": _ordered_counter(summary["by_type"], _FINDING_TYPE_ORDER),
                 "unclassified": summary["unclassified"],
+                # Marked false_positive; not in total or any breakdown (TASK-35).
+                "dismissed": summary["dismissed"],
             },
             top_domains=[
                 {"domain": domain, "count": count} for domain, count in top_domains
@@ -94,4 +123,5 @@ class DashboardStatsService:
                 "total_tokens": agent_usage["total_tokens"],
                 "latency_ms": agent_usage["latency_ms"],
             },
+            trends=build_trends(trend_rows, today),
         )

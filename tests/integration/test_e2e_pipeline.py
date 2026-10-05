@@ -153,7 +153,7 @@ async def test_full_pipeline_five_types_reports_and_persistence(
 
     # Evidence is the planted one (byte-for-byte snippets, never invented).
     assert snippets[FindingType.gps] == ["Latitude: 40.416800, Longitude: -3.703800"]
-    assert snippets[FindingType.email] == ["security.lead@acme-corp.test"]
+    assert snippets[FindingType.email] == ["security.lead@acme-corp.internal"]
     assert snippets[FindingType.internal_path] == [
         r"C:\Users\dev_admin\Projects\ConfidentialApp\build.pdf"
     ]
@@ -258,7 +258,7 @@ async def test_html_headers_and_js_are_first_class_sources(
     assert "PHP/8.2.0" in snippets
     assert "http:x-powered-by" in sources
     assert "WordPress 6.4.2" in snippets
-    assert "recon@acme-corp.test" in snippets
+    assert "recon@acme-corp.internal" in snippets
     assert any("TODO:" in snippet for snippet in snippets)
     assert any(r"C:\Users\web_admin\app.js" in snippet for snippet in snippets)
     raw_values = " ".join(item.value for item in state["raw_items"])

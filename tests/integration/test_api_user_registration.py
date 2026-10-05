@@ -656,11 +656,11 @@ class TestUsersCrud:
         )
         assert response.status_code == 409
 
-    async def test_viewer_reads_but_cannot_mutate(self, client: httpx.AsyncClient):
+    async def test_viewer_cannot_read_admin_or_mutate(self, client: httpx.AsyncClient):
         payload = await _login_as_viewer(client)
         csrf = payload["csrf_token"]
-        assert (await client.get("/api/users")).status_code == 200
-        assert (await client.get("/api/invitations")).status_code == 200
+        assert (await client.get("/api/users")).status_code == 403
+        assert (await client.get("/api/invitations")).status_code == 403
         denied_create = await client.post(
             "/api/users",
             json={"username": "nope", "password": "worker-pass-1", "role": "viewer"},

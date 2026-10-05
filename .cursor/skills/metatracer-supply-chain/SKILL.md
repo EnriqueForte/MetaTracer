@@ -17,12 +17,14 @@ Si necesitas algo que no está en la lista: **para y pide aprobación**. No lo a
 ## Lista aprobada (TASK-00, 0.1.3)
 
 Runtime: `pydantic>=2.7`, `pydantic-settings>=2.3`, `sqlmodel>=0.0.18`, `aiosqlite>=0.20`,
-`langgraph>=0.1.0`, `langchain-core>=0.2.0`, `httpx>=0.27.0`, `pillow>=10.3.0`, `pypdf>=4.2.0`,
-`piexif>=1.1.3`, `typer>=0.12.0`, `rich>=13.7.0`, `fastapi>=0.111.0`, `uvicorn>=0.30.0`,
+`langgraph>=0.1.0`, `langchain-core>=0.2.0`, `langchain-openai>=1.0`,
+`httpx>=0.27.0,<1`, `langsmith>=0.3.45,<0.12`, `openai>=1.0,<3`,
+`pillow>=10.3.0`, `pypdf>=4.2.0`,
+`typer>=0.12.0`, `rich>=13.7.0`, `fastapi>=0.111.0`, `uvicorn>=0.30.0`,
 `jinja2>=3.1`, `beautifulsoup4>=4.12`, `tenacity>=8.3`, `python-dotenv>=1.0`.
 
 Dev: `pytest>=8.0.0`, `pytest-asyncio>=0.23.0`, `pytest-cov>=5.0`, `ruff>=0.4.0`,
-`reportlab>=4.2`.
+`reportlab>=4.2`, `piexif>=1.1.3` (fixtures JPEG only; not imported from `src/`).
 
 Runtime: `requires-python = ">=3.11,<3.13"`, `ruff.target-version = "py311"`.
 

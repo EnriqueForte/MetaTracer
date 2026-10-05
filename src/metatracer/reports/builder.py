@@ -25,6 +25,10 @@ Documented decisions:
 - ``generated_at`` is captured once per ``build()`` so a Markdown/JSON pair
   exported from the same ReportData shares the file-name timestamp; a fresh
   build yields a fresh timestamped file instead of overwriting (4.3).
+- Triage (TASK-35): findings an operator marked ``false_positive`` are left
+  out by default and counted in ``excluded_false_positives``; severity counts
+  cover only the findings in the report. ``include_false_positives=True``
+  keeps them, each with its ``triage_status``.
 """
 
 import json
@@ -47,8 +51,16 @@ from metatracer.db.models import (
     FindingType,
     ReasoningDepth,
     Severity,
+    TriageStatus,
 )
 from metatracer.db.repositories import AssetRepository, FindingRepository, RunRepository
+
+TRIAGE_LABELS: dict[TriageStatus, str] = {
+    TriageStatus.open: "Open",
+    TriageStatus.confirmed: "Confirmed",
+    TriageStatus.false_positive: "False positive",
+    TriageStatus.fixed: "Fixed",
+}
 
 REPORT_TITLE = "MetaTracer Security Report"
 
@@ -129,6 +141,14 @@ class ReportFindingData:
     explanation: str
     remediation: str
     reproduction_steps: tuple[str, ...]
+    triage_status: TriageStatus = TriageStatus.open
+    triage_note: str = ""
+    triaged_by: str = ""
+    triaged_at: datetime | None = None
+
+    @property
+    def triage_label(self) -> str:
+        return TRIAGE_LABELS[self.triage_status]
 
 
 @dataclass(frozen=True, slots=True)
@@ -146,6 +166,7 @@ class ReportData:
     hygiene_note: str
     compliance_notice: str
     findings: tuple[ReportFindingData, ...]
+    excluded_false_positives: int = 0
 
     @property
     def total_findings(self) -> int:
@@ -155,11 +176,14 @@ class ReportData:
     def executive_summary_line(self) -> str:
         """One-line tally mandated by the header contract (4.1.2)."""
         counts = self.severity_counts
-        return (
+        line = (
             f"Total assets: {self.total_assets} | Critical: {counts.critical} | "
             f"High: {counts.high} | Medium: {counts.medium} | Low: {counts.low} | "
             f"Info: {counts.info} | Unclassified: {counts.unclassified}"
         )
+        if self.excluded_false_positives:
+            line += f" | Excluded as false positive: {self.excluded_false_positives}"
+        return line
 
 
 class ReportBuilder:
@@ -168,7 +192,7 @@ class ReportBuilder:
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._session_factory = session_factory
 
-    async def build(self, run_id: str) -> ReportData:
+    async def build(self, run_id: str, *, include_false_positives: bool = False) -> ReportData:
         """Load the run, its assets and its findings and return the report data."""
         async with self._session_factory() as session:
             run = await RunRepository(session).get(run_id)
@@ -177,6 +201,11 @@ class ReportBuilder:
             assets = await AssetRepository(session).list_by_run(run_id)
             findings = await FindingRepository(session).list_by_run(run_id)
 
+        excluded = 0
+        if not include_false_positives:
+            kept = [f for f in findings if f.triage_status != TriageStatus.false_positive]
+            excluded = len(findings) - len(kept)
+            findings = kept
         assets_by_id = {asset.id: asset for asset in assets}
         # FK enforcement guarantees the asset exists; a KeyError would mean the
         # database is corrupt, which must surface rather than drop findings.
@@ -198,6 +227,7 @@ class ReportBuilder:
             hygiene_note=_hygiene_note(len(assets), findings, run.executive_summary),
             compliance_notice=COMPLIANCE_NOTICE,
             findings=entries,
+            excluded_false_positives=excluded,
         )
 
 
@@ -269,6 +299,10 @@ def _entry(finding: Finding, asset: Asset) -> ReportFindingData:
         explanation=_prose(finding.severity_justification),
         remediation=_prose(finding.remediation_advice),
         reproduction_steps=tuple(_parse_reproduction_steps(finding.reproduction_steps)),
+        triage_status=TriageStatus(finding.triage_status or TriageStatus.open),
+        triage_note=finding.triage_note or "",
+        triaged_by=finding.triaged_by or "",
+        triaged_at=finding.triaged_at,
     )
 
 

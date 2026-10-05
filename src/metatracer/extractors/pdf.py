@@ -13,6 +13,7 @@ string is kept.
 
 import logging
 import re
+import zlib
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -22,7 +23,7 @@ from metatracer.core.exceptions import ExtractionError
 from metatracer.core.logging import sanitize_for_log
 from metatracer.extractors.fields import ExtractedField
 from metatracer.extractors.sanitize import sanitize_value
-from metatracer.extractors.xmp import parse_xmp_packet
+from metatracer.extractors.xmp import MAX_XMP_PACKET_BYTES, parse_xmp_packet
 
 logger = logging.getLogger("metatracer.extractors.pdf")
 
@@ -118,12 +119,90 @@ class PdfMetadataExtractor:
             stream = (
                 metadata_ref.get_object() if hasattr(metadata_ref, "get_object") else metadata_ref
             )
-            packet = stream.get_data()
+            packet = _bounded_xmp_packet(stream)
         except Exception as exc:
             # A broken XMP stream must not cost the pdfinfo fields already read.
             logger.warning("XMP stream unreadable: %s", sanitize_for_log(exc))
+            return []
+        if not packet:
             return []
         return [
             ExtractedField(XMP_NAMESPACE, key, value)
             for key, value in parse_xmp_packet(packet).items()
         ]
+
+
+def _bounded_xmp_packet(stream: object) -> bytes | None:
+    """XMP bytes capped *before* inflate. ``None`` drops XMP and keeps pdfinfo.
+
+    pypdf's ``EncodedStreamObject.get_data()`` inflates the whole Flate stream
+    with no limit. This reads the raw ``_data`` (pypdf 6.x; there is no
+    ``get_raw_data``) and decompresses with an output ceiling. Filters other
+    than a single ``FlateDecode``, and filter chains, are discarded.
+    """
+    raw = getattr(stream, "_data", None)
+    if not isinstance(raw, (bytes, bytearray)):
+        logger.warning("discarding XMP stream: no raw bytes to bound")
+        return None
+    packet = bytes(raw)
+    filters = _xmp_filter_names(stream)
+    if filters is None:
+        logger.warning("discarding XMP stream: unreadable filter")
+        return None
+    if not filters:
+        if len(packet) > MAX_XMP_PACKET_BYTES:
+            logger.warning("discarding XMP stream: uncompressed packet exceeds the size cap")
+            return None
+        return packet
+    if filters != ["FlateDecode"]:
+        logger.warning(
+            "discarding XMP stream: unsupported filter %s",
+            sanitize_for_log(",".join(filters)),
+        )
+        return None
+    return _inflate_flate_capped(packet)
+
+
+def _xmp_filter_names(stream: object) -> list[str] | None:
+    """``/Filter`` names without the leading slash. ``None`` if unreadable."""
+    getter = getattr(stream, "get", None)
+    if not callable(getter):
+        return None
+    value = getter("/Filter")
+    if value is None:
+        return []
+    items = list(value) if isinstance(value, list) else [value]
+    names: list[str] = []
+    for item in items:
+        text = str(item).strip()
+        if text.startswith("/"):
+            text = text[1:]
+        if not text or any(char.isspace() for char in text):
+            return None
+        names.append(text)
+    return names
+
+
+def _inflate_flate_capped(raw: bytes) -> bytes | None:
+    """Decompress at most ``MAX_XMP_PACKET_BYTES`` of output. ``None`` if over."""
+    decompressor = zlib.decompressobj()
+    limit = MAX_XMP_PACKET_BYTES
+    try:
+        inflated = decompressor.decompress(raw, limit + 1)
+    except zlib.error as exc:
+        logger.warning("discarding XMP stream: flate decode failed: %s", sanitize_for_log(exc))
+        return None
+    if decompressor.unconsumed_tail or len(inflated) > limit:
+        logger.warning("discarding XMP stream: decompressed packet exceeds the size cap")
+        return None
+    try:
+        tail = decompressor.flush()
+    except zlib.error as exc:
+        logger.warning("discarding XMP stream: flate decode failed: %s", sanitize_for_log(exc))
+        return None
+    if tail:
+        if len(inflated) + len(tail) > limit:
+            logger.warning("discarding XMP stream: decompressed packet exceeds the size cap")
+            return None
+        inflated += tail
+    return inflated

@@ -19,6 +19,10 @@ plain text:
 No network, no LLM, no reads of original asset files: the data is
 :class:`ReportData` only. This is a *local file artifact*; nothing is ever
 sent to any platform (auto-submission is out of scope, feature 04).
+
+Formula neutralization (TASK-27) is applied by the CSV exporter, not here.
+Each line of this write-up starts with a field label (``Evidence: ...``),
+so the file is a prose card for a bounty form, not a cell-oriented sheet.
 """
 
 from pathlib import Path
@@ -84,7 +88,7 @@ def _render_summary(data: ReportData) -> str:
             "",
             data.executive_summary_line,
             "",
-            data.hygiene_note,
+            _no_fake_finding_header(data.hygiene_note),
         ]
     )
 
@@ -113,8 +117,9 @@ def _render_finding_text(finding: ReportFindingData) -> str:
     )
     return "\n".join(
         [
-            f"Title: {finding.title}",
+            f"Title: {_single_line(finding.title)}",
             f"Severity: {severity_label}",
+            *([f"Triage: {finding.triage_label}"] if finding.triage_status.value != "open" else []),
             f"Finding type: {finding.type_label}",
             f"Affected asset: {finding.asset_final_url} "
             f"(source: {finding.asset_source_url}, "
@@ -124,11 +129,21 @@ def _render_finding_text(finding: ReportFindingData) -> str:
             f"Impact: {_single_line(finding.impact)}",
             f"Explanation: {_single_line(finding.explanation)}",
             "Reproduction (non-exploitative):",
-            _indent(reproduction),
+            _indent(_no_fake_finding_header(reproduction)),
             "Remediation:",
-            _indent(finding.remediation),
+            _indent(_no_fake_finding_header(finding.remediation)),
         ]
     )
+
+
+def _no_fake_finding_header(text: str) -> str:
+    """A prose line must not look like the ``=== Finding N/N ===`` separator."""
+    lines = []
+    for line in text.splitlines():
+        if line.strip().startswith("==="):
+            line = "Note: " + line.strip()
+        lines.append(line)
+    return "\n".join(lines)
 
 
 def _single_line(text: str) -> str:

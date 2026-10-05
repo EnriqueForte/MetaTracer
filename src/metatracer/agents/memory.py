@@ -19,21 +19,11 @@ Contract rules (subtasks 13.3/13.4 of TASK-13):
 
 from dataclasses import dataclass, field
 
-from pydantic import BaseModel
-
+from metatracer.classification.feedback import FeedbackExample
 from metatracer.db.models import FeedbackVote, Finding, FindingType, Severity
 from metatracer.db.repositories import FeedbackRepository
 
-
-class FeedbackExample(BaseModel):
-    """One structured, LLM-safe example distilled from a feedback row."""
-
-    finding_type: FindingType
-    evidence_snippet: str
-    field_source: str
-    severity_before: Severity
-    severity_after: Severity
-    vote: FeedbackVote
+__all__ = ["FeedbackExample", "FeedbackMemory", "examples_to_payload"]
 
 
 @dataclass(slots=True)

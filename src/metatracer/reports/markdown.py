@@ -8,6 +8,7 @@ the fence length adapts to any backtick run in the snippet so hostile metadata
 cannot break out of the block.
 """
 
+import html
 import re
 from pathlib import Path
 
@@ -73,7 +74,7 @@ def _render_summary(data: ReportData) -> str:
             "",
             data.executive_summary_line,
             "",
-            data.hygiene_note,
+            _escape_prose(data.hygiene_note),
         ]
     )
 
@@ -103,13 +104,19 @@ def _render_finding(finding: ReportFindingData) -> str:
         finding.severity.value.capitalize() if finding.severity is not None else "Unclassified"
     )
     reproduction = "\n".join(
-        f"{index}. {step}" for index, step in enumerate(finding.reproduction_steps, start=1)
+        f"{index}. {_escape_prose(step)}"
+        for index, step in enumerate(finding.reproduction_steps, start=1)
     )
     return "\n".join(
         [
-            f"### [{severity_label}] {finding.title}",
+            f"### [{severity_label}] {_escape_inline(finding.title)}",
             "",
             f"- **Severity:** {severity_label}",
+            *(
+                [f"- **Triage:** {finding.triage_label}"]
+                if finding.triage_status.value != "open"
+                else []
+            ),
             f"- **Affected asset:** {_inline_code(finding.asset_final_url)} "
             f"(source: {_inline_code(finding.asset_source_url)}, "
             f"content-type: {_inline_code(finding.asset_content_type)})",
@@ -117,14 +124,26 @@ def _render_finding(finding: ReportFindingData) -> str:
             f"- **Metadata field:** {_inline_code(finding.field_source)}",
             "- **Evidence:**",
             _fenced_evidence(finding.evidence),
-            f"- **Impact:** {_single_line(finding.impact)}",
-            f"- **Explanation:** {_single_line(finding.explanation)}",
+            f"- **Impact:** {_escape_inline(finding.impact)}",
+            f"- **Explanation:** {_escape_inline(finding.explanation)}",
             "- **Reproduction steps:**",
             _indent(reproduction),
             "- **Remediation:**",
-            _indent(finding.remediation),
+            _indent(_escape_prose(finding.remediation)),
         ]
     )
+
+
+def _escape_prose(text: str) -> str:
+    """Escape HTML and stop headings or links from model/metadata prose."""
+    escaped = html.escape(text, quote=False)
+    escaped = re.sub(r"(?m)^(\s{0,3})(#{1,6})(?=\s)", r"\1\\\2", escaped)
+    return escaped.replace("[", "\\[").replace("]", "\\]")
+
+
+def _escape_inline(text: str) -> str:
+    """Single-line prose safe to drop into a Markdown heading or bullet."""
+    return _escape_prose(_single_line(text))
 
 
 def _fenced_evidence(evidence: str) -> str:

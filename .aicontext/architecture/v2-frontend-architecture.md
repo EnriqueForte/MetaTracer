@@ -13,8 +13,10 @@ Web V1 (Jinja2, Alpine CSP 3.17.4, Tailwind compilado, `metatracer.css`) no se m
 | Tailwind | Aceptado dentro de `web/` | Aislado del `tailwind.css` precompilado de V1. Versión mayor: pregunta abierta del ADR (3.4 vs 4) |
 | shadcn/ui | Aceptado solo como primitivas copiadas al repo | Sin CDN. No sustituye badges de severidad ni el gate de scope |
 | Lucide | Aceptado, bundled | Sustituye la ausencia de icon font. Sin CDN |
-| TanStack Query | Aceptado para estado de servidor | Runs, findings, scopes, stats, users. No para el tick SSE |
-| Zod | Aceptado en formularios | Advisory. Pydantic manda |
+| TanStack Query | Aceptado para estado de servidor; instalado en TASK-35 (`5.104.1`) | Runs, findings, scopes, stats, users. No para el tick SSE |
+| Zod | Aceptado en formularios; instalado en TASK-35 (`4.6.5`) | Advisory. Pydantic manda. Se importa solo desde `src/lib/validation/zod.ts`, que activa `jitless` (sin él Zod prueba `new Function` y la CSP sin `unsafe-eval` registra una violación). Prohibido `zod/compile` |
+
+TanStack Query no usa `dehydrate`, `hydrate` ni `HydrationBoundary`: serializarían en el HTML datos del servidor que incluyen snippets del target. Reabrirlo exige revisión de `safety-guardian`.
 | Estado global tipo Redux | Rechazado | No hay un estado de cliente que no quepa en Query + un store pequeño de progreso |
 | BFF que reexponga `/api` | Rechazado | Duplicaría auth y sería un segundo lugar donde saltarse el scope |
 

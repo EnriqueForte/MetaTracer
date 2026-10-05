@@ -7,7 +7,7 @@ filtered here — a bounty write-up stays complete.
 
 from collections.abc import Sequence
 
-from metatracer.db.models import Confidence, FindingType, Severity
+from metatracer.db.models import Confidence, FindingType, Severity, TriageStatus
 from metatracer.reports.builder import ReportFindingData
 
 
@@ -18,12 +18,15 @@ def filter_findings(
     finding_type: FindingType | None = None,
     confidence: Confidence | None = None,
     q: str | None = None,
+    triage: TriageStatus | None = None,
 ) -> list[ReportFindingData]:
     """Return findings matching every provided criterion (AND). Order is kept."""
     needle = q.strip().casefold() if q and q.strip() else ""
     matched: list[ReportFindingData] = []
     for finding in findings:
         if severity is not None and finding.severity is not severity:
+            continue
+        if triage is not None and finding.triage_status != triage:
             continue
         if finding_type is not None and finding.finding_type is not finding_type:
             continue

@@ -39,7 +39,7 @@ from pathlib import Path
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from metatracer.core.safety.scope import normalize_host
+from metatracer.core.safety.scope import assert_registrable_scope, normalize_host
 from metatracer.db.models import Scope
 from metatracer.db.repositories import ScopeRepository
 
@@ -106,8 +106,10 @@ def _parse_domains(raw: object, index: int) -> tuple[str, ...]:
             # Non-text entries are suspicious: reject rather than silently pass.
             raise ValueError(f"entry {index}: 'domains' must contain only strings")
         host = normalize_host(value)
-        if host:
-            cleaned.append(host)
+        if not host:
+            continue
+        assert_registrable_scope(host)
+        cleaned.append(host)
     if not cleaned:
         raise ValueError(f"entry {index}: no valid domains after normalization")
     return tuple(cleaned)

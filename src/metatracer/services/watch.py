@@ -7,9 +7,11 @@ prior run of the same scope.
 
 Design contract:
 
-- **Zero LLM, zero network**: the delta is a pure database comparison of
-  ``dedup_signature`` sets. The signatures are already computed by the
-  detectors (TASK-02), stable and indexed, so the comparison is deterministic.
+- **Zero LLM, zero network**: the delta is a pure database comparison.
+- **Run-independent identity** (TASK-35): ``dedup_signature`` embeds the
+  asset id, which is new in every run, so findings are compared by
+  :func:`finding_identity` (asset final URL + type + normalized snippet).
+  ``new_signatures`` still reports the current run's ``dedup_signature``.
 - **Scope identity = the snapshot**: a Run persists ``allowed_scope`` as its
   own snapshot (TASK-10). The delta compares a run against every *other* run
   whose ``allowed_scope`` matches the same snapshot, so deleting/editing a
@@ -29,6 +31,7 @@ import logging
 from dataclasses import dataclass, field
 
 from metatracer.db.repositories import FindingRepository, RunRepository
+from metatracer.detectors.consolidator import finding_identity
 
 logger = logging.getLogger("metatracer.services.watch")
 
@@ -63,8 +66,7 @@ class DeltaReporter:
         """Return the findings of ``run_id`` that are new vs. earlier same-scope runs.
 
         Baseline = every run with the same ``allowed_scope`` snapshot EXCLUDING
-        this run. ``new_signatures`` is the difference of the dedup sets:
-        deterministic, no LLM, no network.
+        this run. Deterministic, no LLM, no network.
         """
         async with self._session_factory() as session:
             repo = RunRepository(session)
@@ -73,22 +75,19 @@ class DeltaReporter:
                 # A vanished run cannot be compared; the caller degrades to
                 # "unknown delta" instead of failing the watch loop.
                 raise LookupError(f"run not found: {run_id}")
-            scope_snapshot = run.allowed_scope
             finding_repo = FindingRepository(session)
-            current = await finding_repo.list_by_run(run_id)
-            current_signatures = {f.dedup_signature for f in current}
+            current = await finding_repo.with_asset_url([run_id])
+            baseline_ids = await repo.ids_with_scope(run.allowed_scope, exclude_id=run_id)
+            baseline = await finding_repo.with_asset_url(baseline_ids)
 
-            # Historical runs with the same snapshot, excluding this one.
-            history = await repo.list_recent(limit=None)
-            baseline_runs = [
-                r
-                for r in history
-                if r.allowed_scope == scope_snapshot and r.id != run_id
-            ]
-            baseline_signatures: set[str] = set()
-            for prev in baseline_runs:
-                prev_findings = await finding_repo.list_by_run(prev.id)
-                baseline_signatures.update(f.dedup_signature for f in prev_findings)
+        def identity(finding, url: str) -> str:
+            return finding_identity(url, finding.finding_type, finding.evidence_snippet)
 
-        new_signatures = sorted(current_signatures - baseline_signatures)
+        known = {identity(finding, url) for finding, url in baseline}
+        fresh = {
+            finding.dedup_signature
+            for finding, url in current
+            if identity(finding, url) not in known
+        }
+        new_signatures = sorted(fresh)
         return DeltaResult(new_findings=len(new_signatures), new_signatures=new_signatures)

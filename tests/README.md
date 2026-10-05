@@ -34,8 +34,8 @@ still refuses the mock origin before opening any socket.
 
 Never point the suite at third-party sites: every test target is either the
 in-memory `httpx.MockTransport` or the local mock origin serving the synthetic
-fixtures from `tests/fixtures/generate_test_fixtures.py` (reserved test domain
-`acme-corp.test`). Regenerate the on-disk copies with:
+fixtures from `tests/fixtures/generate_test_fixtures.py` (synthetic domain
+`acme-corp.internal`; `.test` is not a mailbox). Regenerate the on-disk copies with:
 
 ```powershell
 .venv\Scripts\python.exe -m tests.fixtures.generate_test_fixtures

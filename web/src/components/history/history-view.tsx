@@ -1,160 +1,75 @@
 "use client";
 
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 
+import { DeleteRunDialog } from "@/components/run/run-actions";
+import { RUN_STATUS_LABEL } from "@/components/run/run-model";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { apiFetch } from "@/lib/api/browser";
+import { EmptyState, ErrorState } from "@/components/ui/states";
+import { getJson, hasArray } from "@/lib/api/client";
+import type { RunListItem, RunListResponse, RunStatus } from "@/lib/api/types";
+import { queryKeys } from "@/lib/query/keys";
+import { useActor } from "@/lib/session";
+import { formatWhen } from "@/lib/time";
 
 const STATUSES = ["all", "completed", "failed", "running", "pending", "aborted"] as const;
 type StatusFilter = (typeof STATUSES)[number];
-type RunStatus = Exclude<StatusFilter, "all">;
 
-const STATUS_LABEL: Record<StatusFilter, string> = {
-  all: "All",
-  pending: "Pending",
-  running: "Running",
-  completed: "Completed",
-  failed: "Failed",
-  aborted: "Aborted",
-};
+const FILTER_LABEL: Record<StatusFilter, string> = { all: "All", ...RUN_STATUS_LABEL };
 
-type HistoryRun = {
-  run_id: string;
-  status: RunStatus;
-  target: string;
-  scope: string[];
-  total_assets: number;
-  total_findings: number;
-  started_at: string;
-};
-
-function formatWhen(value: string): string {
-  return value.replace("T", " ").replace(/\.\d+/, "").replace("+00:00", "").replace("Z", "");
+function fetchPage(status: StatusFilter, cursor: string | null): Promise<RunListResponse> {
+  const params = new URLSearchParams();
+  params.set("limit", "50");
+  if (status !== "all") params.set("status", status);
+  if (cursor) params.set("cursor", cursor);
+  return getJson<RunListResponse>(`/api/runs?${params.toString()}`, hasArray("runs"));
 }
 
-function parsePage(value: unknown): { total: number; runs: HistoryRun[]; has_more: boolean; next_cursor: string | null } | null {
-  if (!value || typeof value !== "object") return null;
-  const row = value as Record<string, unknown>;
-  if (typeof row.total !== "number" || !Array.isArray(row.runs)) return null;
-  const runs: HistoryRun[] = [];
-  for (const item of row.runs) {
-    if (!item || typeof item !== "object") return null;
-    const run = item as Record<string, unknown>;
-    if (typeof run.run_id !== "string" || typeof run.target !== "string" || typeof run.started_at !== "string") {
-      return null;
-    }
-    if (
-      run.status !== "pending" &&
-      run.status !== "running" &&
-      run.status !== "completed" &&
-      run.status !== "failed" &&
-      run.status !== "aborted"
-    ) {
-      return null;
-    }
-    if (typeof run.total_assets !== "number" || typeof run.total_findings !== "number") return null;
-    if (!Array.isArray(run.scope) || !run.scope.every((domain) => typeof domain === "string")) return null;
-    runs.push({
-      run_id: run.run_id,
-      status: run.status,
-      target: run.target,
-      scope: run.scope,
-      total_assets: run.total_assets,
-      total_findings: run.total_findings,
-      started_at: run.started_at,
-    });
-  }
-  return {
-    total: row.total,
-    runs,
-    has_more: row.has_more === true,
-    next_cursor: typeof row.next_cursor === "string" ? row.next_cursor : null,
-  };
+function isActive(status: RunStatus): boolean {
+  return status === "pending" || status === "running";
 }
 
 export function HistoryView() {
-  const [runs, setRuns] = useState<HistoryRun[]>([]);
-  const [loaded, setLoaded] = useState(false);
-  const [error, setError] = useState("");
+  const actor = useActor();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [totalRuns, setTotalRuns] = useState(0);
   const [cursorStack, setCursorStack] = useState<(string | null)[]>([]);
-  const [currentCursor, setCurrentCursor] = useState<string | null>(null);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<RunListItem | null>(null);
+  const [compare, setCompare] = useState<string[]>([]);
 
-  const fetchPage = useCallback(async (status: StatusFilter, cursor: string | null) => {
-    const params = new URLSearchParams();
-    params.set("limit", "50");
-    if (status !== "all") params.set("status", status);
-    if (cursor) params.set("cursor", cursor);
-    const response = await apiFetch(`/api/runs?${params.toString()}`);
-    if (!response.ok) throw new Error("load");
-    const parsed = parsePage(await response.json());
-    if (!parsed) throw new Error("shape");
-    return parsed;
-  }, []);
+  const page = useQuery({
+    queryKey: [...queryKeys.runs, statusFilter, cursor],
+    queryFn: () => fetchPage(statusFilter, cursor),
+    placeholderData: keepPreviousData,
+  });
+  const runs = page.data?.runs ?? [];
+  const totalRuns = page.data?.total ?? 0;
+  const hasMore = page.data?.has_more === true;
+  const nextCursor = page.data?.next_cursor ?? null;
+  const loaded = page.isSuccess || page.isError;
+  const error = page.isError ? "Could not load the local history." : "";
 
-  const load = useCallback(async () => {
-    setError("");
+  function changeStatus(next: StatusFilter) {
+    setStatusFilter(next);
+    setCursor(null);
     setCursorStack([]);
-    setCurrentCursor(null);
-    try {
-      const page = await fetchPage(statusFilter, null);
-      setRuns(page.runs);
-      setTotalRuns(page.total);
-      setNextCursor(page.next_cursor);
-      setHasMore(page.has_more);
-      setLoaded(true);
-    } catch {
-      setError("Could not load the local history.");
-      setLoaded(true);
-    }
-  }, [fetchPage, statusFilter]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  async function loadNext() {
-    if (!hasMore || loadingMore || !nextCursor) return;
-    setLoadingMore(true);
-    setError("");
-    try {
-      const page = await fetchPage(statusFilter, nextCursor);
-      setCursorStack((stack) => [...stack, currentCursor]);
-      setCurrentCursor(nextCursor);
-      setRuns(page.runs);
-      setNextCursor(page.next_cursor);
-      setHasMore(page.has_more);
-    } catch {
-      setError("Network error: the API is unreachable.");
-    } finally {
-      setLoadingMore(false);
-    }
   }
 
-  async function loadPrevious() {
-    if (cursorStack.length === 0 || loadingMore) return;
-    setLoadingMore(true);
-    setError("");
-    const previous = cursorStack[cursorStack.length - 1] ?? null;
-    try {
-      const page = await fetchPage(statusFilter, previous);
-      setCursorStack((stack) => stack.slice(0, -1));
-      setCurrentCursor(previous);
-      setRuns(page.runs);
-      setNextCursor(page.next_cursor);
-      setHasMore(page.has_more);
-    } catch {
-      setError("Network error: the API is unreachable.");
-    } finally {
-      setLoadingMore(false);
-    }
+  function toggleCompare(runId: string) {
+    setCompare((current) =>
+      current.includes(runId)
+        ? current.filter((id) => id !== runId)
+        : [...current, runId].slice(-2),
+    );
   }
+
+  const compareHref =
+    compare.length === 2
+      ? `/runs/compare?a=${encodeURIComponent(compare[0])}&b=${encodeURIComponent(compare[1])}`
+      : "";
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
@@ -165,54 +80,74 @@ export function HistoryView() {
             Runs stored in this installation. Reopen a scan to review findings or re-export the report. This is not a multi-user dashboard.
           </p>
         </div>
-        <Button variant="secondary" asChild>
-          <Link href="/">New scan</Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {compareHref ? (
+            <Button variant="secondary" asChild>
+              <Link href={compareHref}>Compare selected</Link>
+            </Button>
+          ) : (
+            <Button variant="secondary" disabled>
+              Compare selected
+            </Button>
+          )}
+          <Button variant="secondary" asChild>
+            <Link href="/">New scan</Link>
+          </Button>
+        </div>
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Status filter">
         {STATUSES.map((status) => (
           <Button
             key={status}
-            variant="secondary"
-            className="px-2 py-1 text-xs"
+            variant="toggle"
             aria-pressed={statusFilter === status}
             aria-label={`Filter by status ${status}`}
-            onClick={() => setStatusFilter(status)}
+            onClick={() => changeStatus(status)}
           >
-            {STATUS_LABEL[status]}
+            {FILTER_LABEL[status]}
           </Button>
         ))}
       </div>
       <p className="text-xs text-mt-muted" aria-live="polite">
         {loaded && !error ? `${totalRuns} ${totalRuns === 1 ? "run" : "runs"}` : ""}
+        {compare.length > 0 ? ` · ${compare.length} of 2 selected to compare` : ""}
       </p>
-      {!loaded && !error ? <p className="text-sm text-mt-muted">Loading history…</p> : null}
-      {error ? (
-        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-mt-danger-border bg-mt-danger-bg p-3 text-sm">
-          <p>{error}</p>
-          <Button variant="secondary" onClick={() => void load()}>Retry</Button>
-        </div>
-      ) : null}
+      {!loaded ? <p className="text-sm text-mt-muted">Loading history…</p> : null}
+      {error ? <ErrorState message={error} onRetry={() => void page.refetch()} /> : null}
       {loaded && !error && runs.length === 0 ? (
-        <p className="text-sm text-mt-muted">No runs yet. Start a scan to build a local history.</p>
+        <EmptyState title="No runs yet">Start a scan to build a local history.</EmptyState>
       ) : null}
       {runs.length > 0 ? (
         <table className="w-full text-sm">
           <caption className="sr-only">Local scan history</caption>
           <thead>
             <tr className="text-left text-xs text-mt-muted">
+              <th className="py-1 font-medium">
+                <span className="sr-only">Compare</span>
+              </th>
               <th className="py-1 font-medium">Status</th>
               <th className="py-1 font-medium">Target</th>
               <th className="py-1 text-right font-medium">Assets</th>
               <th className="py-1 text-right font-medium">Findings</th>
               <th className="py-1 font-medium">Started (UTC)</th>
+              {actor === "operator" ? <th className="py-1 font-medium">Actions</th> : null}
             </tr>
           </thead>
           <tbody>
             {runs.map((run) => (
               <tr key={run.run_id} className="border-t border-mt-border">
+                <td className="py-1.5 pr-2">
+                  {run.status === "completed" ? (
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${run.target} to compare`}
+                      checked={compare.includes(run.run_id)}
+                      onChange={() => toggleCompare(run.run_id)}
+                    />
+                  ) : null}
+                </td>
                 <td className="py-1.5">
-                  <Badge variant={run.status}>{STATUS_LABEL[run.status]}</Badge>
+                  <Badge variant={run.status}>{RUN_STATUS_LABEL[run.status]}</Badge>
                 </td>
                 <td className="py-1.5">
                   <Link href={`/runs/${encodeURIComponent(run.run_id)}`} className="mt-tech underline">
@@ -223,18 +158,60 @@ export function HistoryView() {
                 <td className="py-1.5 text-right tabular-nums">{run.total_assets}</td>
                 <td className="py-1.5 text-right tabular-nums">{run.total_findings}</td>
                 <td className="mt-tech py-1.5">{formatWhen(run.started_at)}</td>
+                {actor === "operator" ? (
+                  <td className="py-1.5">
+                    {isActive(run.status) ? null : (
+                      <Button
+                        variant="danger"
+                        className="px-2 py-1 text-xs"
+                        onClick={() => setPendingDelete(run)}
+                      >
+                        Delete run
+                      </Button>
+                    )}
+                  </td>
+                ) : null}
               </tr>
             ))}
           </tbody>
         </table>
       ) : null}
+      {pendingDelete ? (
+        <DeleteRunDialog
+          runId={pendingDelete.run_id}
+          open
+          onOpenChange={(open) => {
+            if (!open) setPendingDelete(null);
+          }}
+          onDeleted={() => {
+            setCompare((current) => current.filter((id) => id !== pendingDelete.run_id));
+            setPendingDelete(null);
+          }}
+        />
+      ) : null}
       {loaded && runs.length > 0 ? (
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Button variant="secondary" disabled={cursorStack.length === 0 || loadingMore} onClick={() => void loadPrevious()}>
+          <Button
+            variant="secondary"
+            disabled={cursorStack.length === 0 || page.isFetching}
+            onClick={() => {
+              setCursor(cursorStack[cursorStack.length - 1] ?? null);
+              setCursorStack((stack) => stack.slice(0, -1));
+            }}
+          >
             Newer
           </Button>
-          {loadingMore ? <span className="text-xs text-mt-muted">Loading more…</span> : null}
-          <Button variant="secondary" disabled={!hasMore || loadingMore} onClick={() => void loadNext()}>
+          {page.isFetching && page.isPlaceholderData ? (
+            <span className="text-xs text-mt-muted">Loading more…</span>
+          ) : null}
+          <Button
+            variant="secondary"
+            disabled={!hasMore || !nextCursor || page.isFetching}
+            onClick={() => {
+              setCursorStack((stack) => [...stack, cursor]);
+              setCursor(nextCursor);
+            }}
+          >
             Older
           </Button>
         </div>

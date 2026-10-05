@@ -96,6 +96,13 @@ async def init_db(engine: AsyncEngine) -> None:
     async with engine.begin() as connection:
         await connection.run_sync(models.SQLModel.metadata.create_all)
         await connection.run_sync(_add_missing_columns, models.SQLModel.metadata)
+        await connection.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_run_started_at_id "
+            "ON run (started_at DESC, id DESC)"
+        )
+        await connection.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_finding_triage_status ON finding (triage_status)"
+        )
 
 
 async def _init_postgres(engine: AsyncEngine) -> None:
@@ -149,14 +156,31 @@ def _add_missing_columns(sync_connection: Any, metadata: Any) -> None:
         for column in table.columns:
             if column.name in existing or column.primary_key:
                 continue
-            if not column.nullable and column.default is None:
+            server_default = _constant_server_default(column)
+            if not column.nullable and column.default is None and server_default is None:
                 continue
             column_type = column.type.compile(dialect=dialect)
             ddl = (
                 f"ALTER TABLE {quote(dialect, table.name)} "
                 f"ADD COLUMN {quote(dialect, column.name)} {column_type}"
             )
+            if server_default is not None:
+                # A constant default lets SQLite add a NOT NULL column to a
+                # non-empty table (TASK-35 Finding.triage_status).
+                literal = server_default.replace("'", "''")
+                not_null = "" if column.nullable else " NOT NULL"
+                ddl += f"{not_null} DEFAULT '{literal}'"
             sync_connection.exec_driver_sql(ddl)
+
+
+def _constant_server_default(column: Any) -> str | None:
+    """The string literal of a constant ``server_default``, else None."""
+    default = column.server_default
+    arg = getattr(default, "arg", None)
+    if isinstance(arg, str):
+        return arg
+    text = getattr(arg, "text", None)
+    return text if isinstance(text, str) else None
 
 
 def quote(dialect: Any, identifier: str) -> str:

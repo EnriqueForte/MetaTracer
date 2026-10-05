@@ -26,6 +26,10 @@ from metatracer.extractors.fields import ExtractedField
 from metatracer.extractors.sanitize import sanitize_value
 from metatracer.extractors.xmp import parse_xmp_packet
 
+# Pillow's decompression-bomb ceiling, set explicitly so a later Pillow
+# release cannot raise it silently (TASK-32). About 179 megapixels.
+Image.MAX_IMAGE_PIXELS = 178_956_970
+
 logger = logging.getLogger("metatracer.extractors.image")
 
 EXIF_NAMESPACE = "exif"

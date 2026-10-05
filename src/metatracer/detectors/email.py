@@ -20,6 +20,41 @@ from metatracer.detectors.base import FindingDraft, collapse_whitespace, normali
 
 EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")
 
+# Retina / filename tokens such as ``image@2x.png`` match the email shape but
+# the "domain" is a file, not a mailbox (TASK-34).
+_RETINA_FILENAME_RE = re.compile(r"@\d+x\.", re.IGNORECASE)
+
+# Last label of a filename, not a public suffix. A hit is never a mailbox.
+_FILE_EXTENSION_TLDS = frozenset(
+    {
+        "png",
+        "jpg",
+        "jpeg",
+        "gif",
+        "webp",
+        "svg",
+        "ico",
+        "css",
+        "js",
+        "mjs",
+        "pdf",
+        "bmp",
+        "tif",
+        "tiff",
+        "avif",
+        "html",
+        "htm",
+        "xml",
+        "json",
+        "map",
+        "woff",
+        "woff2",
+    }
+)
+
+# RFC 2606 reserved names. ``.localhost`` is also reserved for local use.
+_RESERVED_TLDS = frozenset({"test", "invalid", "example", "localhost"})
+
 # Domains of document-tooling vendors and placeholders: never a target leak.
 TOOL_DOMAIN_BLACKLIST = frozenset(
     {
@@ -29,8 +64,12 @@ TOOL_DOMAIN_BLACKLIST = frozenset(
         "w3.org",
         "xml.org",
         "example.com",
-        "localhost",
+        "example.net",
         "example.org",
+        "test.com",
+        "email.com",
+        "domain.com",
+        "localhost",
         # Open-source ecosystems: authors, registries and CDNs whose emails
         # are attribution, never a target leak (issue @ gitlab-shell run).
         "github.com",
@@ -84,8 +123,7 @@ class EmailDetector:
             seen_in_field: set[str] = set()
             for match in EMAIL_RE.finditer(text):
                 email = match.group(0)
-                domain = email.rpartition("@")[2].lower()
-                if _is_tool_domain(domain) or email.lower() in seen_in_field:
+                if _is_rejected_email(email) or email.lower() in seen_in_field:
                     continue
                 if _is_attribution_line(lines, email):
                     continue
@@ -109,6 +147,17 @@ def _is_tool_domain(domain: str) -> bool:
     return any(
         domain == blocked or domain.endswith(f".{blocked}") for blocked in TOOL_DOMAIN_BLACKLIST
     )
+
+
+def _is_rejected_email(email: str) -> bool:
+    """Filename tokens, reserved TLDs and vendor/placeholder domains."""
+    if _RETINA_FILENAME_RE.search(email):
+        return True
+    domain = email.rpartition("@")[2].lower().rstrip(".")
+    tld = domain.rpartition(".")[2]
+    if tld in _FILE_EXTENSION_TLDS or tld in _RESERVED_TLDS:
+        return True
+    return _is_tool_domain(domain)
 
 
 def _is_attribution_line(lines: list[str], email: str) -> bool:

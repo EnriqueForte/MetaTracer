@@ -1,0 +1,93 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+import { ThemeSwitcher } from "@/components/shell/theme-switcher";
+import { contrast, parseTokens } from "@/lib/contrast";
+
+const CSS = readFileSync(path.resolve(__dirname, "../../app/globals.css"), "utf8");
+const THEME_INIT = readFileSync(path.resolve(__dirname, "../../../public/theme-init.js"), "utf8");
+
+function block(selector: string): string {
+  const start = CSS.indexOf(selector);
+  expect(start).toBeGreaterThanOrEqual(0);
+  const open = CSS.indexOf("{", start);
+  const close = CSS.indexOf("}", open);
+  return CSS.slice(open + 1, close);
+}
+
+const DARK = parseTokens(block(":root {"));
+const LIGHT = parseTokens(block(':root[data-theme="light"]'));
+const SYSTEM_LIGHT = parseTokens(block(':root[data-theme="system"]'));
+
+function runInit() {
+  // Same code the browser runs before the first paint.
+  new Function(THEME_INIT)();
+}
+
+beforeEach(() => {
+  window.localStorage.clear();
+  document.documentElement.removeAttribute("data-theme");
+});
+
+afterEach(cleanup);
+
+describe("Light mode (TASK-35)", () => {
+  it("keeps the system-light palette identical to the explicit light palette", () => {
+    expect(Object.keys(LIGHT).length).toBeGreaterThan(30);
+    expect(SYSTEM_LIGHT).toEqual(LIGHT);
+    expect(Object.keys(LIGHT).sort()).toEqual(
+      Object.keys(DARK).filter((key) => key in LIGHT).sort(),
+    );
+  });
+
+  it.each([
+    ["dark", DARK],
+    ["light", LIGHT],
+  ])("meets WCAG AA in the %s theme", (_name, t) => {
+    for (const text of ["fg", "muted", "faint"]) {
+      for (const surface of ["bg", "surface", "elevated"]) {
+        expect(contrast(t[text], t[surface]), `${text} on ${surface}`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+    expect(contrast(t["accent-hover"], t.surface)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(t["accent-fg"], t.accent)).toBeGreaterThanOrEqual(4.5);
+    for (const surface of ["bg", "surface", "elevated"]) {
+      expect(contrast(t.focus, t[surface]), `focus on ${surface}`).toBeGreaterThanOrEqual(3);
+      expect(contrast(t["border-strong"], t[surface]), `border on ${surface}`).toBeGreaterThanOrEqual(3);
+    }
+    for (const tone of ["danger", "warning", "success"]) {
+      expect(contrast(t[tone], t[`${tone}-bg`]), tone).toBeGreaterThanOrEqual(4.5);
+    }
+    for (const level of ["critical", "high", "medium", "low", "info", "unclassified"]) {
+      expect(contrast(t[`sev-${level}`], t[`sev-${level}-bg`]), level).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(t[`sev-${level}`], t.surface), `${level} on surface`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("applies the stored choice before paint and defaults to dark", () => {
+    runInit();
+    expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+    window.localStorage.setItem("mt-theme", "light");
+    runInit();
+    expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+    window.localStorage.setItem("mt-theme", "<script>");
+    runInit();
+    expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+  });
+
+  it("persists System / Dark / Light from the switcher", () => {
+    render(<ThemeSwitcher />);
+    fireEvent.click(screen.getByRole("radio", { name: "System" }));
+    expect(document.documentElement.getAttribute("data-theme")).toBe("system");
+    expect(window.localStorage.getItem("mt-theme")).toBe("system");
+    fireEvent.click(screen.getByRole("radio", { name: "Light" }));
+    expect(screen.getByRole("radio", { name: "Light" })).toHaveAttribute("aria-checked", "true");
+    expect(window.localStorage.getItem("mt-theme")).toBe("light");
+    cleanup();
+    render(<ThemeSwitcher />);
+    expect(screen.getByRole("radio", { name: "Light" })).toHaveAttribute("aria-checked", "true");
+  });
+});

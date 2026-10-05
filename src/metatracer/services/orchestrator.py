@@ -72,17 +72,20 @@ from metatracer.classification.pipeline import ClassificationPipeline, Classific
 from metatracer.core.config import Settings
 from metatracer.core.exceptions import (
     MetaTracerError,
+    RunNotAbortableError,
+    RunNotFoundError,
     ScanAlreadyRunningError,
     ScopeNotConfirmedError,
     ScopeNotFoundError,
     SecurityViolationError,
 )
 from metatracer.core.logging import sanitize_for_log, set_run_context
+from metatracer.core.safety.scope import assert_registrable_scope
 from metatracer.db.engine import create_db_engine, create_session_factory, init_db
-from metatracer.db.models import ReasoningDepth, Run, RunStatus
-from metatracer.db.repositories import RunRepository
+from metatracer.db.models import ExtractionStatus, ReasoningDepth, Run, RunStatus
+from metatracer.db.repositories import AssetRepository, RunRepository
 from metatracer.detectors.pipeline import DetectionPipeline
-from metatracer.extractors.ingest import IngestionPipeline
+from metatracer.extractors.ingest import _EXTRACTION_INCOMPLETE, IngestionPipeline
 from metatracer.reports.bounty import BountyExporter
 from metatracer.reports.builder import DEFAULT_REPORTS_DIR, ReportBuilder
 from metatracer.reports.csv_exporter import CsvReportExporter
@@ -93,12 +96,24 @@ from metatracer.services.notifications import NotificationBus, NotificationEvent
 
 logger = logging.getLogger("metatracer.services.orchestrator")
 
+# Exact strings persisted on Run.error_message (TASK-28). Recovery is the
+# restart case; the other two are operator abort and process shutdown.
+INTERRUPTED_MESSAGE = "interrupted: process restarted"
+OPERATOR_ABORT_MESSAGE = "aborted by operator"
+SHUTDOWN_ABORT_MESSAGE = "aborted: server shutting down"
+_ABORTED_ASSET_MESSAGE = "aborted before extraction finished"
+_TERMINAL_STATUSES = frozenset(
+    {RunStatus.completed, RunStatus.failed, RunStatus.aborted}
+)
+
 
 class ProgressStage(StrEnum):
-    """Ordered stages of one scan; ``completed``/``failed`` are terminal events.
+    """Ordered stages of one scan; ``completed``/``failed``/``aborted`` are terminal.
 
     StrEnum per the repo convention (ruff UP042); values are the lowercase
-    strings of the task contract.
+    strings of the task contract. ``aborted`` is a terminal stream event
+    distinct from ``failed`` (TASK-28): the persisted ``Run.status`` and the
+    SSE stage use the same word.
     """
 
     scope_validation = "scope_validation"
@@ -110,6 +125,7 @@ class ProgressStage(StrEnum):
     report_generation = "report_generation"
     completed = "completed"
     failed = "failed"
+    aborted = "aborted"
 
 
 # The work stages in execution order; ``completed``/``failed`` are terminal
@@ -202,6 +218,16 @@ class ScanRequest(BaseModel):
         if any(not value for value in cleaned):
             raise ValueError("entries must be non-blank strings")
         return cleaned
+
+    @field_validator("scope_domains")
+    @classmethod
+    def _scope_domains_are_registrable(cls, values: list[str] | None) -> list[str] | None:
+        """Reject one-label bases (``com``, ``*.com``) at request time."""
+        if values is None:
+            return None
+        for value in values:
+            assert_registrable_scope(value)
+        return values
 
     @field_validator("scope_ids")
     @classmethod
@@ -322,6 +348,12 @@ class ScanOrchestratorService:
         limit = max(1, settings.max_concurrent_runs)
         self._run_slots = asyncio.Semaphore(limit)
         self._active_run_ids: set[str] = set()
+        # Instant this process's orchestrator booted. Recovery only aborts
+        # open runs started strictly earlier, so a scan this process creates
+        # afterwards is not treated as an orphan (TASK-28).
+        self._booted_at = datetime.now(UTC)
+        self._run_tasks: dict[str, asyncio.Task[None]] = {}
+        self._abort_messages: dict[str, str] = {}
 
     @property
     def active_run_id(self) -> str | None:
@@ -378,22 +410,79 @@ class ScanOrchestratorService:
             self._run_background(run, request, formats, Path(output_dir), on_progress)
         )
         # Strong reference until completion: the event loop only weakly
-        # references tasks, and the set doubles as introspection for shutdown.
+        # references tasks. ``_run_tasks`` lets abort() cancel one run.
+        self._run_tasks[run.id] = task
         self._background_tasks.add(task)
-        task.add_done_callback(self._background_tasks.discard)
+
+        def _discard(done: asyncio.Task[None], run_id: str = run.id) -> None:
+            self._background_tasks.discard(done)
+            self._run_tasks.pop(run_id, None)
+
+        task.add_done_callback(_discard)
         return run.id
 
     async def shutdown(self) -> None:
-        """Cancel background scans (API server shutdown).
-
-        A cancelled scan keeps its last persisted status (``running``):
-        recovery of interrupted runs is out of MVP scope (v1.1).
-        """
+        """Cancel background scans and persist them as ``aborted`` (TASK-28)."""
+        for run_id in list(self._run_tasks):
+            self._abort_messages.setdefault(run_id, SHUTDOWN_ABORT_MESSAGE)
         tasks = list(self._background_tasks)
         for task in tasks:
             task.cancel()
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def recover_interrupted_runs(self) -> list[str]:
+        """Mark other processes' open runs ``aborted`` and notify like a normal abort.
+
+        Only rows with ``started_at`` strictly before this orchestrator booted
+        are touched, and never a run this process is currently executing.
+
+        Multi-process limitation: with PostgreSQL and
+        ``METATRACER_MAX_CONCURRENT_RUNS>1``, concurrency slots are in-memory.
+        A second process that boots later will abort this process's runs that
+        started before the second boot. A run another process starts after
+        this boot is left alone. This is not a cross-process lock.
+        """
+        async with self._session_factory() as session:
+            runs = await RunRepository(session).list_open_started_before(self._booted_at)
+        recovered: list[str] = []
+        for run in runs:
+            if run.id in self._active_run_ids or run.id in self._run_tasks:
+                continue
+            await self._settle_incomplete_assets(run.id)
+            await self._finalize_run(run.id, RunStatus.aborted, INTERRUPTED_MESSAGE)
+            recovered.append(run.id)
+            logger.warning("recovered interrupted run %s as aborted", run.id)
+        return recovered
+
+    async def abort(self, run_id: str) -> Run:
+        """Cancel one in-process scan, or persist ``aborted`` if it has no task.
+
+        Raises :class:`RunNotFoundError` (API 404) and
+        :class:`RunNotAbortableError` when the row is already terminal (API 409).
+        """
+        async with self._session_factory() as session:
+            run = await RunRepository(session).get(run_id)
+        if run is None:
+            raise RunNotFoundError(run_id)
+        if run.status in _TERMINAL_STATUSES:
+            raise RunNotAbortableError(run_id, run.status.value)
+        self._abort_messages[run_id] = OPERATOR_ABORT_MESSAGE
+        task = self._run_tasks.get(run_id)
+        if task is not None and not task.done():
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        else:
+            await self._settle_incomplete_assets(run_id)
+            await self._finalize_run(run_id, RunStatus.aborted, OPERATOR_ABORT_MESSAGE)
+        async with self._session_factory() as session:
+            fresh = await RunRepository(session).get(run_id)
+        if fresh is None:  # pragma: no cover - the row existed above
+            raise RunNotFoundError(run_id)
+        return fresh
 
     async def export_report(
         self,
@@ -401,14 +490,18 @@ class ScanOrchestratorService:
         *,
         formats: ExportFormat = ExportFormat.all,
         output_dir: str | Path = DEFAULT_REPORTS_DIR,
+        include_false_positives: bool = False,
     ) -> dict[str, Path]:
         """Re-export the reports of an already persisted run (CLI ``report`` / API export).
 
         Raises :class:`MetaTracerError` when the run does not exist (raised by
         the ReportBuilder). Read-only apart from the files written under
-        ``output_dir``; works for runs in any status.
+        ``output_dir``; works for runs in any status. Findings triaged as
+        ``false_positive`` are left out unless ``include_false_positives``.
         """
-        return await self._export_reports(run_id, formats, Path(output_dir))
+        return await self._export_reports(
+            run_id, formats, Path(output_dir), include_false_positives=include_false_positives
+        )
 
     async def _run_background(
         self,
@@ -591,6 +684,18 @@ class ScanOrchestratorService:
                 total_findings=finished.total_findings,
                 report_paths=report_paths,
             )
+        except asyncio.CancelledError:
+            # Ctrl+C, POST /abort and shutdown all land here. Uncancel so the
+            # persist can await, then re-raise so the CLI/watch loop stops.
+            current = asyncio.current_task()
+            if current is not None:
+                current.uncancel()
+            message = self._abort_messages.pop(run.id, OPERATOR_ABORT_MESSAGE)
+            await self._settle_incomplete_assets(run.id)
+            await self._fail(
+                run.id, current_step, message, on_progress, status=RunStatus.aborted
+            )
+            raise
         except (ScopeNotConfirmedError, SecurityViolationError) as exc:
             # Safety aborts are expected control flow: clear message, no traceback.
             # Persisted as ``aborted``, not ``failed``, so clients can tell a
@@ -608,14 +713,21 @@ class ScanOrchestratorService:
             return await self._fail(run.id, current_step, message, on_progress)
 
     async def _export_reports(
-        self, run_id: str, formats: ExportFormat, output_dir: Path
+        self,
+        run_id: str,
+        formats: ExportFormat,
+        output_dir: Path,
+        *,
+        include_false_positives: bool = False,
     ) -> dict[str, Path]:
         """Build the ReportData once and write the requested formats from it.
 
         Both exporters derive the file name from the same ``generated_at``, so
         the Markdown/JSON pair of one export shares its timestamped stem.
         """
-        data = await ReportBuilder(self._session_factory).build(run_id)
+        data = await ReportBuilder(self._session_factory).build(
+            run_id, include_false_positives=include_false_positives
+        )
         paths: dict[str, Path] = {}
         if formats in (ExportFormat.md, ExportFormat.all):
             paths["md"] = MarkdownReportExporter(output_dir).export(data)
@@ -640,16 +752,21 @@ class ScanOrchestratorService:
     ) -> ScanResult:
         """Finalize a terminal non-success and return it as a ScanResult.
 
-        ``status`` is ``aborted`` for a safety exception and ``failed`` for
-        anything else. The SSE stage stays ``failed``: it only means the
-        stream should stop. The persisted status is the discriminator.
+        ``status`` is ``aborted`` for a safety exception or an operator stop,
+        and ``failed`` for anything else. The SSE stage matches that status
+        (``aborted`` or ``failed``) so clients can tell them apart.
         """
         finished = await self._finalize_run(run_id, status, message)
-        label = "Scan aborted" if status is RunStatus.aborted else "Scan failed"
+        if status is RunStatus.aborted:
+            stage = ProgressStage.aborted
+            label = "Scan aborted"
+        else:
+            stage = ProgressStage.failed
+            label = "Scan failed"
         self._emit(
             on_progress,
             run_id,
-            ProgressStage.failed,
+            stage,
             f"{label}: {message}",
             step=current_step,
         )
@@ -719,6 +836,25 @@ class ScanOrchestratorService:
             raise MetaTracerError("scope union is empty")
         return union
 
+    async def _settle_incomplete_assets(self, run_id: str) -> None:
+        """Mark assets left mid-extraction when the scan stops (TASK-28).
+
+        Ingestion persists the row as ``failed`` with a sentinel message
+        before the parser runs. Those rows stay ``failed`` (extraction did
+        not finish) but the message says the scan was aborted. Assets that
+        already reached ``ok`` or ``skipped`` are left alone.
+        """
+        async with self._session_factory() as session:
+            repo = AssetRepository(session)
+            assets = await repo.list_by_run(run_id)
+            for asset in assets:
+                if (
+                    asset.extraction_status is ExtractionStatus.failed
+                    and asset.error_message == _EXTRACTION_INCOMPLETE
+                ):
+                    asset.error_message = _ABORTED_ASSET_MESSAGE
+                    await repo.update(asset)
+
     async def _set_running(self, run_id: str) -> None:
         """Transition pending -> running before the first pipeline stage."""
         async with self._session_factory() as session:
@@ -726,6 +862,8 @@ class ScanOrchestratorService:
             run = await repo.get(run_id)
             if run is None:  # pragma: no cover - defensive; we just created it
                 raise MetaTracerError("run vanished during orchestration")
+            if run.status in _TERMINAL_STATUSES:
+                return
             run.status = RunStatus.running
             await repo.update(run)
 
@@ -747,6 +885,8 @@ class ScanOrchestratorService:
             run = await repo.get(run_id)
             if run is None:  # pragma: no cover - defensive; we just created it
                 raise MetaTracerError("run vanished during orchestration")
+            if run.status in _TERMINAL_STATUSES:
+                return run
             run.status = status
             run.completed_at = datetime.now(UTC)
             run.error_message = error_message

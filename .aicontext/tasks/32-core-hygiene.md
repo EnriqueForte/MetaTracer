@@ -3,7 +3,7 @@
 **Módulo:** `core/config.py`, `core/safety/{guard,scope,http}.py`, `core/ratelimit.py`, `extractors/`, `pyproject.toml`, `Dockerfile`, `docker-compose.yml`
 **Referencia:** [Auditoría 2026-10-03](../audit-2026-10-03.md) § P2 (safety core y supply chain); recomendaciones R1, R3, R8 de la [revisión 2026-09-16](../security-review-2026-09-16.md)
 **Dependencias:** TASK-27
-**Estado:** **Pendiente** (planificada 2026-10-03).
+**Estado:** **Cerrada** (2026-10-05). Revisión safety-guardian APROBADO.
 
 ---
 
@@ -62,7 +62,7 @@ Cerrar la deuda P2 del perímetro de red y extracción, y hacer reproducibles lo
 
 ## 5. Criterios de aceptación (DoD)
 
-- [ ] El bypass de loopback es inutilizable fuera de la suite.
-- [ ] Guard alineado con las listas SSRF habituales.
-- [ ] Build Docker reproducible desde un lockfile con hashes; `piexif` fuera de runtime.
-- [ ] Revisión de `safety-guardian`; suite verde + ruff limpio + cobertura ≥85%.
+- [x] El bypass de loopback es inutilizable fuera de la suite.
+- [x] Guard alineado con las listas SSRF habituales.
+- [x] Build Docker reproducible desde un lockfile con hashes; `piexif` fuera de runtime.
+- [x] Revisión de `safety-guardian`; suite verde + ruff limpio + cobertura ≥85%.

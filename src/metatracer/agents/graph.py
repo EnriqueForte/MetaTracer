@@ -35,14 +35,21 @@ prompt directive and the brief-paragraph shaping; evidence and finding type
 are never touched.
 """
 
+import hashlib
+import json
 import logging
-from dataclasses import dataclass
 from typing import Any, Literal, Protocol, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
-from metatracer.agents.guard import EvidenceGuard, transient_finding
-from metatracer.agents.llm import AgentClient, LLMUsage
+from metatracer.agents.guard import (
+    EvidenceGuard,
+    cap_to_baseline,
+    fallback_title,
+    has_hostile_wording,
+    transient_finding,
+)
+from metatracer.agents.llm import AgentClient, LLMResult, LLMUsage
 from metatracer.agents.prompts import (
     analysis_system_prompt,
     summary_system_prompt,
@@ -52,7 +59,7 @@ from metatracer.agents.schemas import AgentFindingEvaluation
 from metatracer.classification.classifier import SeverityAssessment, classify_heuristically
 from metatracer.core.exceptions import AgentUnavailableError
 from metatracer.core.logging import sanitize_for_log
-from metatracer.db.models import FindingType, Severity
+from metatracer.db.models import Severity
 
 logger = logging.getLogger("metatracer.agents.graph")
 
@@ -64,19 +71,7 @@ NODE_DRAFT = "draft_explanation"
 NODE_SAVE = "save_evaluation"
 NODE_SUMMARIZE = "synthesize_summary"
 
-# Cap for model-drafted titles before they reach AgentLog / the summary payload.
-_MAX_TITLE_CHARS = 120
-_TITLE_MARK = "..."
-
-# Deterministic titles when the fast model is unavailable or the finding is on
-# the heuristic fallback path; they name type and field, never the evidence.
-_FALLBACK_TITLES: dict[FindingType, str] = {
-    FindingType.gps: "Embedded GPS coordinates",
-    FindingType.email: "Corporate email address",
-    FindingType.internal_path: "Internal filesystem path",
-    FindingType.software_version: "Software version disclosure",
-    FindingType.debug_comment: "Debug or comment leftover",
-}
+# The guard enforces title length and hostile wording (TASK-29).
 
 
 class AgentState(TypedDict):
@@ -86,6 +81,10 @@ class AgentState(TypedDict):
     dicts; only ``payload`` (the closed contract keys) is ever sent to a model.
     ``evaluated_findings`` holds one working dict per processed finding; nodes
     refine the last entry as it flows through the loop.
+
+    TASK-29: ``baseline_severity`` (the persisted level, including operator
+    feedback) also travels outside ``payload``. The guard uses it as a ceiling.
+    It is not one of ``PAYLOAD_KEYS`` and is not sent to the model.
 
     TASK-13 (v2.1+): each entry may additionally carry ``feedback_examples``
     (a list of operator-feedback dicts for findings of the same type). They
@@ -112,17 +111,6 @@ class SummarySink(Protocol):
     """Receives the executive summary text once per run."""
 
     def set_summary(self, text: str) -> None: ...
-
-
-@dataclass(slots=True)
-class GraphNodes:
-    """Bundle of the six node callables, sharing the injected dependencies."""
-
-    client: AgentClient
-    writer: EvaluationWriter
-    sink: SummarySink
-    strong_model_name: str
-    guard: EvidenceGuard
 
 
 class LoadNextFindingNode:
@@ -163,6 +151,9 @@ class AnalyzeContextNode:
 
     def __init__(self, client: AgentClient) -> None:
         self._client = client
+        # Per-run cache: identical closed payloads (same evidence on another
+        # asset) reuse the strong-model answer. Failures are not cached.
+        self._analysis_cache: dict[str, LLMResult[Any]] = {}
 
     async def __call__(self, state: AgentState) -> dict[str, Any]:
         entry = dict(state["raw_findings"][state["current_index"]])
@@ -179,10 +170,18 @@ class AnalyzeContextNode:
                 **model_payload,
                 "retrieved_evidence": _retrieved_to_prompt(retrieved),
             }
+        sent = message_payload(model_payload)
+        cache_key = _analysis_cache_key(sent)
+        cached = self._analysis_cache.get(cache_key)
         try:
-            result = await self._client.analyze(
-                analysis_system_prompt(state["reasoning_depth"]), model_payload
-            )
+            if cached is not None:
+                result = LLMResult(value=cached.value, usage=LLMUsage())
+            else:
+                result = await self._client.analyze(
+                    analysis_system_prompt(state["reasoning_depth"]),
+                    sent,
+                )
+                self._analysis_cache[cache_key] = result
         except AgentUnavailableError as exc:
             logger.warning(
                 "analysis unavailable for finding %s: %s",
@@ -216,26 +215,32 @@ class ClassifySeverityNode:
 
         if entry["fallback"]:
             # Subtask 5.4.2: the finding is never dropped; the deterministic
-            # heuristic provides severity and safe prose instead.
+            # heuristic provides severity and safe prose instead. The operator
+            # baseline still caps that severity (TASK-29).
             assessment = classify_heuristically(transient_finding(payload))
-            final_severity = assessment.severity
+            final_severity = _capped_baseline(assessment.severity, entry)
             notes.append("llm unavailable; deterministic heuristic fallback applied")
         else:
             analysis = entry["analysis"]
+            baseline = _baseline(entry)
             outcome = self._guard.check(
                 severity=analysis.severity,
                 cited_evidence=analysis.cited_evidence,
                 reproduction_steps=list(analysis.reproduction_steps),
                 payload=payload,
                 justification=analysis.justification,
+                impact_analysis=analysis.impact_analysis,
+                remediation=analysis.remediation,
+                baseline_severity=baseline,
             )
             notes.extend(outcome.notes)
             if outcome.rejected:
                 # Rubric is the source of truth: drop the incoherent proposal.
+                # Do not adopt a heuristic that undoes the operator baseline.
                 assessment = classify_heuristically(transient_finding(payload))
                 entry["fallback"] = True
                 entry["heuristic_assessment"] = assessment
-                final_severity = assessment.severity
+                final_severity = _capped_baseline(assessment.severity, entry)
                 notes.append("incoherent explanation; heuristic evaluation substituted")
             else:
                 entry["analysis"] = analysis.model_copy(
@@ -243,6 +248,9 @@ class ClassifySeverityNode:
                         "severity": outcome.severity,
                         "cited_evidence": outcome.cited_evidence,
                         "reproduction_steps": outcome.reproduction_steps,
+                        "justification": outcome.justification,
+                        "impact_analysis": outcome.impact_analysis,
+                        "remediation": outcome.remediation,
                     }
                 )
                 final_severity = outcome.severity
@@ -270,9 +278,10 @@ class DraftExplanationNode:
     valid, so a deterministic template title is used and the miss is logged.
     """
 
-    def __init__(self, client: AgentClient, strong_model_name: str) -> None:
+    def __init__(self, client: AgentClient, strong_model_name: str, guard: EvidenceGuard) -> None:
         self._client = client
         self._strong_model_name = strong_model_name
+        self._guard = guard
 
     async def __call__(self, state: AgentState) -> dict[str, Any]:
         entries = list(state["evaluated_findings"])
@@ -331,13 +340,13 @@ class DraftExplanationNode:
             )
             error_log.append(f"draft_title failed for {entry['finding_id']}: {exc}")
             return _fallback_title(payload)
+        title, title_notes = self._guard.sanitize_title(result.value.title, payload)
+        if title_notes:
+            notes = list(entry.get("guard_notes") or [])
+            notes.extend(title_notes)
+            entry["guard_notes"] = notes
         entry["usage"] = entry["usage"].plus(result.usage)
-        title = result.value.title.strip()
-        # The prompt asks for brevity; enforce it here too so a runaway model
-        # cannot bloat AgentLog rows or the summary payload (denial of wallet).
-        if len(title) > _MAX_TITLE_CHARS:
-            title = title[: _MAX_TITLE_CHARS - len(_TITLE_MARK)] + _TITLE_MARK
-        return title or _fallback_title(payload)
+        return title or fallback_title(payload)
 
 
 class SaveFindingEvaluationNode:
@@ -385,7 +394,12 @@ class SynthesizeReportSummaryNode:
             error_log.append(f"synthesize_summary failed: {exc}")
             self._sink.set_summary(_deterministic_summary(state))
             return {"error_log": error_log}
-        self._sink.set_summary(result.value.executive_summary.strip())
+        text = result.value.executive_summary.strip()
+        if has_hostile_wording(text):
+            logger.warning("executive summary contained disallowed wording; using the template")
+            self._sink.set_summary(_deterministic_summary(state))
+            return {}
+        self._sink.set_summary(text)
         return {}
 
 
@@ -403,7 +417,7 @@ def build_graph(
     graph.add_node(NODE_LOAD, LoadNextFindingNode())
     graph.add_node(NODE_ANALYZE, AnalyzeContextNode(client))
     graph.add_node(NODE_CLASSIFY, ClassifySeverityNode(guard))
-    graph.add_node(NODE_DRAFT, DraftExplanationNode(client, strong_model_name))
+    graph.add_node(NODE_DRAFT, DraftExplanationNode(client, strong_model_name, guard))
     graph.add_node(NODE_SAVE, SaveFindingEvaluationNode(writer))
     graph.add_node(NODE_SUMMARIZE, SynthesizeReportSummaryNode(client, sink))
 
@@ -438,6 +452,43 @@ def _shape_prose(justification: str, depth: str) -> str:
 _MAX_RETRIEVED_CHARS = 800
 
 
+def _baseline(entry: dict[str, Any]) -> Severity | None:
+    raw = entry.get("baseline_severity")
+    if not raw:
+        return None
+    return Severity(raw)
+
+
+def _capped_baseline(severity: Severity, entry: dict[str, Any]) -> Severity:
+    return cap_to_baseline(severity, _baseline(entry))
+
+
+def _analysis_cache_key(payload: dict[str, Any]) -> str:
+    """Hash of the model message, ignoring the asset URL.
+
+    The same evidence on two assets is one strong-model call (TASK-34).
+    ``asset_url`` is the only field that changes between those assets.
+    """
+    stable = {key: value for key, value in payload.items() if key != "asset_url"}
+    encoded = json.dumps(stable, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def message_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """User message: evidence is delimited; RAG is labeled as not evidence.
+
+    The closed ``payload`` stored on the finding is unchanged. This copy is
+    what the model sees (TASK-29, prompt analysis-system-v2).
+    """
+    message = dict(payload)
+    snippet = str(message.get("evidence_snippet", ""))
+    message["evidence_snippet"] = f"<<<EVIDENCE>>>\n{snippet}\n<<<END>>>"
+    historical = message.pop("retrieved_evidence", None)
+    if historical is not None:
+        message["historical_not_evidence"] = historical
+    return message
+
+
 def _retrieved_to_prompt(retrieved: list[dict[str, Any]]) -> list[dict[str, str]]:
     """Serialize retrieved hits for the prompt: capped, string-only, safe.
 
@@ -467,10 +518,7 @@ def _retrieved_to_prompt(retrieved: list[dict[str, Any]]) -> list[dict[str, str]
 
 
 def _fallback_title(payload: dict[str, str]) -> str:
-    finding_type = FindingType(payload.get("finding_type", "debug_comment"))
-    field_source = payload.get("field_source", "").strip()
-    label = _FALLBACK_TITLES[finding_type]
-    return f"{label} in {field_source}" if field_source else label
+    return fallback_title(payload)
 
 
 def _summary_payload(state: AgentState) -> dict[str, Any]:

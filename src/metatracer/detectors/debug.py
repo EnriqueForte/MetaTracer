@@ -32,6 +32,7 @@ from metatracer.detectors.base import (
     normalize_text,
     snippet_around,
 )
+from metatracer.detectors.patterns import STRONG_DEBUG_RES, WEAK_DEBUG_RE
 
 # Local key names (part after the last ":") holding free text. Both singular
 # and plural of Comment: the task lists "Comment" and real PDFs use both.
@@ -48,14 +49,8 @@ _DEBUG_KEYS = frozenset(
     }
 )
 
-_STRONG_RES = (
-    re.compile(r"\b(?:TODO|FIXME|DEBUG|XXX|HACK)\s*:", re.IGNORECASE),
-    re.compile(r"\bNOT\s+FOR\s+PUBLIC\s+RELEASE\b", re.IGNORECASE),
-    re.compile(r"\bJIRA-\d+\b", re.IGNORECASE),
-    re.compile(r"\bGL-\d+\b", re.IGNORECASE),
-    re.compile(r"#ISSUE-\d+\b", re.IGNORECASE),
-)
-_WEAK_RE = re.compile(r"\b(?:CONFIDENTIAL|INTERNAL|DRAFT|TEST)\b", re.IGNORECASE)
+_STRONG_RES = STRONG_DEBUG_RES
+_WEAK_RE = WEAK_DEBUG_RE
 
 # Maximum field length for a weak keyword to anchor a finding. Longer text is
 # prose (captions, abstracts) where a bare weak keyword is noise; strong

@@ -161,12 +161,22 @@ def test_debug_with_api_key_is_critical() -> None:
 def test_debug_secret_markers_are_critical() -> None:
     for snippet in (
         "password= hunter2",
-        "FIXME: temporary secret stored here",
+        "password=hunter2",
         "TODO: token=ghp_abcdefghij",
+        "TODO: rotate api_key=abc123 before release",
+        "AKIAIOSFODNN7EXAMPLE",
+        "-----BEGIN RSA PRIVATE KEY-----",
+    ):
+        assert _classify(FindingType.debug_comment, snippet) is Severity.critical, snippet
+
+
+def test_debug_secret_word_without_a_value_is_medium() -> None:
+    for snippet in (
+        "FIXME: temporary secret stored here",
         "remove staging credentials",
         "API-KEY still hardcoded",
     ):
-        assert _classify(FindingType.debug_comment, snippet) is Severity.critical, snippet
+        assert _classify(FindingType.debug_comment, snippet) is Severity.medium, snippet
 
 
 def test_debug_strong_keyword_is_medium() -> None:

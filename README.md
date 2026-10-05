@@ -34,7 +34,12 @@ One pipeline, two surfaces (CLI and Web UI). Detection is deterministic; the LLM
 interprets.
 
 1. **Safety gate** — no HTTP until the operator confirms scope. Private/loopback
-   addresses are blocked. Every request goes through `safe_httpx_request`.
+   addresses are blocked. Every request goes through `safe_httpx_request`
+   (`trust_env=False`: `HTTP(S)_PROXY` / `ALL_PROXY` are ignored). A download
+   sends HEAD first (redirects included, each hop checked) and then GET of the
+   already validated final URL, so the chain is not fetched twice. The leftover
+   cost is one HEAD per hop plus one GET. `METATRACER_ALLOW_LOOPBACK` is ignored
+   outside pytest: `scan`, `serve` and `watch` refuse to start.
 2. **Ingest** — depth-1 crawl. PDFs and images (magic-byte allowlist), the HTML page
    itself, recon HTTP headers (allowlist), and comments from in-scope `.js`. File bytes
    and HTML/JS bodies are never stored.
@@ -45,11 +50,23 @@ interprets.
    If the model fails, the heuristic baseline remains. The post-LLM guard can only lower
    or reject severity.
 6. **Report** — Markdown, JSON and HTML in English, ordered Critical → Info.
+7. **Triage** — an operator marks a finding `open`, `confirmed`, `false_positive` or
+   `fixed` (`PUT /api/runs/<id>/findings/<finding_id>/triage`, `metatracer findings
+   triage <finding_id> --status false_positive`, or the finding panel in Web V2). Triage
+   never changes severity or evidence. False positives are left out of every export
+   (`--include-false-positives` / `include_false_positives=true` keeps them) and of the
+   dashboard counts, which show them as **Dismissed**. Watch deltas and
+   `GET /api/compare?a=<run>&b=<run>` match findings across runs by asset URL, type and
+   evidence.
 
 The Web UI runs on Jinja2 + Alpine CSP 3.17.4 (vendored) + Tailwind 3.4.16 compiled
 offline into `/static` with a custom `.mt-*` design system — no CDN scripts, no Node
 build step. Security headers (CSP, frame/nosniff, HSTS) are applied by
-`api/security_headers.py`.
+`api/security_headers.py`. Web V2 (`web/`, Next.js under `/v2`) adds filters in the URL,
+a command palette (Ctrl/⌘+K), keyboard shortcuts (`?` lists them), a GPS map drawn
+locally (no map tiles), run comparison, Webhooks and Knowledge screens for operators,
+and a System / Dark / Light theme switch. `GET /api/ready` checks the database;
+`/api/health` stays a stateless liveness probe.
 
 SQLite (default, single writer) or PostgreSQL + pgvector (`METATRACER_DATABASE_URL=postgresql+asyncpg://...`,
 Alembic-managed schema, optional parallel scans via `METATRACER_MAX_CONCURRENT_RUNS`). Optional
@@ -57,9 +74,24 @@ authentication for the Web UI/API: `METATRACER_AUTH_ENABLED=true` — first boot
 operator via `METATRACER_AUTH_PASSWORD` or, if unset, a one-time setup token printed to the
 console (`/setup`); session cookie HttpOnly + CSRF; viewer role read-only; invitations
 (`METATRACER_INVITE_TTL_SECONDS`) open registration to invited users; the localhost CLI needs no
-login. Roadmap: **v3.0** platform vision — watch/headless mode (done), PostgreSQL+pgvector
-(done), basic auth (done) (`.aicontext/features/12-platform-v3.md`); **v3.1** — multi-user
-registration and Web UI redesign (done).
+login. One installation is a single trust domain: every authenticated user sees every
+run. Viewers cannot list users, invitations or webhook configuration, and cannot
+export the knowledge base. An operator can delete a finished run
+(`DELETE /api/runs/<id>`, `metatracer runs delete <id>`, or Delete run in the
+history). `METATRACER_RETENTION_DAYS` deletes terminal runs older than that many
+days; watch deltas then use only the runs that remain, so a pruned baseline can
+surface old findings as new. `METATRACER_MAX_AGENT_FINDINGS` (default 50) caps how
+many findings are sent to the model, separate from the download cap; the same
+evidence on two assets is one model call. `METATRACER_LLM_CONCURRENCY` (default 1)
+limits in-flight model calls and still honors the per-call rate limit.
+`metatracer serve` on `127.0.0.1` still starts with auth off. Binding a non-loopback
+address (Docker publishes `0.0.0.0:8000`) refuses to start unless auth is on or
+`METATRACER_ALLOW_UNAUTHENTICATED_BIND=true` (logged warning; scope and the network guard stay
+on). Compose defaults auth to **true**. If `.env` sets `METATRACER_AUTH_ENABLED=false`, Compose
+uses that value and the container exits until you enable auth or the override. Roadmap: **v3.0**
+platform vision — watch/headless mode (done), PostgreSQL+pgvector (done), basic auth (done)
+(`.aicontext/features/12-platform-v3.md`); **v3.1** — multi-user registration and Web UI redesign
+(done); **v3.2** — hardening after the 2026-10-03 audit, starting with TASK-27.
 
 ## Requirements
 
@@ -87,6 +119,11 @@ python -m venv .venv
 
 # Web UI + API on http://127.0.0.1:8000
 .venv\Scripts\python.exe -m metatracer serve
+
+# Stop a scan from the CLI with Ctrl+C. The run is stored as aborted, not failed.
+# From the API (operator + CSRF): POST /api/runs/<run-id>/abort
+# A restart marks leftover pending/running runs aborted
+# ("interrupted: process restarted") when they started before this process.
 
 # v3.0: headless watch — continuously re-scan a saved scope, reporting deltas.
 # Scope-id first; --once runs one iteration and exits; --interval is the cadence.
@@ -118,7 +155,26 @@ The container keeps the default safety posture: `METATRACER_ALLOW_LOOPBACK` is a
 test-only flag and is **not** set by the image or the Compose file. The image
 healthcheck is `GET /api/health`. The ephemeral CLI passes the host's
 `METATRACER_LLM_*` variables through; without them the run uses the heuristic
-classifier only.
+classifier only. The `web` command checks the bind address before uvicorn
+starts (see authentication above).
+
+## Webhook signatures
+
+A webhook created with `signature_secret` signs every delivery. The API never
+returns the secret. Headers:
+
+- `X-MetaTracer-Timestamp` — Unix time in seconds
+- `X-MetaTracer-Signature` — `sha256=<hex>`
+
+The MAC is HMAC-SHA256 of the UTF-8 string `{timestamp}.{body}`, where `body`
+is the raw request body: compact JSON (`separators=(",", ":")`), keys sorted,
+UTF-8. Verify those exact bytes; do not re-encode the JSON. Reject timestamps
+outside a window you choose (five minutes is a reasonable start) to limit
+replay.
+
+Configs created before TASK-27 stored only a hash of the secret. They are
+delivered **unsigned** until you set the secret again. `GET /api/webhooks`
+reports `signature_status`: `active`, `needs_secret`, or `none`.
 
 ## Configuration
 

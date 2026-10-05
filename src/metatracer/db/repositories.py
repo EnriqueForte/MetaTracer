@@ -5,7 +5,7 @@ from collections import Counter
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import func
+from sqlalchemy import delete, func, or_, text
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -20,6 +20,7 @@ from metatracer.db.models import (
     Run,
     RunStatus,
     Scope,
+    TriageStatus,
     WebhookConfig,
     WebhookDelivery,
     WebhookDeliveryStatus,
@@ -50,12 +51,62 @@ class RunRepository:
         return merged
 
     async def delete(self, run_id: str) -> bool:
+        """Delete the run and every row that belongs to it (TASK-30)."""
+        return await self.delete_cascade(run_id)
+
+    async def delete_cascade(self, run_id: str) -> bool:
+        """Delete one run in a single transaction, children first.
+
+        Order: feedback, agent logs, raw metadata, findings, assets, webhook
+        deliveries, derived knowledge-index rows, then the run. Explicit
+        deletes, not ``ON DELETE CASCADE``, so SQLite and PostgreSQL behave
+        the same with ``PRAGMA foreign_keys=ON``.
+        """
         run = await self.get(run_id)
         if run is None:
             return False
+        await self._session.exec(delete(FindingFeedback).where(FindingFeedback.run_id == run_id))
+        await self._session.exec(delete(AgentLog).where(AgentLog.run_id == run_id))
+        asset_ids = select(Asset.id).where(Asset.run_id == run_id)
+        await self._session.exec(
+            delete(RawMetadataItem).where(RawMetadataItem.asset_id.in_(asset_ids))  # type: ignore[attr-defined]
+        )
+        await self._session.exec(delete(Finding).where(Finding.run_id == run_id))
+        await self._session.exec(delete(Asset).where(Asset.run_id == run_id))
+        await self._session.exec(delete(WebhookDelivery).where(WebhookDelivery.run_id == run_id))
+        await self._drop_knowledge_rows(run_id)
         await self._session.delete(run)
         await self._session.commit()
         return True
+
+    async def _drop_knowledge_rows(self, run_id: str) -> None:
+        """Drop derived index rows for this run when the index table exists."""
+        dialect = self._session.get_bind().dialect.name
+        if dialect == "sqlite":
+            statement = "DELETE FROM knowledge_fts WHERE run_id = :run_id"
+        elif dialect == "postgresql":
+            statement = "DELETE FROM knowledge_vectors WHERE run_id = :run_id"
+        else:
+            return
+        try:
+            async with self._session.begin_nested():
+                await self._session.exec(text(statement), params={"run_id": run_id})
+        except Exception:
+            # The index is derived and may not have been built yet.
+            return
+
+    async def list_terminal_started_before(self, moment: datetime) -> list[Run]:
+        """Terminal runs whose ``started_at`` is strictly before ``moment``."""
+        statement = select(Run).where(
+            or_(
+                Run.status == RunStatus.completed,
+                Run.status == RunStatus.failed,
+                Run.status == RunStatus.aborted,
+            ),
+            Run.started_at < moment,
+        )
+        result = await self._session.exec(statement)
+        return list(result.all())
 
     async def list_all(self) -> list[Run]:
         result = await self._session.exec(select(Run))
@@ -74,9 +125,10 @@ class RunRepository:
         ``<started_at_iso>_<run_id>`` pair; when given, only runs strictly
         NEWER... (older, since we paginate newest-first) than the anchor are
         returned, so a run inserted between two pages never duplicates or
-        drops a row. The composite ``(started_at, id)`` key is unique — the
-        id break-tie keeps the ordering total — and ``started_at`` is already
-        indexed. Fetch one row past ``limit`` (``limit + 1``) so the caller
+        drops a row. The composite ``(started_at DESC, id DESC)`` key is unique
+        — the id break-tie keeps the ordering total — and is backed by
+        ``ix_run_started_at_id`` (TASK-33). Fetch one row past ``limit``
+        (``limit + 1``) so the caller
         can tell whether a next page exists without an extra count query.
         """
         statement = select(Run).order_by(
@@ -94,6 +146,13 @@ class RunRepository:
             # +1 probe: existence of a next page, not a count.
             statement = statement.limit(limit + 1)
         result = await self._session.exec(statement)
+        return list(result.all())
+
+    async def ids_with_scope(self, allowed_scope: str, *, exclude_id: str) -> list[str]:
+        """Ids of other runs that share this exact scope snapshot."""
+        result = await self._session.exec(
+            select(Run.id).where(Run.allowed_scope == allowed_scope, Run.id != exclude_id)
+        )
         return list(result.all())
 
     async def count(self, *, status: RunStatus | None = None) -> int:
@@ -119,6 +178,19 @@ class RunRepository:
         if len(matches) > 1:
             raise AmbiguousRunError(cleaned, [run.id for run in matches])
         raise RunNotFoundError(token)
+
+    async def list_open_started_before(self, moment: datetime) -> list[Run]:
+        """Pending or running runs whose ``started_at`` is strictly before ``moment``.
+
+        Used by startup recovery (TASK-28). A run this process created has a
+        later ``started_at`` and is not returned.
+        """
+        statement = select(Run).where(
+            or_(Run.status == RunStatus.pending, Run.status == RunStatus.running),
+            Run.started_at < moment,
+        )
+        result = await self._session.exec(statement)
+        return list(result.all())
 
 
 class AssetRepository:
@@ -231,6 +303,49 @@ class FindingRepository:
     async def list_by_run(self, run_id: str) -> list[Finding]:
         result = await self._session.exec(select(Finding).where(Finding.run_id == run_id))
         return list(result.all())
+
+    async def set_triage(
+        self,
+        run_id: str,
+        finding_id: str,
+        *,
+        status: TriageStatus,
+        note: str | None,
+        by: str,
+    ) -> Finding | None:
+        """Operator triage. Severity and evidence are never touched (TASK-35, rule 6)."""
+        finding = await self._session.get(Finding, finding_id)
+        if finding is None or finding.run_id != run_id:
+            return None
+        finding.triage_status = status
+        finding.triage_note = note or None
+        finding.triaged_by = by
+        finding.triaged_at = datetime.now(UTC)
+        self._session.add(finding)
+        await self._session.commit()
+        await self._session.refresh(finding)
+        return finding
+
+    async def with_asset_url(self, run_ids: list[str]) -> list[tuple[Finding, str]]:
+        """Findings of many runs with their asset's final URL, in one join (TASK-35)."""
+        if not run_ids:
+            return []
+        result = await self._session.exec(
+            select(Finding, Asset.final_url)
+            .join(Asset, Asset.id == Finding.asset_id)  # type: ignore[arg-type]
+            .where(Finding.run_id.in_(run_ids))  # type: ignore[attr-defined]
+            .order_by(Finding.created_at, Finding.id)  # type: ignore[arg-type]
+        )
+        return [(finding, url) for finding, url in result.all()]
+
+    async def signatures_for_runs(self, run_ids: list[str]) -> set[str]:
+        """Dedup signatures of many runs in one query (TASK-33)."""
+        if not run_ids:
+            return set()
+        result = await self._session.exec(
+            select(Finding.dedup_signature).where(Finding.run_id.in_(run_ids))  # type: ignore[attr-defined]
+        )
+        return set(result.all())
 
     async def list_by_asset(self, asset_id: str) -> list[Finding]:
         result = await self._session.exec(select(Finding).where(Finding.asset_id == asset_id))
@@ -380,29 +495,85 @@ class DashboardRepository:
         self._session = session
 
     async def summary(self) -> dict[str, Any]:
-        """Global counters: runs by status, assets, findings, breakdowns."""
-        runs = list((await self._session.exec(select(Run))).all())
-        findings = list((await self._session.exec(select(Finding))).all())
-        assets = list((await self._session.exec(select(Asset))).all())
-
-        by_status = Counter(str(run.status) for run in runs)
-        severities = [str(finding.severity) for finding in findings if finding.severity]
-        by_severity = Counter(severities)
-        by_type = Counter(str(finding.finding_type) for finding in findings)
-        unclassified = sum(1 for finding in findings if finding.severity is None)
+        """Global counters via GROUP BY. The query count does not grow with rows."""
+        status_rows = (
+            await self._session.exec(select(Run.status, func.count(Run.id)).group_by(Run.status))
+        ).all()
+        by_status = {str(status): int(count) for status, count in status_rows}
+        asset_rows = (
+            await self._session.exec(
+                select(Asset.extraction_status, func.count(Asset.id)).group_by(
+                    Asset.extraction_status
+                )
+            )
+        ).all()
+        total_assets = sum(int(count) for _, count in asset_rows)
+        assets_with_issues = sum(
+            int(count) for status, count in asset_rows if str(status) != "ok"
+        )
+        # TASK-35: false positives are left out of every count and reported apart.
+        kept = Finding.triage_status != TriageStatus.false_positive
+        dismissed = int(
+            (
+                await self._session.exec(
+                    select(func.count(Finding.id)).where(
+                        Finding.triage_status == TriageStatus.false_positive
+                    )
+                )
+            ).one()
+        )
+        severity_rows = (
+            await self._session.exec(
+                select(Finding.severity, func.count(Finding.id))
+                .where(kept)
+                .group_by(Finding.severity)
+            )
+        ).all()
+        by_severity: dict[str, int] = {}
+        unclassified = 0
+        total_findings = 0
+        for severity, count in severity_rows:
+            total_findings += int(count)
+            if severity is None:
+                unclassified += int(count)
+            else:
+                by_severity[str(severity)] = int(count)
+        type_rows = (
+            await self._session.exec(
+                select(Finding.finding_type, func.count(Finding.id))
+                .where(kept)
+                .group_by(Finding.finding_type)
+            )
+        ).all()
+        by_type = {str(finding_type): int(count) for finding_type, count in type_rows}
 
         return {
-            "total_runs": len(runs),
+            "total_runs": sum(by_status.values()),
             "by_status": by_status,
-            "total_assets": len(assets),
-            "assets_with_issues": sum(
-                1 for asset in assets if str(asset.extraction_status) != "ok"
-            ),
-            "total_findings": len(findings),
+            "total_assets": total_assets,
+            "assets_with_issues": assets_with_issues,
+            "total_findings": total_findings,
             "by_severity": by_severity,
             "by_type": by_type,
             "unclassified": unclassified,
+            "dismissed": dismissed,
         }
+
+    async def severity_by_day(self, since: datetime) -> list[tuple[str, str | None, int]]:
+        """``(YYYY-MM-DD, severity, count)`` of findings created since ``since`` (TASK-35)."""
+        day = func.date(Finding.created_at)
+        rows = (
+            await self._session.exec(
+                select(day, Finding.severity, func.count(Finding.id))
+                .where(Finding.created_at >= since)
+                .where(Finding.triage_status != TriageStatus.false_positive)
+                .group_by(day, Finding.severity)
+            )
+        ).all()
+        return [
+            (str(date)[:10], None if severity is None else str(severity), int(count))
+            for date, severity, count in rows
+        ]
 
     async def top_domains(self, limit: int = 10) -> list[tuple[str, int]]:
         """Frequent domains across RFC titles + asset URLs, host-normalized."""
@@ -423,28 +594,29 @@ class DashboardRepository:
         return counts.most_common(limit)
 
     async def top_evidence(self, limit: int = 10) -> list[dict[str, Any]]:
-        """Frequent evidence snippets, grouped by dedup_signature (first wins)."""
-        findings = list((await self._session.exec(select(Finding))).all())
-        by_signature: dict[str, Finding] = {}
-        for finding in findings:
-            if finding.dedup_signature not in by_signature:
-                by_signature[finding.dedup_signature] = finding
-
-        def _occurrences(finding: Finding) -> int:
-            return sum(1 for x in findings if x.dedup_signature == finding.dedup_signature)
-
-        ranked = sorted(
-            by_signature.values(),
-            key=lambda f: (-_occurrences(f), f.evidence_snippet),
-        )
+        """Frequent evidence snippets, grouped by dedup_signature in SQL."""
+        rows = (
+            await self._session.exec(
+                select(
+                    Finding.dedup_signature,
+                    func.min(Finding.evidence_snippet),
+                    func.min(Finding.finding_type),
+                    func.count(Finding.id),
+                )
+                .where(Finding.triage_status != TriageStatus.false_positive)
+                .group_by(Finding.dedup_signature)
+                .order_by(func.count(Finding.id).desc(), func.min(Finding.evidence_snippet))
+                .limit(limit)
+            )
+        ).all()
         return [
             {
-                "signature": finding.dedup_signature,
-                "evidence_snippet": finding.evidence_snippet,
-                "finding_type": str(finding.finding_type),
-                "occurrences": _occurrences(finding),
+                "signature": signature,
+                "evidence_snippet": snippet,
+                "finding_type": str(finding_type),
+                "occurrences": int(occurrences),
             }
-            for finding in ranked[:limit]
+            for signature, snippet, finding_type, occurrences in rows
         ]
 
     async def agent_usage(self) -> dict[str, int]:
@@ -483,9 +655,13 @@ class WebhookConfigRepository:
         return merged
 
     async def delete(self, webhook_id: str) -> bool:
+        """Delete the config and its delivery rows in one transaction (FKs are enforced)."""
         config = await self.get(webhook_id)
         if config is None:
             return False
+        await self._session.exec(
+            delete(WebhookDelivery).where(WebhookDelivery.webhook_id == webhook_id)
+        )
         await self._session.delete(config)
         await self._session.commit()
         return True

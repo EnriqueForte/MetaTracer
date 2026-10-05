@@ -29,16 +29,29 @@ from rich.console import Console
 from rich.markup import escape
 
 from metatracer.cli import formatters
-from metatracer.core.config import Settings
+from metatracer.core.bind_auth import enforce_public_bind_auth, is_loopback_bind
+from metatracer.core.config import Settings, enforce_loopback_test_only
 from metatracer.core.exceptions import (
+    LoopbackOutsideTestsError,
     MetaTracerError,
     ScanAlreadyRunningError,
     ScopeNotConfirmedError,
+    UnauthenticatedPublicBindError,
 )
 from metatracer.core.logging import configure_logging
 from metatracer.db.engine import create_db_engine, create_session_factory, init_db
-from metatracer.db.models import Confidence, FindingType, ReasoningDepth, Run, RunStatus, Severity
-from metatracer.db.repositories import RunRepository
+from metatracer.db.models import (
+    Confidence,
+    Finding,
+    FindingType,
+    ReasoningDepth,
+    Run,
+    RunStatus,
+    Severity,
+    TriageStatus,
+)
+from metatracer.db.repositories import FindingRepository, RunRepository
+from metatracer.extractors.ingest import sweep_stale_tempfiles
 from metatracer.knowledge.portable import export_kb, import_kb
 from metatracer.reports.builder import DEFAULT_REPORTS_DIR, ReportBuilder, ReportData
 from metatracer.reports.filters import filter_findings
@@ -52,6 +65,16 @@ from metatracer.services.orchestrator import (
 )
 
 logger = logging.getLogger("metatracer.cli.main")
+
+
+def _guard_loopback() -> None:
+    """Stop scan/serve/watch when the test-only loopback flag is set."""
+    try:
+        enforce_loopback_test_only(Settings())
+    except LoopbackOutsideTestsError as exc:
+        err_console.print(f"[red]{escape(str(exc))}[/red]")
+        raise typer.Exit(1) from exc
+
 
 app = typer.Typer(
     name="metatracer",
@@ -103,6 +126,7 @@ def scan(
     ] = ExportFormat.all,
 ) -> None:
     """Scan in-scope targets for sensitive metadata (authorized use only)."""
+    _guard_loopback()
     formatters.print_banner(console)
     cleaned_targets = [target.strip() for target in targets if target.strip()]
     domains = [domain.strip() for domain in (scope_domains or []) if domain.strip()]
@@ -142,6 +166,9 @@ def scan(
             result, report_data = asyncio.run(
                 _execute_scan(request, export_format, output_dir, renderer.handle_event)
             )
+    except KeyboardInterrupt:
+        err_console.print("[yellow]Scan aborted[/yellow]")
+        raise typer.Exit(1) from None
     except ScopeNotConfirmedError as exc:
         err_console.print(f"[red]Scope gate:[/red] {escape(str(exc))}")
         raise typer.Exit(1) from exc
@@ -170,10 +197,19 @@ def report(
             help="Report format to export (md, json, html, csv, bounty, all).",
         ),
     ] = ExportFormat.all,
+    include_false_positives: Annotated[
+        bool,
+        typer.Option(
+            "--include-false-positives",
+            help="Keep findings triaged as false_positive (excluded by default).",
+        ),
+    ] = False,
 ) -> None:
     """Re-export the Markdown/JSON/HTML/CSV/bounty reports of a persisted run."""
     try:
-        paths = asyncio.run(_execute_report(run_id, export_format, output_dir))
+        paths = asyncio.run(
+            _execute_report(run_id, export_format, output_dir, include_false_positives)
+        )
     except MetaTracerError as exc:
         err_console.print(f"[red]Error:[/red] {escape(str(exc))}")
         raise typer.Exit(1) from exc
@@ -202,6 +238,12 @@ def show(
         str | None,
         typer.Option("--q", help="Case-insensitive search in evidence, title, field or URL."),
     ] = None,
+    triage: Annotated[
+        TriageStatus | None,
+        typer.Option(
+            "--triage", help="Filter by triage status (open, confirmed, false_positive, fixed)."
+        ),
+    ] = None,
 ) -> None:
     """Show the findings table of a persisted run without re-scanning."""
     try:
@@ -215,6 +257,7 @@ def show(
         finding_type=finding_type,
         confidence=confidence,
         q=query,
+        triage=triage,
     )
     view = report_data
     if filtered != list(report_data.findings):
@@ -259,6 +302,84 @@ def list_runs(
         console.print("No runs recorded yet.")
         return
     console.print(formatters.runs_table(runs))
+
+
+runs_app = typer.Typer(help="Delete persisted runs and apply the retention policy.")
+app.add_typer(runs_app, name="runs")
+
+findings_app = typer.Typer(help="Operator triage of persisted findings (TASK-35).")
+app.add_typer(findings_app, name="findings")
+
+
+@findings_app.command("triage")
+def findings_triage(
+    finding_id: Annotated[str, typer.Argument(help="Finding id (shown by the JSON/CSV exports).")],
+    status: Annotated[
+        TriageStatus,
+        typer.Option("--status", help="open, confirmed, false_positive or fixed."),
+    ],
+    note: Annotated[
+        str | None,
+        typer.Option("--note", help="Optional operator note (max 500 characters)."),
+    ] = None,
+) -> None:
+    """Set a finding's triage status. Severity and evidence are not changed."""
+    if note is not None and len(note) > 500:
+        err_console.print("[red]Error:[/red] the note is limited to 500 characters.")
+        raise typer.Exit(1)
+    try:
+        finding = asyncio.run(_execute_triage(finding_id, status, note.strip() if note else None))
+    except MetaTracerError as exc:
+        err_console.print(f"[red]Error:[/red] {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+    console.print(f"Finding {escape(finding.id)} triaged as {finding.triage_status.value}.")
+
+
+@runs_app.command("delete")
+def runs_delete(
+    run_id: Annotated[str, typer.Argument(help="Run UUID or unique prefix.")],
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", "-y", help="Delete without a confirmation prompt."),
+    ] = False,
+) -> None:
+    """Delete one terminal run and the personal data that belongs to it.
+
+    Pending and running scans are refused. Exported reports whose file name
+    contains this run's short id are removed as well.
+    """
+    if not yes:
+        confirmed = typer.confirm(
+            f"Delete run {run_id} and its findings, assets and reports?",
+            default=False,
+        )
+        if not confirmed:
+            err_console.print("Delete cancelled.")
+            raise typer.Exit(1)
+    try:
+        asyncio.run(_execute_delete_run(run_id))
+    except MetaTracerError as exc:
+        err_console.print(f"[red]Error:[/red] {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+    console.print(f"Deleted run {run_id}.")
+
+
+@runs_app.command("prune")
+def runs_prune() -> None:
+    """Delete terminal runs older than METATRACER_RETENTION_DAYS.
+
+    Unset or 0 keeps every run. Watch deltas use the runs that remain: a
+    pruned baseline can make a later watch report old findings as new.
+    """
+    try:
+        deleted = asyncio.run(_execute_prune())
+    except MetaTracerError as exc:
+        err_console.print(f"[red]Error:[/red] {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+    if not deleted:
+        console.print("No runs matched the retention policy.")
+        return
+    console.print(f"Deleted {len(deleted)} run(s).")
 
 
 @app.command()
@@ -307,6 +428,7 @@ def watch(
     forwards the run's terminal event plus ``new_findings`` to the configured
     endpoint via the TASK-15 relay buffer.
     """
+    _guard_loopback()
     formatters.print_banner(console)
     try:
         results = asyncio.run(
@@ -324,6 +446,9 @@ def watch(
     except MetaTracerError as exc:
         err_console.print(f"[red]Watch error:[/red] {escape(str(exc))}")
         raise typer.Exit(1) from exc
+    except KeyboardInterrupt:
+        err_console.print("[yellow]Watch aborted[/yellow]")
+        raise typer.Exit(1) from None
     if once:
         for result in results:
             _render_watch_result(result)
@@ -343,24 +468,34 @@ def serve(
 ) -> None:
     """Start the local Web UI + API server.
 
-    Authentication is optional (TASK-24/TASK-25): when ``METATRACER_AUTH_ENABLED``
-    is true the Web UI/API demand a session (first boot without users enters
-    setup mode — see the console banner). With auth disabled the bind address
-    remains the only protection: keep it on localhost / a trusted network.
+    Authentication is optional on loopback (TASK-24/TASK-25). A non-loopback
+    bind with ``METATRACER_AUTH_ENABLED`` false refuses to start (TASK-27)
+    unless ``METATRACER_ALLOW_UNAUTHENTICATED_BIND`` is set. That override is
+    logged and does not disable scope or network safety checks.
     """
     import uvicorn  # deferred: keeps scan/report/list-runs startup light
 
     from metatracer.api.app import create_app
 
+    _guard_loopback()
     settings = Settings()
     configure_logging(settings.log_level)
     bind_host = host or settings.bind_host
+    try:
+        enforce_public_bind_auth(settings, bind_host)
+    except UnauthenticatedPublicBindError as exc:
+        err_console.print(f"[red]{escape(str(exc))}[/red]")
+        raise typer.Exit(1) from exc
     formatters.print_banner(console)
-    posture = (
-        "authentication ENABLED — login required (first boot: setup mode)"
-        if settings.auth_enabled
-        else "authentication disabled — localhost / trusted network only"
-    )
+    if settings.auth_enabled:
+        posture = "authentication ENABLED — login required (first boot: setup mode)"
+    elif not is_loopback_bind(bind_host) and settings.allow_unauthenticated_bind:
+        posture = (
+            "authentication disabled — ALLOW_UNAUTHENTICATED_BIND override "
+            "(scope and network safety stay on)"
+        )
+    else:
+        posture = "authentication disabled — localhost / trusted network only"
     console.print(f"Web UI + API on http://{bind_host}:{port} [dim]({posture})[/dim]")
     uvicorn.run(create_app(settings), host=bind_host, port=port)
 
@@ -551,6 +686,12 @@ def _render_scan_outcome(result: ScanResult, report_data: ReportData | None) -> 
         for fmt, path in result.report_paths.items():
             console.print(f"Report ({fmt}): {path}")
         return
+    if result.status is RunStatus.aborted:
+        err_console.print(
+            f"[yellow]Scan aborted[/yellow] — run {result.run_id}: "
+            f"{escape(result.error_message or 'aborted')}"
+        )
+        return
     # Failed run: say so explicitly — never render an empty table as if the
     # target were clean (the error message is already sanitized upstream).
     err_console.print(
@@ -568,11 +709,13 @@ async def _execute_scan(
     """Single async boundary of the scan command: engine up, scan, read-back, engine down."""
     settings = Settings()
     configure_logging(settings.log_level)
+    sweep_stale_tempfiles()
     engine = create_db_engine(settings.database_url)
     try:
         await init_db(engine)
         session_factory = create_session_factory(engine)
         orchestrator = ScanOrchestratorService(session_factory, settings)
+        await orchestrator.recover_interrupted_runs()
         result = await orchestrator.scan(
             request, formats=export_format, output_dir=output_dir, on_progress=on_progress
         )
@@ -586,7 +729,10 @@ async def _execute_scan(
 
 
 async def _execute_report(
-    run_id: str, export_format: ExportFormat, output_dir: Path
+    run_id: str,
+    export_format: ExportFormat,
+    output_dir: Path,
+    include_false_positives: bool = False,
 ) -> dict[str, Path]:
     """Resolve the run token, then re-export through the orchestrator."""
     settings = Settings()
@@ -599,8 +745,34 @@ async def _execute_report(
             run = await RunRepository(session).resolve(run_id)
         orchestrator = ScanOrchestratorService(session_factory, settings)
         return await orchestrator.export_report(
-            run.id, formats=export_format, output_dir=output_dir
+            run.id,
+            formats=export_format,
+            output_dir=output_dir,
+            include_false_positives=include_false_positives,
         )
+    finally:
+        await engine.dispose()
+
+
+async def _execute_triage(finding_id: str, status: TriageStatus, note: str | None) -> Finding:
+    """Set a finding's triage from the CLI (``triaged_by="cli"``)."""
+    settings = Settings()
+    configure_logging(settings.log_level)
+    engine = create_db_engine(settings.database_url)
+    try:
+        await init_db(engine)
+        session_factory = create_session_factory(engine)
+        async with session_factory() as session:
+            repo = FindingRepository(session)
+            found = await repo.get(finding_id)
+            if found is None:
+                raise MetaTracerError(f"finding not found: {finding_id}")
+            updated = await repo.set_triage(
+                found.run_id, finding_id, status=status, note=note, by="cli"
+            )
+        if updated is None:
+            raise MetaTracerError(f"finding not found: {finding_id}")
+        return updated
     finally:
         await engine.dispose()
 
@@ -615,7 +787,7 @@ async def _execute_show(run_id: str) -> ReportData:
         session_factory = create_session_factory(engine)
         async with session_factory() as session:
             run = await RunRepository(session).resolve(run_id)
-        return await ReportBuilder(session_factory).build(run.id)
+        return await ReportBuilder(session_factory).build(run.id, include_false_positives=True)
     finally:
         await engine.dispose()
 
@@ -638,6 +810,42 @@ async def _fetch_runs(
         await engine.dispose()
 
 
+async def _execute_delete_run(token: str) -> None:
+    """Resolve a run token and delete it with its personal data."""
+    from metatracer.services.retention import delete_run
+
+    settings = Settings()
+    configure_logging(settings.log_level)
+    engine = create_db_engine(settings.database_url)
+    try:
+        await init_db(engine)
+        session_factory = create_session_factory(engine)
+        async with session_factory() as session:
+            run = await RunRepository(session).resolve(token)
+        await delete_run(session_factory, run.id, reports_dir=DEFAULT_REPORTS_DIR)
+    finally:
+        await engine.dispose()
+
+
+async def _execute_prune() -> list[str]:
+    """Apply METATRACER_RETENTION_DAYS to terminal runs."""
+    from metatracer.services.retention import prune_expired_runs
+
+    settings = Settings()
+    configure_logging(settings.log_level)
+    engine = create_db_engine(settings.database_url)
+    try:
+        await init_db(engine)
+        session_factory = create_session_factory(engine)
+        return await prune_expired_runs(
+            session_factory,
+            retention_days=settings.retention_days,
+            reports_dir=DEFAULT_REPORTS_DIR,
+        )
+    finally:
+        await engine.dispose()
+
+
 async def _execute_watch(
     *,
     scope_id: str,
@@ -654,6 +862,7 @@ async def _execute_watch(
     """
     settings = Settings()
     configure_logging(settings.log_level)
+    sweep_stale_tempfiles()
     engine = create_db_engine(settings.database_url)
     try:
         await init_db(engine)
@@ -724,6 +933,7 @@ async def _watch_loop(
         delta_reporter=delta_reporter,
         webhooks=dispatcher,
     )
+    await orchestrator.recover_interrupted_runs()
     results: list[ScanResult] = []
     consecutive_failures = 0
     base_backoff = 5.0
@@ -875,6 +1085,12 @@ def _render_watch_result(result: ScanResult) -> None:
         console.print(
             f"[green]Watch iteration completed[/green] — run {result.run_id}: "
             f"{result.total_findings} finding(s) across {result.total_assets} asset(s)."
+        )
+        return
+    if result.status is RunStatus.aborted:
+        err_console.print(
+            f"[yellow]Watch iteration aborted[/yellow] — run {result.run_id}: "
+            f"{escape(result.error_message or 'aborted')}"
         )
         return
     err_console.print(

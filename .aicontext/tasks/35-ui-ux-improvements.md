@@ -4,7 +4,7 @@
 **Referencia:** [Auditoría 2026-10-03](../audit-2026-10-03.md) § 3; [v2-ui-refresh.md](../architecture/v2-ui-refresh.md), [v2-visual-direction.md](../architecture/v2-visual-direction.md), [v2-frontend-architecture.md](../architecture/v2-frontend-architecture.md), [feature-parity-matrix.md](../migrations/feature-parity-matrix.md)
 **Dependencias:** TASK-26. Los bloques 35.4 y 35.5 que tocan el API dependen de TASK-28 (abort) y TASK-30 (borrado).
 **Agente recomendado:** `v2-ui-engineer` (diseño previo con `ui-architect` para 35.3 y 35.4).
-**Estado:** **Pendiente** (planificada 2026-10-03).
+**Estado:** **Cerrada** (2026-10-05). Revisión safety-guardian APROBADO (dependencias npm y diff completo).
 
 ---
 
@@ -109,13 +109,25 @@ Contrato nuevo registrado en [README.md](README.md) § Contratos compartidos: `t
 
 ## 5. Criterios de aceptación (DoD)
 
-- [ ] El filtro activo es visible y todos los estados de severidad son filtrables.
-- [ ] Notificación → run en un clic.
-- [ ] Ninguna acción de mutación visible para viewers.
-- [ ] Cambios sin commit de 2026-10-03 resueltos (completados o retirados).
-- [ ] Filtros en URL, paleta de comandos y atajos operativos y accesibles.
-- [ ] Mapa GPS, tendencias y comparación de runs sin recursos de CDN y con la CSP actual.
-- [ ] Componentes tipados con el schema generado; TanStack Query + Zod en uso.
-- [ ] Triage (`open`/`confirmed`/`false_positive`/`fixed`) operativo en API, CLI, Web V2, reportes, dashboard y watch, con el contrato registrado en `README.md` y sincronizado en `data-contracts.mdc`.
-- [ ] Light mode con selector System/Dark/Light, AA en ambos temas y sin parpadeo.
-- [ ] `npm test`, `npm run lint` y `npm run build` en `web/` verdes; suite Python verde si se toca el API.
+- [x] El filtro activo es visible y todos los estados de severidad son filtrables.
+- [x] Notificación → run en un clic.
+- [x] Ninguna acción de mutación visible para viewers.
+- [x] Cambios sin commit de 2026-10-03 resueltos (completados o retirados).
+- [x] Filtros en URL, paleta de comandos y atajos operativos y accesibles.
+- [x] Mapa GPS, tendencias y comparación de runs sin recursos de CDN y con la CSP actual.
+- [x] Componentes tipados con el schema generado; TanStack Query + Zod en uso.
+- [x] Triage (`open`/`confirmed`/`false_positive`/`fixed`) operativo en API, CLI, Web V2, reportes, dashboard y watch, con el contrato registrado en `README.md` y sincronizado en `data-contracts.mdc`.
+- [x] Light mode con selector System/Dark/Light, AA en ambos temas y sin parpadeo.
+- [x] `npm test` y `npm run build` en `web/` verdes; suite Python verde. `web/` no tiene script `lint` (ni ESLint en la lista cerrada); `npm run typecheck` sustituye a lint.
+
+## 6. Notas de implementación (2026-10-05)
+
+- **Dependencias:** `@tanstack/react-query@5.104.1` y `zod@4.6.5`, versión exacta, `--ignore-scripts`, lockfile (solo añade esos dos y `@tanstack/query-core`). Aprobadas por el usuario y revisadas por `safety-guardian`. Zod se importa solo desde `src/lib/validation/zod.ts` con `jitless: true`, para que no pruebe `new Function` bajo la CSP sin `unsafe-eval`; un test lo vigila. La virtualización (35.6) es propia (ventana con filas espaciadoras a partir de 200 filas), sin dependencia.
+- **Identidad entre runs:** `dedup_signature` incluye el `asset_id`, nuevo en cada run, así que nunca coincidía entre runs y el watch contaba todo como nuevo. Comparación y `DeltaReporter` usan `finding_identity(asset_final_url, finding_type, snippet normalizado)`. `new_signatures` sigue devolviendo la `dedup_signature` del run actual.
+- **Watch y false_positive:** una firma marcada `false_positive` en un run anterior del mismo scope ya está en el baseline, así que no cuenta como nueva. No se marca automáticamente el finding repetido: el triage solo lo decide un operador.
+- **Feedback:** marcar `false_positive` **no** crea un ejemplo de feedback. Triage (¿es real?) y feedback (¿la severidad es correcta?) son decisiones distintas; mezclarlas enseñaría al clasificador una severidad que nadie corrigió.
+- **Reportes:** los exports excluyen `false_positive` por defecto y el resumen añade «Excluded as false positive: N». JSON gana `summary.excluded_false_positives` y `findings[].triage_status`; CSV, la columna `triage_status`. Markdown/HTML/bounty muestran «Triage:» solo si no es `open`. El listado `GET /api/runs/{id}/findings` y `metatracer show` incluyen todos con su estado.
+- **CSP del tema:** la CSP de producción ya tenía `script-src 'self' 'unsafe-inline'` (Next la necesita). Un hash anularía `unsafe-inline` y rompería los scripts inline de Next, así que el tema se aplica con un script bloqueante same-origin (`public/theme-init.js`): sin fuentes ni hashes nuevos.
+- **Contraste en oscuro:** `--mt-border-strong` pasa de `#31465c` (2,0:1) a `#536a84` (≥ 3,1:1) para cumplir 3:1 en bordes de controles.
+- **Arreglos colaterales:** `WebhookConfigRepository.delete` borra antes sus entregas (con FK activas, borrar un webhook con historial daba 500). `TriageRequest` rechaza campos extra (un `severity` en el body da 422).
+- **Verificación en navegador:** vista de run, mapa GPS, chips, triage oculto por defecto, tema claro persistente tras recargar, paleta Ctrl+K con salto por prefijo de id, comparación y dashboard, contra la API local y `next start`.

@@ -38,8 +38,8 @@ para el mock · Docker multi-stage sobre `python:3.12-slim`.
 ## Reglas de construcción
 
 - **Fixtures sintéticos y reproducibles:** los 5 tipos de finding más un archivo limpio,
-  generados por código (Pillow/piexif/reportlab/pypdf), siempre sobre el dominio reservado
-  `acme-corp.test`. Nunca metadata personal real, ni siquiera propia.
+  generados por código (Pillow/piexif/reportlab/pypdf), siempre sobre el dominio sintético
+  `acme-corp.internal` (`.test` no es un buzón). Nunca metadata personal real, ni siquiera propia.
 - **Servidor mock local** en puerto efímero que sirve los fixtures y una página que los enlaza.
   Cero sitios de terceros en CI, cero DNS real.
 - **Manejo quirúrgico del bypass de loopback:** `METATRACER_ALLOW_LOOPBACK=true` se activa solo

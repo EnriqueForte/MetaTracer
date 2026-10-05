@@ -32,6 +32,13 @@ from metatracer.extractors.targets import DOCUMENT_EXTENSIONS, SCRIPT_EXTENSIONS
 
 logger = logging.getLogger("metatracer.extractors.crawler")
 
+
+def _sniff_html(body: bytes) -> bool:
+    """True when an empty Content-Type still looks like an HTML document."""
+    head = body.lstrip()[:64].lower()
+    return head.startswith((b"<!doctype", b"<html"))
+
+
 MAX_HTML_BYTES = 5 * 1024 * 1024  # 5 MB page ceiling (subtask 1.1.2)
 _SKIPPED_SCHEMES = ("javascript:", "data:", "mailto:", "tel:")
 _HTML_CONTENT_TYPES = ("text/html", "application/xhtml+xml")
@@ -142,7 +149,15 @@ class PublicDocCrawler:
             )
             return None
         content_type = (response.content_type or "").split(";", 1)[0].strip().lower()
-        if content_type and not content_type.startswith(_HTML_CONTENT_TYPES):
+        if not content_type:
+            if not _sniff_html(response.content):
+                logger.info(
+                    "page has an empty content type and does not look like HTML, not crawled: %s",
+                    sanitize_for_log(page_url),
+                )
+                return None
+            content_type = "text/html"
+        elif not content_type.startswith(_HTML_CONTENT_TYPES):
             logger.info(
                 "page is not HTML (%s), not crawled: %s",
                 sanitize_for_log(content_type),

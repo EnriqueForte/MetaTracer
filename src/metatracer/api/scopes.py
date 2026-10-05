@@ -21,7 +21,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from metatracer.core.safety.scope import normalize_host
+from metatracer.core.safety.scope import assert_registrable_scope, normalize_host
 from metatracer.db.models import Scope
 from metatracer.db.repositories import ScopeRepository
 from metatracer.scopes.portable import import_scopes
@@ -63,8 +63,10 @@ class ScopeData(BaseModel):
         cleaned: list[str] = []
         for value in values:
             host = normalize_host(value)
-            if host:
-                cleaned.append(host)
+            if not host:
+                continue
+            assert_registrable_scope(host)
+            cleaned.append(host)
         return cleaned
 
 
@@ -206,17 +208,12 @@ async def import_scope_file(request: Request) -> ScopeImportResponse:
     if factory is None:
         raise HTTPException(status_code=503, detail="database is not configured")
 
-    # Defense in depth: the API-edge middleware already rejects oversized
-    # Content-Length, but re-check here so a chunked/streamed body is bounded
-    # even if the middleware wiring changes (v2.3 perf slice).
-    from metatracer.core.ratelimit import enforce_body_limit
+    # Count the bytes as they arrive. A chunked body has no Content-Length,
+    # and a lying Content-Length must not let the handler buffer past the cap.
+    from metatracer.core.ratelimit import read_body_capped
 
-    content_length = request.headers.get("content-length")
-    if content_length is not None and content_length.isdigit():
-        enforce_body_limit(
-            int(content_length), int(getattr(request.app.state, "max_request_body_bytes", 0))
-        )
-    body = await request.body()
+    max_body = int(getattr(request.app.state, "max_request_body_bytes", 0))
+    body = await read_body_capped(request, max_body)
     if not body:
         raise HTTPException(status_code=422, detail="empty body: send a portable scopes JSON")
     fd, tmp_name = tempfile.mkstemp(suffix=".json")

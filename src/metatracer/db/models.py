@@ -16,7 +16,7 @@ import uuid
 from datetime import UTC, datetime
 from enum import StrEnum
 
-from sqlalchemy import DateTime, Index, Text, UniqueConstraint
+from sqlalchemy import DateTime, Index, Text, UniqueConstraint, desc
 from sqlmodel import Field, SQLModel
 
 
@@ -98,6 +98,20 @@ class Severity(StrEnum):
     info = "info"
 
 
+class TriageStatus(StrEnum):
+    """Operator triage of a finding (TASK-35). Independent of severity.
+
+    Only an operator changes it; the agent never does. ``false_positive``
+    hides the finding from exports and dashboard counts by default but keeps
+    severity and evidence untouched (rule 6).
+    """
+
+    open = "open"
+    confirmed = "confirmed"
+    false_positive = "false_positive"
+    fixed = "fixed"
+
+
 class FeedbackVote(StrEnum):
     """Operator correction direction (TASK-13, v2.1+).
 
@@ -111,6 +125,8 @@ class FeedbackVote(StrEnum):
 
 class Run(SQLModel, table=True):
     __tablename__ = "run"
+    # Keyset history is ORDER BY started_at DESC, id DESC (TASK-33).
+    __table_args__ = (Index("ix_run_started_at_id", desc("started_at"), desc("id")),)
 
     id: str = Field(default_factory=_new_uuid, primary_key=True)
     # Short human-readable tag for reports/URLs/webhooks (TASK-15, v2.2):
@@ -204,6 +220,15 @@ class Finding(SQLModel, table=True):
     title: str | None = None
     agent_model_used: str | None = None
     created_at: datetime = Field(default_factory=_utc_now, sa_type=DateTime(timezone=True))
+    # TASK-35 triage. server_default lets existing SQLite rows gain the column as "open".
+    triage_status: TriageStatus = Field(
+        default=TriageStatus.open,
+        index=True,
+        sa_column_kwargs={"server_default": TriageStatus.open.value},
+    )
+    triage_note: str | None = Field(default=None, sa_type=Text)  # <= 500 chars, API-enforced
+    triaged_by: str | None = None  # user id, "local" (auth off) or "cli"
+    triaged_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
 
 
 class AgentLog(SQLModel, table=True):
@@ -308,9 +333,12 @@ class WebhookConfig(SQLModel, table=True):
 
     Privacy/safety posture:
 
-    - the URL and each header value are sanitized in logs; the signature
-      secret is stored as SHA-256 local hash, so the plaintext secret never
-      leaves the CLI/API edge and cannot be read back from the database;
+    - the URL and each header value are sanitized in logs. The HMAC secret is
+      stored in plaintext (TASK-27: stdlib has no symmetric encryption and
+      ``cryptography`` is not on the closed dependency list), same treatment
+      as ``headers``. It is never returned by the API. Rows that only have
+      ``signature_secret_hash`` (pre-TASK-27) cannot sign until the operator
+      sets the secret again;
     - the payload carries only structured counters and the summary — never
       file bytes, never raw metadata values;
     - deliveries are persisted into :class:`WebhookDelivery` (relay buffer)
@@ -320,10 +348,18 @@ class WebhookConfig(SQLModel, table=True):
     __tablename__ = "webhook_config"
 
     id: str = Field(default_factory=_new_uuid, primary_key=True)
-    name: str = Field(default=None, max_length=80)  # "name" is not reserved in SQL
+    # NOT NULL, matching the Alembic column. Empty string only for rows built
+    # in memory before the API assigns a name (TASK-33).
+    name: str = Field(default="", max_length=80)
     url: str = Field(sa_type=Text)  # HTTPS URL; validated at write time
     event: RunStatus = RunStatus.completed  # subscription: one terminal status
     headers: str = Field(default="{}", sa_type=Text)  # JSON dict name -> value
+    # Plaintext HMAC key (TASK-27). Nullable: legacy rows only have the hash.
+    # Never serialized in API responses.
+    signature_secret: str | None = Field(default=None, sa_type=Text)
+    # SHA-256 of the secret. Kept so a pre-TASK-27 row (hash, no plaintext)
+    # can be reported as "re-enter the secret" instead of silently unsigned
+    # with no signal. Not a substitute for signature_secret.
     signature_secret_hash: str | None = Field(default=None, sa_type=Text)
     max_retries: int = 3
     active: bool = True

@@ -1,5 +1,7 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { renderWithProviders as render } from "@/test/render";
 
 import { HistoryView } from "@/components/history/history-view";
 
@@ -42,5 +44,51 @@ describe("HistoryView", () => {
     const table = screen.getByRole("table", { name: "Local scan history" });
     expect(table).toHaveTextContent("Aborted");
     expect(table.querySelector("td")?.className).toContain("py-1.5");
+  });
+
+  it("shows Delete run only to an operator on a finished scan", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/api/auth/me")) {
+          return new Response(
+            JSON.stringify({ authenticated: true, username: "ada", role: "operator" }),
+            { status: 200 },
+          );
+        }
+        return new Response(
+          JSON.stringify({
+            total: 2,
+            has_more: false,
+            next_cursor: null,
+            runs: [
+              {
+                run_id: "done",
+                status: "completed",
+                target: "done.example",
+                scope: ["done.example"],
+                total_assets: 1,
+                total_findings: 0,
+                started_at: "2026-09-29T12:00:00Z",
+              },
+              {
+                run_id: "live",
+                status: "running",
+                target: "live.example",
+                scope: ["live.example"],
+                total_assets: 0,
+                total_findings: 0,
+                started_at: "2026-09-29T12:00:00Z",
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }),
+    );
+    render(<HistoryView />);
+    expect(await screen.findByRole("button", { name: "Delete run" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Delete run" })).toHaveLength(1);
   });
 });

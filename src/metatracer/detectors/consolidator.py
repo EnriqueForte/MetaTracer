@@ -24,6 +24,18 @@ def dedup_signature(asset_id: str, finding_type: FindingType, evidence_snippet: 
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def finding_identity(asset_url: str, finding_type: FindingType | str, evidence_snippet: str) -> str:
+    """Run-independent identity of a finding (TASK-35).
+
+    ``dedup_signature`` embeds the asset id, which is new in every run, so it
+    cannot match across runs. Comparisons and watch deltas key on the asset's
+    final URL instead, with the same snippet normalization.
+    """
+    kind = finding_type.value if isinstance(finding_type, FindingType) else str(finding_type)
+    payload = f"{asset_url}:{kind}:{evidence_snippet.strip().lower()}"
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def consolidate_drafts(run_id: str, asset_id: str, drafts: Iterable[FindingDraft]) -> list[Finding]:
     """Merge drafts of one asset into deduplicated, persistable Findings."""
     by_signature: dict[str, Finding] = {}

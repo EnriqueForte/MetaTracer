@@ -1,15 +1,46 @@
 """Scope validation: decide whether a host is covered by the confirmed scope.
 
-Known limitation (accepted for the MVP): there is no Public Suffix List, so
-``foo.co.uk`` is treated as an opaque domain like any other. A scope entry of
-``co.uk`` would match ``foo.co.uk`` — operators must list the exact domains
-they are authorized to scan.
+Known limitation (accepted): there is no full Public Suffix List, so
+``foo.co.uk`` is an opaque domain. Creating a scope of a known public suffix
+(``co.uk`` and a short built-in list) is allowed and logged as a warning.
+Single-label bases (``com``, ``*.com``) are rejected at scope creation.
 """
 
+import logging
 from collections.abc import Iterable
+from ipaddress import ip_address
 
 from metatracer.core.exceptions import OutOfScopeError
 from metatracer.core.logging import sanitize_for_log
+
+logger = logging.getLogger("metatracer.core.safety.scope")
+
+# Not a Public Suffix List. Entries equal to one of these are warned about
+# because they match every name underneath (TASK-32).
+_KNOWN_PUBLIC_SUFFIXES = frozenset(
+    {
+        "co.uk",
+        "org.uk",
+        "ac.uk",
+        "gov.uk",
+        "com.au",
+        "net.au",
+        "org.au",
+        "co.jp",
+        "co.nz",
+        "co.za",
+        "co.kr",
+        "co.in",
+        "com.br",
+        "com.mx",
+        "com.tr",
+        "com.cn",
+        "com.tw",
+        "com.ar",
+        "com.sg",
+        "com.hk",
+    }
+)
 
 _WILDCARD_PREFIX = "*."
 
@@ -35,7 +66,58 @@ def normalize_host(value: str) -> str:
         host = host[1:closing] if closing != -1 else host[1:]
     elif host.count(":") == 1:  # host:port — a bare IPv6 literal has several colons
         host = host.split(":", 1)[0]
-    return host.rstrip(".")
+    host = host.rstrip(".")
+    return _to_idna(host)
+
+
+def _to_idna(host: str) -> str:
+    """Punycode the host the same way ``urlsplit().hostname`` does.
+
+    IP literals are left unchanged. An unencodable name becomes "" so it
+    matches nothing.
+    """
+    if not host or host.startswith("*."):
+        base = host[2:] if host.startswith("*.") else host
+        encoded = _idna_labels(base)
+        if host.startswith("*."):
+            return f"*.{encoded}" if encoded else ""
+        return encoded
+    return _idna_labels(host)
+
+
+def _idna_labels(host: str) -> str:
+    if not host:
+        return ""
+    try:
+        ip_address(host)
+        return host
+    except ValueError:
+        pass
+    try:
+        return host.encode("idna").decode("ascii")
+    except UnicodeError:
+        return ""
+
+
+def assert_registrable_scope(value: str) -> None:
+    """Reject a one-label scope base and warn on a known public suffix.
+
+    ``com`` and ``*.com`` match far more than an authorization covers.
+    ``co.uk`` is still stored (there is no full PSL) but a warning is logged.
+    """
+    host = normalize_host(value)
+    if not host:
+        raise ValueError("scope entry is empty after normalization")
+    base = host[2:] if host.startswith("*.") else host
+    if "." not in base and ":" not in base:
+        raise ValueError(
+            f"scope '{value}' is a single label; name a domain such as 'target.com'"
+        )
+    if base in _KNOWN_PUBLIC_SUFFIXES:
+        logger.warning(
+            "scope %s is a known public suffix; it matches every name under it",
+            sanitize_for_log(base),
+        )
 
 
 class ScopeValidator:

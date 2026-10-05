@@ -153,7 +153,7 @@ async def test_safety_error_marks_run_aborted(session_factory, tmp_path) -> None
     assert run.status is RunStatus.aborted
     assert run.error_message is not None and "blocked private address" in run.error_message
     assert run.completed_at is not None
-    assert events[-1].stage is ProgressStage.failed
+    assert events[-1].stage is ProgressStage.aborted
 
 
 class _BrokenDetection:

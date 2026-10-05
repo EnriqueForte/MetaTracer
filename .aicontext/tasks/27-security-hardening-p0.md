@@ -3,7 +3,7 @@
 **Módulo:** Safety core, webhooks, reportes, extractores, despliegue
 **Referencia:** [Auditoría 2026-10-03](../audit-2026-10-03.md) § P0
 **Dependencias:** TASK-00 … TASK-26
-**Estado:** **Pendiente** (planificada 2026-10-03).
+**Estado:** **Cerrada** (2026-10-03). ruff limpio; cobertura de core/detectors/extractors/reports **90.71%**. Suite completa 704 passed + 5 skipped, y el test adicional del banner de escape en verde. Revisión `safety-guardian` aprobada.
 
 ---
 
@@ -59,9 +59,9 @@ Cerrar los cinco hallazgos P0 de la auditoría. Ninguno viola literalmente las r
 
 ## 5. Criterios de aceptación (DoD)
 
-- [ ] Ningún cliente httpx de `src/` respeta variables de proxy.
-- [ ] Imposible exponer la API sin auth en un bind no-loopback sin opt-in explícito y ruidoso.
-- [ ] Webhooks con secreto envían firma HMAC verificable.
-- [ ] CSV sin inyección de fórmulas.
-- [ ] XMP limitado antes de inflar.
-- [ ] Revisión de `safety-guardian` aprobada; suite verde + ruff limpio + cobertura ≥85%.
+- [x] Ningún cliente httpx de `src/` respeta variables de proxy.
+- [x] Imposible exponer la API sin auth en un bind no-loopback sin opt-in explícito y ruidoso.
+- [x] Webhooks con secreto envían firma HMAC verificable.
+- [x] CSV sin inyección de fórmulas.
+- [x] XMP limitado antes de inflar.
+- [x] Revisión de `safety-guardian` aprobada; suite verde + ruff limpio + cobertura ≥85%.

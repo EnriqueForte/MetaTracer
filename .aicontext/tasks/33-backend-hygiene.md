@@ -3,7 +3,7 @@
 **Módulo:** `services/progress.py`, `api/runs.py`, `api/webhooks.py`, `db/`, `services/watch.py`, `api/auth.py`, `agents/`, `classification/`, `api/knowledge.py`
 **Referencia:** [Auditoría 2026-10-03](../audit-2026-10-03.md) § P2 (backend)
 **Dependencias:** TASK-28, TASK-31
-**Estado:** **Pendiente** (planificada 2026-10-03).
+**Estado:** **Cerrada** (2026-10-05).
 
 ---
 
@@ -65,7 +65,7 @@ Cerrar los defectos P2 de operación y rendimiento del backend.
 
 ## 5. Criterios de aceptación (DoD)
 
-- [ ] Ningún stream SSE queda colgado para runs terminales.
-- [ ] Reintentos de webhook independientes del tráfico de scans.
-- [ ] Consultas de dashboard y deltas sin N+1.
-- [ ] Suite verde + ruff limpio + cobertura ≥85%.
+- [x] Ningún stream SSE queda colgado para runs terminales.
+- [x] Reintentos de webhook independientes del tráfico de scans.
+- [x] Consultas de dashboard y deltas sin N+1.
+- [x] Suite verde + ruff limpio + cobertura ≥85%.

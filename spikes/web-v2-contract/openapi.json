@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "MetaTracer",
-    "description": "Sensitive metadata discovery for authorized security audits. Authentication is optional (METATRACER_AUTH_ENABLED): when off, bind to localhost / trusted networks only.",
+    "description": "Sensitive metadata discovery for authorized security audits. Authentication is optional on loopback (METATRACER_AUTH_ENABLED). A non-loopback bind refuses to start while auth is off unless METATRACER_ALLOW_UNAUTHENTICATED_BIND is set.",
     "version": "0.6.0"
   },
   "paths": {
@@ -22,6 +22,29 @@
                   },
                   "type": "object",
                   "title": "Response Health Api Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ready": {
+      "get": {
+        "summary": "Ready",
+        "description": "Readiness: the database answers. Liveness stays on ``/api/health``.",
+        "operationId": "ready_api_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Ready Api Ready Get"
                 }
               }
             }
@@ -194,6 +217,83 @@
             }
           }
         }
+      },
+      "delete": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Remove Run",
+        "description": "Delete a terminal run and the personal data that belongs to it (TASK-30).\n\nOperator + CSRF come from the router. 404 if the run does not exist,\n409 if it is still pending or running. Exported reports for this run\nare removed from the reports directory.",
+        "operationId": "remove_run_api_runs__run_id__delete",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/abort": {
+      "post": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Abort Run",
+        "description": "Stop a pending or running scan (TASK-28). Operator + CSRF via the router.\n\n404 when the run does not exist, 409 when it is already terminal.\nThe SSE stream receives a terminal ``aborted`` event from the orchestrator.",
+        "operationId": "abort_run_api_runs__run_id__abort_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/runs/{run_id}/stream": {
@@ -243,7 +343,7 @@
           "runs"
         ],
         "summary": "List Findings",
-        "description": "Findings in report order (critical -> info, unclassified last).\n\nFilters are exploration-only: exported reports stay complete. Invalid enum\nvalues are rejected by FastAPI with 422.",
+        "description": "Findings in report order (critical -> info, unclassified last).\n\nFilters are exploration-only. The list includes false positives with their\n``triage_status`` (the UI hides them by default); exports leave them out.\nInvalid enum values are rejected by FastAPI with 422.",
         "operationId": "list_findings_api_runs__run_id__findings_get",
         "parameters": [
           {
@@ -326,6 +426,24 @@
               "title": "Q"
             },
             "description": "Case-insensitive substring search"
+          },
+          {
+            "name": "triage_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/TriageStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by operator triage status",
+              "title": "Triage Status"
+            },
+            "description": "Filter by operator triage status"
           }
         ],
         "responses": {
@@ -335,6 +453,68 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FindingsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/findings/{finding_id}/triage": {
+      "put": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Triage Finding",
+        "description": "Operator triage (CSRF + operator via the router's mutation dependencies).\n\nChanges ``triage_status`` and the note only. Severity and evidence stay\nexactly as stored (rule 6); the agent never calls this.",
+        "operationId": "triage_finding_api_runs__run_id__findings__finding_id__triage_put",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "finding_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Finding Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TriageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriageResponse"
                 }
               }
             }
@@ -387,6 +567,18 @@
               "title": "Format"
             },
             "description": "Report format"
+          },
+          {
+            "name": "include_false_positives",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Keep findings triaged as false_positive (default: excluded)",
+              "default": false,
+              "title": "Include False Positives"
+            },
+            "description": "Keep findings triaged as false_positive (default: excluded)"
           }
         ],
         "responses": {
@@ -638,6 +830,66 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DashboardStatsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/compare": {
+      "get": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Compare",
+        "description": "Findings new in ``b``, resolved since ``a`` and present in both.",
+        "operationId": "compare_api_compare_get",
+        "parameters": [
+          {
+            "name": "a",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "Baseline run id",
+              "title": "A"
+            },
+            "description": "Baseline run id"
+          },
+          {
+            "name": "b",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "Run under review",
+              "title": "B"
+            },
+            "description": "Run under review"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunComparisonResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -1616,6 +1868,87 @@
         "title": "AssetIssue",
         "description": "One failed/skipped asset, surfaced so a broken asset is never invisible."
       },
+      "ComparedFindingResponse": {
+        "properties": {
+          "finding_id": {
+            "type": "string",
+            "title": "Finding Id"
+          },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "finding_type": {
+            "$ref": "#/components/schemas/FindingType"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Severity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidence_snippet": {
+            "type": "string",
+            "title": "Evidence Snippet"
+          },
+          "asset_url": {
+            "type": "string",
+            "title": "Asset Url"
+          },
+          "triage_status": {
+            "$ref": "#/components/schemas/TriageStatus",
+            "default": "open"
+          }
+        },
+        "type": "object",
+        "required": [
+          "finding_id",
+          "run_id",
+          "finding_type",
+          "severity",
+          "evidence_snippet",
+          "asset_url"
+        ],
+        "title": "ComparedFindingResponse",
+        "description": "One finding of a comparison. ``finding_id`` belongs to run ``b`` except for ``resolved``."
+      },
+      "ComparedRun": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "target": {
+            "type": "string",
+            "title": "Target"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RunStatus"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "total_findings": {
+            "type": "integer",
+            "title": "Total Findings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "target",
+          "status",
+          "started_at",
+          "total_findings"
+        ],
+        "title": "ComparedRun"
+      },
       "Confidence": {
         "type": "string",
         "enum": [
@@ -1668,6 +2001,14 @@
             },
             "type": "object",
             "title": "Agent Usage"
+          },
+          "trends": {
+            "items": {
+              "$ref": "#/components/schemas/SeverityTrendPoint"
+            },
+            "type": "array",
+            "title": "Trends",
+            "default": []
           }
         },
         "type": "object",
@@ -1845,6 +2186,44 @@
           "asset_content_type": {
             "type": "string",
             "title": "Asset Content Type"
+          },
+          "triage_status": {
+            "$ref": "#/components/schemas/TriageStatus",
+            "default": "open"
+          },
+          "triage_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Triage Note"
+          },
+          "triaged_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Triaged By"
+          },
+          "triaged_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Triaged At"
           }
         },
         "type": "object",
@@ -2255,6 +2634,47 @@
         ],
         "title": "RegisterRequest",
         "description": "Body of POST /api/auth/register (invitation redemption)."
+      },
+      "RunComparisonResponse": {
+        "properties": {
+          "a": {
+            "$ref": "#/components/schemas/ComparedRun"
+          },
+          "b": {
+            "$ref": "#/components/schemas/ComparedRun"
+          },
+          "new": {
+            "items": {
+              "$ref": "#/components/schemas/ComparedFindingResponse"
+            },
+            "type": "array",
+            "title": "New"
+          },
+          "resolved": {
+            "items": {
+              "$ref": "#/components/schemas/ComparedFindingResponse"
+            },
+            "type": "array",
+            "title": "Resolved"
+          },
+          "persistent": {
+            "items": {
+              "$ref": "#/components/schemas/ComparedFindingResponse"
+            },
+            "type": "array",
+            "title": "Persistent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "a",
+          "b",
+          "new",
+          "resolved",
+          "persistent"
+        ],
+        "title": "RunComparisonResponse",
+        "description": "GET /api/compare: findings new / resolved / persistent from ``a`` to ``b``."
       },
       "RunCreatedResponse": {
         "properties": {
@@ -2818,6 +3238,50 @@
         ],
         "title": "Severity"
       },
+      "SeverityTrendPoint": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "critical": {
+            "type": "integer",
+            "title": "Critical",
+            "default": 0
+          },
+          "high": {
+            "type": "integer",
+            "title": "High",
+            "default": 0
+          },
+          "medium": {
+            "type": "integer",
+            "title": "Medium",
+            "default": 0
+          },
+          "low": {
+            "type": "integer",
+            "title": "Low",
+            "default": 0
+          },
+          "info": {
+            "type": "integer",
+            "title": "Info",
+            "default": 0
+          },
+          "unclassified": {
+            "type": "integer",
+            "title": "Unclassified",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "date"
+        ],
+        "title": "SeverityTrendPoint",
+        "description": "Findings created on one UTC day, by severity (TASK-35, block 35.4)."
+      },
       "SkipReason": {
         "type": "string",
         "enum": [
@@ -2828,6 +3292,113 @@
           "empty_body"
         ],
         "title": "SkipReason"
+      },
+      "TriageRequest": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/TriageStatus"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "TriageRequest",
+        "description": "PUT /api/runs/{run_id}/findings/{finding_id}/triage body (TASK-35).\n\nUnknown keys are a 422: a client sending ``severity`` must not get a 200."
+      },
+      "TriageResponse": {
+        "properties": {
+          "finding_id": {
+            "type": "string",
+            "title": "Finding Id"
+          },
+          "triage_status": {
+            "$ref": "#/components/schemas/TriageStatus"
+          },
+          "triage_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Triage Note"
+          },
+          "triaged_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Triaged By"
+          },
+          "triaged_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Triaged At"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Severity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidence_snippet": {
+            "type": "string",
+            "title": "Evidence Snippet"
+          }
+        },
+        "type": "object",
+        "required": [
+          "finding_id",
+          "triage_status",
+          "triage_note",
+          "triaged_by",
+          "triaged_at",
+          "severity",
+          "evidence_snippet"
+        ],
+        "title": "TriageResponse"
+      },
+      "TriageStatus": {
+        "type": "string",
+        "enum": [
+          "open",
+          "confirmed",
+          "false_positive",
+          "fixed"
+        ],
+        "title": "TriageStatus",
+        "description": "Operator triage of a finding (TASK-35). Independent of severity.\n\nOnly an operator changes it; the agent never does. ``false_positive``\nhides the finding from exports and dashboard counts by default but keeps\nseverity and evidence untouched (rule 6)."
       },
       "UserCreate": {
         "properties": {

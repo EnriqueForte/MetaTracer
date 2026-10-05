@@ -10,9 +10,10 @@ import asyncio
 from collections.abc import AsyncIterator
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import FileResponse, Response, StreamingResponse
 
+from metatracer.api.auth import CurrentUser, get_current_user
 from metatracer.api.schemas import (
     FindingResponse,
     FindingsResponse,
@@ -20,20 +21,32 @@ from metatracer.api.schemas import (
     RunListItem,
     RunListResponse,
     RunStatusResponse,
+    TriageRequest,
+    TriageResponse,
     _encode_cursor,
 )
 from metatracer.core.exceptions import (
     MetaTracerError,
+    RunActiveError,
+    RunNotAbortableError,
+    RunNotFoundError,
     ScanAlreadyRunningError,
     ScopeNotConfirmedError,
     ScopeNotFoundError,
 )
-from metatracer.db.models import Confidence, FindingType, RunStatus, Severity
-from metatracer.db.repositories import AssetRepository, RunRepository
+from metatracer.db.models import Confidence, FindingType, RunStatus, Severity, TriageStatus
+from metatracer.db.repositories import AssetRepository, FindingRepository, RunRepository
 from metatracer.reports.builder import ReportBuilder
 from metatracer.reports.filters import filter_findings
-from metatracer.services.orchestrator import ExportFormat, ScanRequest
+from metatracer.services.orchestrator import (
+    TOTAL_STEPS,
+    ExportFormat,
+    ProgressEvent,
+    ProgressStage,
+    ScanRequest,
+)
 from metatracer.services.progress import TERMINAL_STAGES
+from metatracer.services.retention import delete_run as delete_persisted_run
 
 router = APIRouter(prefix="/api/runs", tags=["runs"])
 
@@ -131,6 +144,50 @@ async def get_run(run_id: str, request: Request) -> RunStatusResponse:
     return RunStatusResponse.from_models(run, assets)
 
 
+@router.delete("/{run_id}", status_code=204)
+async def remove_run(run_id: str, request: Request) -> Response:
+    """Delete a terminal run and the personal data that belongs to it (TASK-30).
+
+    Operator + CSRF come from the router. 404 if the run does not exist,
+    409 if it is still pending or running. Exported reports for this run
+    are removed from the reports directory.
+    """
+    try:
+        await delete_persisted_run(
+            request.app.state.session_factory,
+            run_id,
+            reports_dir=request.app.state.reports_dir,
+        )
+    except RunNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="run not found") from exc
+    except RunActiveError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return Response(status_code=204)
+
+
+@router.post("/{run_id}/abort")
+async def abort_run(run_id: str, request: Request) -> RunStatusResponse:
+    """Stop a pending or running scan (TASK-28). Operator + CSRF via the router.
+
+    404 when the run does not exist, 409 when it is already terminal.
+    The SSE stream receives a terminal ``aborted`` event from the orchestrator.
+    """
+    orchestrator = request.app.state.orchestrator
+    try:
+        await orchestrator.abort(run_id)
+    except RunNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="run not found") from exc
+    except RunNotAbortableError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    session_factory = request.app.state.session_factory
+    async with session_factory() as session:
+        run = await RunRepository(session).get(run_id)
+        if run is None:
+            raise HTTPException(status_code=404, detail="run not found")
+        assets = await AssetRepository(session).list_by_run(run_id)
+    return RunStatusResponse.from_models(run, assets)
+
+
 @router.get("/{run_id}/stream")
 async def stream_run(run_id: str, request: Request) -> StreamingResponse:
     """Server-sent events stream of ProgressEvent (one JSON object per event).
@@ -145,6 +202,28 @@ async def stream_run(run_id: str, request: Request) -> StreamingResponse:
     if run is None:
         raise HTTPException(status_code=404, detail="run not found")
     bus = request.app.state.bus
+    # History was evicted (or this process never saw the scan) and the row is
+    # already terminal: emit one synthetic event and close. Subscribing would
+    # wait forever for a publish that will not come (TASK-33).
+    if run.status.value in {stage.value for stage in TERMINAL_STAGES} and not bus.has_history(
+        run_id
+    ):
+        event = ProgressEvent(
+            run_id=run_id,
+            stage=ProgressStage(run.status.value),
+            current_step=TOTAL_STEPS,
+            total_steps=TOTAL_STEPS,
+            message=run.error_message or run.status.value,
+        )
+
+        async def terminal_only() -> AsyncIterator[str]:
+            yield f"data: {event.model_dump_json()}\n\n"
+
+        return StreamingResponse(
+            terminal_only(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
     queue = bus.subscribe(run_id)
 
     async def events() -> AsyncIterator[str]:
@@ -182,15 +261,19 @@ async def list_findings(
         Confidence | None, Query(description="Filter by confidence")
     ] = None,
     q: Annotated[str | None, Query(description="Case-insensitive substring search")] = None,
+    triage_status: Annotated[
+        TriageStatus | None, Query(description="Filter by operator triage status")
+    ] = None,
 ) -> FindingsResponse:
     """Findings in report order (critical -> info, unclassified last).
 
-    Filters are exploration-only: exported reports stay complete. Invalid enum
-    values are rejected by FastAPI with 422.
+    Filters are exploration-only. The list includes false positives with their
+    ``triage_status`` (the UI hides them by default); exports leave them out.
+    Invalid enum values are rejected by FastAPI with 422.
     """
     builder = ReportBuilder(request.app.state.session_factory)
     try:
-        data = await builder.build(run_id)
+        data = await builder.build(run_id, include_false_positives=True)
     except MetaTracerError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     filtered = filter_findings(
@@ -199,9 +282,45 @@ async def list_findings(
         finding_type=finding_type,
         confidence=confidence,
         q=q,
+        triage=triage_status,
     )
     findings = [FindingResponse.from_report(entry) for entry in filtered]
     return FindingsResponse(run_id=run_id, total=len(findings), findings=findings)
+
+
+@router.put("/{run_id}/findings/{finding_id}/triage", response_model=TriageResponse)
+async def triage_finding(
+    run_id: str,
+    finding_id: str,
+    body: TriageRequest,
+    request: Request,
+    user: Annotated[CurrentUser | None, Depends(get_current_user)],
+) -> TriageResponse:
+    """Operator triage (CSRF + operator via the router's mutation dependencies).
+
+    Changes ``triage_status`` and the note only. Severity and evidence stay
+    exactly as stored (rule 6); the agent never calls this.
+    """
+    note = body.note.strip() if body.note else None
+    async with request.app.state.session_factory() as session:
+        finding = await FindingRepository(session).set_triage(
+            run_id,
+            finding_id,
+            status=body.status,
+            note=note,
+            by=user.id if user is not None else "local",
+        )
+    if finding is None:
+        raise HTTPException(status_code=404, detail="finding not found")
+    return TriageResponse(
+        finding_id=finding.id,
+        triage_status=finding.triage_status,
+        triage_note=finding.triage_note,
+        triaged_by=finding.triaged_by,
+        triaged_at=finding.triaged_at,
+        severity=finding.severity,
+        evidence_snippet=finding.evidence_snippet,
+    )
 
 
 @router.get("/{run_id}/export")
@@ -211,6 +330,9 @@ async def export_run(
     format: Annotated[
         Literal["md", "json", "html", "csv", "bounty"], Query(description="Report format")
     ],
+    include_false_positives: Annotated[
+        bool, Query(description="Keep findings triaged as false_positive (default: excluded)")
+    ] = False,
 ) -> FileResponse:
     """Regenerate the report from the database and serve it as an attachment.
 
@@ -223,6 +345,7 @@ async def export_run(
             run_id,
             formats=ExportFormat(format),
             output_dir=request.app.state.reports_dir,
+            include_false_positives=include_false_positives,
         )
     except MetaTracerError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

@@ -3,7 +3,7 @@
 **Módulo:** `agents/guard.py`, `agents/graph.py`, `agents/pipeline.py`, `agents/optimizer.py`, `reports/markdown.py`
 **Referencia:** [Auditoría 2026-10-03](../audit-2026-10-03.md) § P1-2, P1-3
 **Dependencias:** TASK-27
-**Estado:** **Pendiente** (planificada 2026-10-03).
+**Estado:** **Cerrada** (2026-10-03). ruff limpio; cobertura core/detectors/extractors/reports **90.80%** (721 passed, not e2e). Revisiones de `llm-agent-engineer` y `safety-guardian` aprobadas.
 
 ---
 
@@ -47,7 +47,7 @@ Reforzar la regla inviolable 6 ("los agentes no inventan") en dos huecos:
 
 ## 5. Criterios de aceptación (DoD)
 
-- [ ] El LLM nunca supera la severidad corregida por el operador.
-- [ ] Ningún campo de prosa del LLM llega a reportes sin pasar por el guard.
-- [ ] Markdown no renderiza HTML de origen LLM/metadata.
-- [ ] Revisión de `llm-agent-engineer` y `safety-guardian`; suite verde + ruff limpio + cobertura ≥85%.
+- [x] El LLM nunca supera la severidad corregida por el operador.
+- [x] Ningún campo de prosa del LLM llega a reportes sin pasar por el guard.
+- [x] Markdown no renderiza HTML de origen LLM/metadata.
+- [x] Revisión de `llm-agent-engineer` y `safety-guardian`; suite verde + ruff limpio + cobertura ≥85%.

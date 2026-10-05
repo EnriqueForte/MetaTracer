@@ -51,9 +51,9 @@ _NAMESPACE_PREFIXES = {
 }
 
 _MAX_DEPTH = 8
-# Decompressed-packet ceiling (threat 5): pypdf's stream.get_data() inflates
-# FlateDecode without a limit, so a small PDF could expand to gigabytes here.
-# Legitimate XMP packets are kilobytes; anything bigger is dropped, not parsed.
+# Second line of defence (threat 5). The PDF extractor caps FlateDecode
+# *before* inflate (TASK-27); this check still drops an already-materialized
+# packet that is larger than a legitimate XMP document (image path included).
 MAX_XMP_PACKET_BYTES = 5 * 1024 * 1024
 
 

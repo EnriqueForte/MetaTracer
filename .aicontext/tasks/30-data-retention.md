@@ -3,7 +3,9 @@
 **Módulo:** `db/models.py`, `db/repositories.py`, migraciones, `api/runs.py`, `cli/main.py`, Web V2 History
 **Referencia:** [Auditoría 2026-10-03](../audit-2026-10-03.md) § P1-4
 **Dependencias:** TASK-28
-**Estado:** **Pendiente** (planificada 2026-10-03).
+**Estado:** **Cerrada** (2026-10-03). ruff limpio; cobertura core/detectors/extractors/reports **90.80%** (727 passed, not e2e).
+
+El borrado es explícito y en una transacción (no `ON DELETE CASCADE`), igual en SQLite y PostgreSQL. La retención vacía no borra nada. Los deltas de `watch` usan los runs que quedan: podar un baseline puede hacer que un watch posterior marque esos findings como nuevos.
 
 ---
 
@@ -45,7 +47,7 @@ Los findings contienen datos personales (emails, GPS, rutas con nombres de usuar
 
 ## 5. Criterios de aceptación (DoD)
 
-- [ ] Un operador puede borrar cualquier run terminal desde API, CLI y Web V2.
-- [ ] Sin huérfanos tras el borrado en ambos backends.
-- [ ] Retención configurable documentada en README y `.env.example`.
-- [ ] Suite verde + ruff limpio + cobertura ≥85%.
+- [x] Un operador puede borrar cualquier run terminal desde API, CLI y Web V2.
+- [x] Sin huérfanos tras el borrado en ambos backends.
+- [x] Retención configurable documentada en README y `.env.example`.
+- [x] Suite verde + ruff limpio + cobertura ≥85%.

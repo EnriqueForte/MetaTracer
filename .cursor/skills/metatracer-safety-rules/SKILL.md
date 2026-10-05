@@ -26,6 +26,8 @@ Antes de cada petición: resolver DNS y comprobar **todas** las IPs (A y AAAA). 
 - CGNAT: `100.64.0.0/10`
 - Unique local IPv6: `fc00::/7`
 - Multicast: `224.0.0.0/4`, `ff00::/8`
+- Reserved / documentation (TASK-32): `192.0.0.0/24`, `192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24`, `198.18.0.0/15`, `240.0.0.0/4`, `255.255.255.255/32`, `2001:db8::/32`, `100::/64`
+- Non-canonical IPv4 (decimal dword, octal, hex) is refused before DNS
 
 Lanzar `SecurityViolationError` **antes** de abrir el socket. Limitación TOCTOU/DNS-rebinding aceptada en el MVP: no hace falta pin de IP en el transporte, pero la guarda debe llamarse **inmediatamente antes** de cada request.
 

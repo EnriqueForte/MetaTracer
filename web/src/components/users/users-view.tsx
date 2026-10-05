@@ -1,165 +1,133 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { z } from "@/lib/validation/zod";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { apiFetch } from "@/lib/api/browser";
+import { errorMessage, getJson, hasArray, sendJson } from "@/lib/api/client";
+import { ApiError } from "@/lib/api/errors";
+import type { InvitationListResponse, UserListResponse, UserResponse } from "@/lib/api/types";
+import { queryKeys } from "@/lib/query/keys";
 
-type Account = { id: string; username: string; role: "operator" | "viewer" };
-type Invitation = { id: string; role: string; status: string; expires_at: string };
+type Account = UserResponse;
 
-function parseUsers(value: unknown): Account[] | null {
-  if (!value || typeof value !== "object") return null;
-  const rows = (value as { users?: unknown }).users;
-  if (!Array.isArray(rows)) return null;
-  const users: Account[] = [];
-  for (const row of rows) {
-    if (!row || typeof row !== "object") return null;
-    const item = row as Record<string, unknown>;
-    if (typeof item.id !== "string" || typeof item.username !== "string") return null;
-    if (item.role !== "operator" && item.role !== "viewer") return null;
-    users.push({ id: item.id, username: item.username, role: item.role });
-  }
-  return users;
-}
+const userSchema = z.object({
+  username: z.string().trim().min(1, "Enter a username.").max(64, "Usernames are at most 64 characters."),
+  password: z.string().min(8, "Passwords need at least 8 characters."),
+  role: z.enum(["operator", "viewer"]),
+});
 
-function parseInvites(value: unknown): Invitation[] | null {
-  if (!value || typeof value !== "object") return null;
-  const rows = (value as { invitations?: unknown }).invitations;
-  if (!Array.isArray(rows)) return null;
-  const invites: Invitation[] = [];
-  for (const row of rows) {
-    if (!row || typeof row !== "object") return null;
-    const item = row as Record<string, unknown>;
-    if (typeof item.id !== "string" || typeof item.role !== "string" || typeof item.status !== "string") return null;
-    invites.push({
-      id: item.id,
-      role: item.role,
-      status: item.status,
-      expires_at: typeof item.expires_at === "string" ? item.expires_at : "",
-    });
-  }
-  return invites;
-}
+const inviteSchema = z.object({
+  role: z.enum(["operator", "viewer"]),
+  hours: z.number().int("Use whole hours.").min(1, "At least 1 hour.").max(720, "At most 720 hours (30 days)."),
+});
 
 export function UsersView() {
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<"users" | "invitations">("users");
-  const [users, setUsers] = useState<Account[]>([]);
-  const [invites, setInvites] = useState<Invitation[]>([]);
-  const [error, setError] = useState("");
-  const [forbidden, setForbidden] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<"operator" | "viewer">("viewer");
   const [inviteRole, setInviteRole] = useState<"operator" | "viewer">("viewer");
   const [inviteHours, setInviteHours] = useState(24);
   const [freshCode, setFreshCode] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [actionError, setActionError] = useState("");
 
-  const loadAll = useCallback(async () => {
-    setError("");
-    setForbidden(false);
-    const usersResponse = await apiFetch("/api/users");
-    if (usersResponse.status === 403) {
-      setForbidden(true);
-      return;
-    }
-    if (!usersResponse.ok) {
-      setError("Could not load users.");
-      return;
-    }
-    const parsedUsers = parseUsers(await usersResponse.json());
-    if (!parsedUsers) {
-      setError("Could not load users.");
-      return;
-    }
-    setUsers(parsedUsers);
-    const invitesResponse = await apiFetch("/api/invitations");
-    if (!invitesResponse.ok) return;
-    const parsedInvites = parseInvites(await invitesResponse.json());
-    if (parsedInvites) setInvites(parsedInvites);
-  }, []);
+  const users = useQuery({
+    queryKey: queryKeys.users,
+    queryFn: () => getJson<UserListResponse>("/api/users", hasArray("users")),
+  });
+  const forbidden = users.error instanceof ApiError && users.error.status === 403;
+  const invites = useQuery({
+    queryKey: queryKeys.invitations,
+    queryFn: () => getJson<InvitationListResponse>("/api/invitations", hasArray("invitations")),
+    enabled: users.isSuccess,
+  });
 
-  useEffect(() => {
-    void loadAll().catch(() => setError("Network error: the API is unreachable."));
-  }, [loadAll]);
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.users });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.invitations });
+  };
 
-  async function createUser() {
-    setBusy(true);
-    setError("");
-    try {
-      const response = await apiFetch("/api/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, role }),
-      });
-      if (!response.ok) {
-        setError(`Could not create the user (HTTP ${response.status}).`);
-        return;
-      }
+  const createUser = useMutation({
+    mutationFn: (body: z.infer<typeof userSchema>) => sendJson("/api/users", "POST", body),
+    onSuccess: () => {
       setUsername("");
       setPassword("");
-      await loadAll();
-    } finally {
-      setBusy(false);
-    }
-  }
+      refresh();
+    },
+    onError: (error) => setActionError(errorMessage(error, "Could not create the user")),
+  });
+  const changeRole = useMutation({
+    mutationFn: ({ id, next }: { id: string; next: Account["role"] }) =>
+      sendJson(`/api/users/${encodeURIComponent(id)}`, "PATCH", { role: next }),
+    onSuccess: refresh,
+    onError: (error) => setActionError(errorMessage(error, "Could not change the role")),
+  });
+  const removeUser = useMutation({
+    mutationFn: (id: string) => sendJson(`/api/users/${encodeURIComponent(id)}`, "DELETE"),
+    onSuccess: refresh,
+    onError: (error) => setActionError(errorMessage(error, "Could not delete the user")),
+  });
+  const createInvite = useMutation({
+    mutationFn: (body: { role: string; ttl_seconds: number }) =>
+      sendJson<{ code?: unknown }>("/api/invitations", "POST", body),
+    onSuccess: (payload) => {
+      if (payload && typeof payload.code === "string") setFreshCode(payload.code);
+      setCopied(false);
+      refresh();
+    },
+    onError: (error) => setActionError(errorMessage(error, "Could not create the invitation")),
+  });
+  const revoke = useMutation({
+    mutationFn: (id: string) => sendJson(`/api/invitations/${encodeURIComponent(id)}`, "DELETE"),
+    onSuccess: refresh,
+    onError: (error) => setActionError(errorMessage(error, "Could not revoke the invitation")),
+  });
 
-  async function changeRole(id: string, next: "operator" | "viewer") {
-    const response = await apiFetch(`/api/users/${encodeURIComponent(id)}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role: next }),
-    });
-    if (!response.ok) {
-      setError(`Could not change the role (HTTP ${response.status}).`);
+  function submitUser() {
+    setFormError("");
+    setActionError("");
+    const parsed = userSchema.safeParse({ username, password, role });
+    if (!parsed.success) {
+      setFormError(parsed.error.issues[0]?.message ?? "Check the form.");
       return;
     }
-    await loadAll();
+    createUser.mutate(parsed.data);
   }
 
-  async function removeUser(id: string) {
-    if (!window.confirm("Delete this user?")) return;
-    const response = await apiFetch(`/api/users/${encodeURIComponent(id)}`, { method: "DELETE" });
-    if (response.status !== 204) {
-      setError(`Could not delete the user (HTTP ${response.status}).`);
-      return;
-    }
-    await loadAll();
-  }
-
-  async function createInvite() {
-    setBusy(true);
+  function submitInvite() {
+    setFormError("");
+    setActionError("");
     setFreshCode("");
-    setError("");
+    const parsed = inviteSchema.safeParse({ role: inviteRole, hours: inviteHours });
+    if (!parsed.success) {
+      setFormError(parsed.error.issues[0]?.message ?? "Check the form.");
+      return;
+    }
+    createInvite.mutate({ role: parsed.data.role, ttl_seconds: Math.round(parsed.data.hours * 3600) });
+  }
+
+  async function copyCode() {
     try {
-      const response = await apiFetch("/api/invitations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: inviteRole, ttl_seconds: Math.round(inviteHours * 3600) }),
-      });
-      if (!response.ok) {
-        setError(`Could not create the invitation (HTTP ${response.status}).`);
-        return;
-      }
-      const payload: unknown = await response.json();
-      const code = payload && typeof payload === "object" ? (payload as { code?: unknown }).code : null;
-      if (typeof code === "string") setFreshCode(code);
-      await loadAll();
-    } finally {
-      setBusy(false);
+      await navigator.clipboard.writeText(freshCode);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setCopied(false);
     }
   }
 
-  async function revoke(id: string) {
-    const response = await apiFetch(`/api/invitations/${encodeURIComponent(id)}`, { method: "DELETE" });
-    if (response.status !== 204) {
-      setError(`Could not revoke the invitation (HTTP ${response.status}).`);
-      return;
-    }
-    await loadAll();
-  }
+  const loadError =
+    users.isError && !forbidden ? errorMessage(users.error, "Could not load users") : "";
+  const error = formError || actionError || loadError;
+  const busy = createUser.isPending || createInvite.isPending;
+  const accountRows = users.data?.users ?? [];
+  const inviteRows = invites.data?.invitations ?? [];
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
@@ -175,7 +143,7 @@ export function UsersView() {
       {tab === "users" ? (
         <section className="flex flex-col gap-4" aria-label="User accounts">
           <h2 className="text-sm font-semibold">Create user</h2>
-          <form className="flex flex-wrap items-end gap-2" onSubmit={(event) => { event.preventDefault(); void createUser(); }}>
+          <form className="flex flex-wrap items-end gap-2" noValidate onSubmit={(event) => { event.preventDefault(); submitUser(); }}>
             <div>
               <label htmlFor="new-username" className="text-xs font-semibold text-mt-muted">Username</label>
               <Input id="new-username" required value={username} onChange={(event) => setUsername(event.target.value)} />
@@ -193,7 +161,7 @@ export function UsersView() {
             </div>
             <Button type="submit" disabled={busy}>Create</Button>
           </form>
-          {users.length > 0 ? (
+          {accountRows.length > 0 ? (
             <table className="w-full text-sm">
               <caption className="sr-only">User accounts</caption>
               <thead>
@@ -204,7 +172,7 @@ export function UsersView() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((user) => (
+                {accountRows.map((user) => (
                   <tr key={user.id} className="border-t border-mt-border">
                     <td className="py-1.5 text-sm text-mt-fg">{user.username}</td>
                     <td className="py-1.5 text-xs text-mt-muted">{user.role}</td>
@@ -213,11 +181,17 @@ export function UsersView() {
                         <Button
                           variant="secondary"
                           className="px-2 py-1 text-xs"
-                          onClick={() => void changeRole(user.id, user.role === "operator" ? "viewer" : "operator")}
+                          onClick={() => changeRole.mutate({ id: user.id, next: user.role === "operator" ? "viewer" : "operator" })}
                         >
                           Make {user.role === "operator" ? "viewer" : "operator"}
                         </Button>
-                        <Button variant="danger" className="px-2 py-1 text-xs" onClick={() => void removeUser(user.id)}>
+                        <Button
+                          variant="danger"
+                          className="px-2 py-1 text-xs"
+                          onClick={() => {
+                            if (window.confirm("Delete this user?")) removeUser.mutate(user.id);
+                          }}
+                        >
                           Delete
                         </Button>
                       </div>
@@ -234,10 +208,15 @@ export function UsersView() {
             <div role="status" className="rounded-md border border-mt-border-strong bg-mt-surface p-3">
               <p className="text-sm text-mt-fg">Invitation code — shown once. It is not stored in the page after you dismiss it.</p>
               <p className="mt-tech mt-2">{freshCode}</p>
-              <Button variant="secondary" className="mt-2" onClick={() => setFreshCode("")}>Dismiss</Button>
+              <div className="mt-2 flex gap-2">
+                <Button variant="secondary" onClick={() => void copyCode()}>
+                  {copied ? "Copied" : "Copy"}
+                </Button>
+                <Button variant="secondary" onClick={() => setFreshCode("")}>Dismiss</Button>
+              </div>
             </div>
           ) : null}
-          <form className="flex flex-wrap items-end gap-2" onSubmit={(event) => { event.preventDefault(); void createInvite(); }}>
+          <form className="flex flex-wrap items-end gap-2" noValidate onSubmit={(event) => { event.preventDefault(); submitInvite(); }}>
             <div>
               <label htmlFor="invite-role" className="text-xs font-semibold text-mt-muted">Role</label>
               <select id="invite-role" value={inviteRole} onChange={(event) => setInviteRole(event.target.value === "operator" ? "operator" : "viewer")} className="rounded-md border border-mt-border-strong bg-mt-bg px-3 py-2 text-sm">
@@ -251,7 +230,7 @@ export function UsersView() {
             </div>
             <Button type="submit" disabled={busy}>Create invitation</Button>
           </form>
-          {invites.length > 0 ? (
+          {inviteRows.length > 0 ? (
             <table className="w-full text-sm">
               <caption className="sr-only">Invitations</caption>
               <thead>
@@ -262,12 +241,12 @@ export function UsersView() {
                 </tr>
               </thead>
               <tbody>
-                {invites.map((invite) => (
+                {inviteRows.map((invite) => (
                   <tr key={invite.id} className="border-t border-mt-border">
                     <td className="py-1.5 text-sm text-mt-fg">{invite.role}</td>
                     <td className="py-1.5 text-sm text-mt-fg">{invite.status}</td>
                     <td className="py-1.5 text-right">
-                      <Button variant="danger" className="px-2 py-1 text-xs" onClick={() => void revoke(invite.id)}>
+                      <Button variant="danger" className="px-2 py-1 text-xs" onClick={() => revoke.mutate(invite.id)}>
                         Revoke
                       </Button>
                     </td>

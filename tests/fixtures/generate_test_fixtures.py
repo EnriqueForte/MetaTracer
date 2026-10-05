@@ -2,7 +2,7 @@
 
 Every fixture is generated locally with Pillow/piexif/pypdf — nothing is
 downloaded and nothing comes from a real target. The planted leaks use the
-reserved test domain ``acme-corp.test`` (RFC 2606 style: never a real
+reserved synthetic domain ``acme-corp.internal`` (never a real engagement) and
 engagement) and synthetic users/paths.
 
 Run it to (re)generate the on-disk copies under ``tests/fixtures/files/``::
@@ -34,8 +34,9 @@ from tests.fixtures.builders import make_pdf_bytes
 
 FIXTURES_DIR = Path(__file__).parent / "files"
 
-# Reserved test domain (never a real target) and the planted leak values.
-TEST_DOMAIN = "acme-corp.test"
+# Synthetic domain (never a real target). ``.test`` is rejected by the email
+# detector (TASK-34, reserved TLD), so the planted leak uses ``.internal``.
+TEST_DOMAIN = "acme-corp.internal"
 TEST_EMAIL = f"security.lead@{TEST_DOMAIN}"
 GPS_LATITUDE = 40.4168  # DMS 40 25' 0.48" N (Puerta del Sol, Madrid)
 GPS_LONGITUDE = -3.7038  # DMS 3 42' 13.68" W

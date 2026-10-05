@@ -527,7 +527,7 @@ document.addEventListener('alpine:init', () => {
         this.refreshRun();
         return;
       }
-      if (event.stage === 'failed') {
+      if (event.stage === 'failed' || event.stage === 'aborted') {
         const active = this.stages.find((stage) => stage.state === 'active');
         if (active) active.state = 'failed';
         this.closeStream();

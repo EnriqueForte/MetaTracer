@@ -1,10 +1,15 @@
 """InternalPathDetector (TASK-02 subtask 2.3).
 
 Covers Windows drive paths (``C:\\Users\\...``, also with ``/``), UNC shares
-(``\\\\fileserver\\share\\...``) and Unix/macOS homes and service roots
-(``/home``, ``/Users``, ``/private/var``, ``/var/www``, ``/srv``, ``/root``).
-Generic ``/opt`` and ``/usr`` are intentionally not matched: too noisy, and
-the rubric prefers under-detection over false positives.
+(``\\\\fileserver\\share\\...``), Unix/macOS homes and service roots
+(``/home``, ``/Users``, ``/private/tmp``, ``/private/var``, ``/var/www``,
+``/srv``, ``/root``), install roots (``C:\\Program Files``, ``C:\\ProgramData``),
+``AppData`` that is not under ``Users``, and tilde homes (``~usuario/``).
+
+Generic ``/opt`` and ``/usr`` stay unmatched. Those prefixes appear in vendor
+install notes, man pages and library strings (``/usr/lib``, ``/opt/lampp``)
+far more often than they name a person or an internal host, and the rubric
+prefers under-detection over that noise.
 
 Negatives: a match wrapped in a URL token (``http://``, ``https://``,
 ``file:///``, ``xmlns:``...) or a relative path (``./images/``) is not
@@ -14,9 +19,10 @@ leading ``.``.
 
 Confidence (subtask 2.3.5): ``high`` for user-bound roots (``Users\\``,
 ``Documents and Settings``, UNC, ``/home``, ``/Users``, ``/root``); ``medium``
-for the rest (``C:\\Windows``, ``inetpub``, ``xampp``, ``/private/var``,
-``/srv`` and any ``/var/www/...`` — a deploy root carries no user name).
-The unlisted cases are a documented choice, consistent with the rubric.
+for the rest (``C:\\Windows``, ``inetpub``, ``xampp``, ``Program Files``,
+``ProgramData``, ``AppData`` outside ``Users``, ``~usuario/``,
+``/private/tmp``, ``/private/var``, ``/srv`` and any ``/var/www/...``).
+A deploy or install root carries no user name.
 """
 
 import re
@@ -26,15 +32,24 @@ from metatracer.db.models import Confidence, FindingType, RawMetadataItem
 from metatracer.detectors.base import FindingDraft, collapse_whitespace, normalize_text
 
 _WINDOWS_DRIVE_RE = re.compile(
-    r"[A-Za-z]:[\\/](?:Users|Documents and Settings|Windows|inetpub|xampp)[\\/][^\s\"<>|]+",
+    r"[A-Za-z]:[\\/](?:Users|Documents and Settings|Windows|inetpub|xampp|"
+    r"Program Files|ProgramData)[\\/][^\s\"<>|]+",
     re.IGNORECASE,
 )
+# AppData that is not the first segment under Users (that case is already a
+# high-confidence user path). ``C:\Temp\AppData\...`` and ``C:\AppData\...``.
+_WINDOWS_APPDATA_RE = re.compile(
+    r"[A-Za-z]:[\\/](?![Uu]sers[\\/])(?:[^\\/\s]+[\\/])*AppData[\\/][^\s\"<>|]+",
+    re.IGNORECASE,
+)
+_TILDE_HOME_RE = re.compile(r"(?<![A-Za-z0-9])~[A-Za-z0-9._-]{1,32}/[^\s\"<>|]+")
 _UNC_RE = re.compile(r"\\\\[A-Za-z0-9_.\-]+\\[A-Za-z0-9_$.\-]+(?:\\[^\s\"<>|]+)*")
 # The lookbehind keeps the Unix roots from matching inside a Windows drive
 # path ("C:/Users/..."), a URL ("target.com/home/...") or a longer relative
 # path ("./images/home/..."): the root must start at a token-ish boundary.
 _UNIX_RE = re.compile(
-    r"(?<![A-Za-z0-9_:.\-/])(?:/home|/Users|/private/var|/var/www|/srv|/root)/[^\s\"<>|]+",
+    r"(?<![A-Za-z0-9_:.\-/])(?:/home|/Users|/private/tmp|/private/var|"
+    r"/var/www|/srv|/root)/[^\s\"<>|]+",
     re.IGNORECASE,
 )
 
@@ -50,7 +65,7 @@ _HIGH_UNIX_PREFIXES = ("/home/", "/users/", "/root/")
 # Deploy roots without a user name: /var/www/<anything> included. The contract
 # (2.3.5) reserves ``high`` for user-bound roots and UNC; the classifier applies
 # the matching ceiling (``/var/www`` without user -> medium).
-_MEDIUM_UNIX_PREFIXES = ("/private/var/", "/srv/", "/var/www/")
+_MEDIUM_UNIX_PREFIXES = ("/private/tmp/", "/private/var/", "/srv/", "/var/www/")
 
 
 class InternalPathDetector:
@@ -87,8 +102,10 @@ def _iter_matches(text: str) -> list[re.Match[str]]:
     """All candidate path matches, Windows/UNC first (they cannot overlap Unix)."""
     return [
         *re.finditer(_WINDOWS_DRIVE_RE, text),
+        *re.finditer(_WINDOWS_APPDATA_RE, text),
         *re.finditer(_UNC_RE, text),
         *re.finditer(_UNIX_RE, text),
+        *re.finditer(_TILDE_HOME_RE, text),
     ]
 
 

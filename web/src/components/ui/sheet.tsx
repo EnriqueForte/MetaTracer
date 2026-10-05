@@ -6,6 +6,8 @@ import type { ComponentProps } from "react";
 
 import { cn } from "@/lib/utils";
 
+import { useRestoreFocus } from "./restore-focus";
+
 function Sheet(props: ComponentProps<typeof DialogPrimitive.Root>) {
   return <DialogPrimitive.Root {...props} />;
 }
@@ -21,8 +23,11 @@ function SheetClose(props: ComponentProps<typeof DialogPrimitive.Close>) {
 function SheetContent({
   className,
   children,
+  onOpenAutoFocus,
+  onCloseAutoFocus,
   ...props
 }: ComponentProps<typeof DialogPrimitive.Content>) {
+  const focus = useRestoreFocus(onOpenAutoFocus, onCloseAutoFocus);
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-mt-overlay" />
@@ -31,6 +36,7 @@ function SheetContent({
           "fixed inset-y-0 right-0 z-50 flex w-[min(24rem,100%)] flex-col border-l border-mt-border bg-mt-elevated p-6 text-mt-fg shadow-mt-overlay focus:outline-none",
           className,
         )}
+        {...focus}
         {...props}
       >
         {children}

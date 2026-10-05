@@ -23,7 +23,7 @@ from metatracer.services.orchestrator import ProgressEvent, ProgressStage
 
 logger = logging.getLogger("metatracer.services.progress")
 
-TERMINAL_STAGES = (ProgressStage.completed, ProgressStage.failed)
+TERMINAL_STAGES = (ProgressStage.completed, ProgressStage.failed, ProgressStage.aborted)
 
 
 class ProgressBus:
@@ -57,6 +57,10 @@ class ProgressBus:
         if not history or history[-1].stage not in TERMINAL_STAGES:
             self._subscribers.setdefault(run_id, set()).add(queue)
         return queue
+
+    def has_history(self, run_id: str) -> bool:
+        """True when this process still holds replay events for the run."""
+        return bool(self._history.get(run_id))
 
     def unsubscribe(self, run_id: str, queue: asyncio.Queue[ProgressEvent]) -> None:
         """Drop a subscriber queue (client disconnected or stream finished)."""

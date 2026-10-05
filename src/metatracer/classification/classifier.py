@@ -24,8 +24,8 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from metatracer.agents.memory import FeedbackExample
 from metatracer.classification.anchor import parse_gps_line
+from metatracer.classification.feedback import FeedbackExample
 from metatracer.classification.rubric import cap_severity, ceiling_for
 from metatracer.classification.templates import (
     UNANCHORED_EVIDENCE,
@@ -44,21 +44,26 @@ from metatracer.db.models import (
     Severity,
     severity_rank,
 )
+from metatracer.detectors.patterns import STRONG_DEBUG_RES, WEAK_DEBUG_RE
 
-# Secret markers that push a debug comment to critical (subtask 3.2.3,
-# verbatim from the task contract).
+# A secret word with an associated value is critical (TASK-34). The bare word
+# ("remove staging credentials") is only a marker and stays at medium.
+_SECRET_VALUE_RE = re.compile(
+    r"(?:"
+    r"(?:password|token)\s*[:=]\s*\S+"
+    r"|api[_-]?key\s*[:=]\s*\S+"
+    r"|AKIA[0-9A-Z]{16}"
+    r"|ghp_[A-Za-z0-9]{36}"
+    r"|-----BEGIN [A-Z ]*PRIVATE KEY-----"
+    r")",
+    re.IGNORECASE,
+)
+# Bare markers without a value. Not enough for critical.
 _SECRET_RE = re.compile(r"\b(?:password|secret|api[_-]?key|token|credential)s?\b", re.IGNORECASE)
 
-# Debug keyword patterns mirrored from detectors/debug.py — keep in sync: the
-# detector anchors on them, the classifier maps them to severity bands.
-_STRONG_RES = (
-    re.compile(r"\b(?:TODO|FIXME|DEBUG|XXX|HACK)\s*:", re.IGNORECASE),
-    re.compile(r"\bNOT\s+FOR\s+PUBLIC\s+RELEASE\b", re.IGNORECASE),
-    re.compile(r"\bJIRA-\d+\b", re.IGNORECASE),
-    re.compile(r"\bGL-\d+\b", re.IGNORECASE),
-    re.compile(r"#ISSUE-\d+\b", re.IGNORECASE),
-)
-_WEAK_RE = re.compile(r"\b(?:CONFIDENTIAL|INTERNAL|DRAFT|TEST)\b", re.IGNORECASE)
+# Same patterns the detector anchors on (detectors/patterns.py).
+_STRONG_RES = STRONG_DEBUG_RES
+_WEAK_RE = WEAK_DEBUG_RE
 _WORD_RE = re.compile(r"[a-z0-9]+")
 
 _EMAIL_SHAPE_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
@@ -88,7 +93,11 @@ _GENERIC_MAILBOXES = frozenset(
 _WINDOWS_USER_RE = re.compile(
     r"^[A-Za-z]:[\\/](?:Users|Documents and Settings)[\\/][^\\/]+", re.IGNORECASE
 )
-_WINDOWS_SYSTEM_RE = re.compile(r"^[A-Za-z]:[\\/](?:Windows|inetpub|xampp)[\\/]", re.IGNORECASE)
+_WINDOWS_SYSTEM_RE = re.compile(
+    r"^[A-Za-z]:[\\/](?:Windows|inetpub|xampp|Program Files|ProgramData|AppData)[\\/]",
+    re.IGNORECASE,
+)
+_TILDE_HOME_RE = re.compile(r"^~[^/\\\s]+/")
 _UNC_RE = re.compile(r"^\\\\[^\\]+")
 # /var/www/<seg> with a generic deploy segment names no user (rubric medium
 # example: /var/www/intranet); any other segment is treated as user-ish.
@@ -112,7 +121,7 @@ _GENERIC_WWW_SEGMENTS = frozenset(
     }
 )
 _HIGH_UNIX_PREFIXES = ("/home/", "/users/", "/root/")
-_MEDIUM_UNIX_PREFIXES = ("/private/var/", "/srv/")
+_MEDIUM_UNIX_PREFIXES = ("/private/tmp/", "/private/var/", "/srv/")
 
 
 @dataclass(frozen=True, slots=True)
@@ -211,8 +220,8 @@ class HeuristicRiskClassifier:
 
     @staticmethod
     def _gps_severity(snippet: str) -> Severity:
-        # Valid coordinates alone are high; the ceiling forbids critical
-        # without text identifying a home/person/facility (no geocoding).
+        # Coordinates alone are high. The snippet never carries a person or
+        # facility name, so critical is not a GPS outcome (TASK-34).
         return Severity.high if parse_gps_line(snippet) is not None else Severity.info
 
     @staticmethod
@@ -226,8 +235,8 @@ class HeuristicRiskClassifier:
     def _path_severity(snippet: str) -> Severity:
         if _UNC_RE.match(snippet) or _WINDOWS_USER_RE.match(snippet):
             return Severity.high  # username or internal host/share
-        if _WINDOWS_SYSTEM_RE.match(snippet):
-            return Severity.medium  # system root without a user
+        if _WINDOWS_SYSTEM_RE.match(snippet) or _TILDE_HOME_RE.match(snippet):
+            return Severity.medium  # install/system root or tilde home, no user dir
         low = snippet.lower()
         if low.startswith(_HIGH_UNIX_PREFIXES):
             return Severity.high  # /home/<user>, /Users/<user>, /root
@@ -239,6 +248,8 @@ class HeuristicRiskClassifier:
             return Severity.medium if segment in _GENERIC_WWW_SEGMENTS else Severity.high
         if low.startswith(_MEDIUM_UNIX_PREFIXES):
             return Severity.medium
+        if "appdata\\" in low or "appdata/" in low:
+            return Severity.medium  # AppData outside a Users home
         return Severity.info  # not a recognized internal-path shape
 
     @staticmethod
@@ -249,8 +260,10 @@ class HeuristicRiskClassifier:
 
     @staticmethod
     def _debug_severity(snippet: str) -> Severity:
-        if _SECRET_RE.search(snippet):
+        if _SECRET_VALUE_RE.search(snippet):
             return Severity.critical
+        if _SECRET_RE.search(snippet):
+            return Severity.medium  # marker without an associated value
         if any(pattern.search(snippet) for pattern in _STRONG_RES):
             return Severity.medium
         if _WEAK_RE.search(snippet):

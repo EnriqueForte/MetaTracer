@@ -10,7 +10,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from metatracer.db.models import Confidence, FindingType, ReasoningDepth, Severity
+from metatracer.db.models import Confidence, FindingType, ReasoningDepth, Severity, TriageStatus
 from metatracer.reports.builder import ReportData
 
 
@@ -29,6 +29,8 @@ class ReportSummary(BaseModel):
     total_assets_scanned: int
     total_findings: int
     severity_counts: ReportSeverityCounts = Field(default_factory=ReportSeverityCounts)
+    # Findings marked false_positive and left out of this report (TASK-35).
+    excluded_false_positives: int = 0
 
 
 class ReportFinding(BaseModel):
@@ -45,6 +47,7 @@ class ReportFinding(BaseModel):
     explanation: str
     remediation: str
     reproduction_steps: list[str] = Field(default_factory=list)
+    triage_status: TriageStatus = TriageStatus.open
 
 
 class ReportDocument(BaseModel):
@@ -86,6 +89,7 @@ def build_report_document(data: ReportData) -> ReportDocument:
                 info=counts.info,
                 unclassified=counts.unclassified,
             ),
+            excluded_false_positives=data.excluded_false_positives,
         ),
         findings=[
             ReportFinding(
@@ -100,6 +104,7 @@ def build_report_document(data: ReportData) -> ReportDocument:
                 explanation=finding.explanation,
                 remediation=finding.remediation,
                 reproduction_steps=list(finding.reproduction_steps),
+                triage_status=finding.triage_status,
             )
             for finding in data.findings
         ],

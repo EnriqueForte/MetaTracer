@@ -1,21 +1,21 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useRef, useState } from "react";
+import { z } from "@/lib/validation/zod";
 
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { apiFetch } from "@/lib/api/browser";
+import { getJson, hasArray } from "@/lib/api/client";
+import type { ScopeListResponse } from "@/lib/api/types";
 import { BASE_PATH } from "@/lib/constants";
+import { queryKeys } from "@/lib/query/keys";
+import { useActor } from "@/lib/session";
 import { STAGE_LABELS, STAGES } from "@/lib/sse/progress";
 
 const DEPTHS = ["brief", "standard", "detailed"] as const;
-
-type SavedScope = {
-  id: string;
-  name: string;
-  domains: string[];
-  total_domains: number;
-};
 
 function lines(value: string): string[] {
   return value
@@ -31,116 +31,82 @@ function domains(value: string): string[] {
     .filter(Boolean);
 }
 
-function parseScopes(value: unknown): SavedScope[] {
-  if (!value || typeof value !== "object") return [];
-  const rows = (value as { scopes?: unknown }).scopes;
-  if (!Array.isArray(rows)) return [];
-  const scopes: SavedScope[] = [];
-  for (const row of rows) {
-    if (!row || typeof row !== "object") continue;
-    const scope = row as Record<string, unknown>;
-    if (typeof scope.id !== "string" || typeof scope.name !== "string") continue;
-    if (!Array.isArray(scope.domains) || !scope.domains.every((item) => typeof item === "string")) {
-      continue;
-    }
-    scopes.push({
-      id: scope.id,
-      name: scope.name,
-      domains: scope.domains,
-      total_domains: typeof scope.total_domains === "number" ? scope.total_domains : scope.domains.length,
-    });
-  }
-  return scopes;
-}
+/**
+ * Advisory only: the server's ScanRequest stays the authority (TASK-35, ADR-001).
+ * `scope_confirmed` is never part of this schema; it is set on the confirm click.
+ */
+const scanSchema = z
+  .object({
+    targets: z.array(z.string()).min(1, "Enter at least one target."),
+    scope_domains: z.array(z.string()),
+    scope_ids: z.array(z.string()),
+    reasoning_depth: z.enum(DEPTHS),
+  })
+  .refine((value) => value.scope_domains.length > 0 || value.scope_ids.length > 0, {
+    message:
+      "Enter at least one authorized scope domain or choose a saved scope; the scope is never inferred from the target.",
+  })
+  .refine((value) => !(value.scope_domains.length > 0 && value.scope_ids.length > 0), {
+    message: "Use either saved scopes or manual domains, not both.",
+  });
+
+type ScanDraft = z.infer<typeof scanSchema>;
 
 export function ScanWizard() {
+  const actor = useActor();
   const [targets, setTargets] = useState("");
   const [scopeDomains, setScopeDomains] = useState("");
   const [depth, setDepth] = useState<(typeof DEPTHS)[number]>("standard");
-  const [savedScopes, setSavedScopes] = useState<SavedScope[]>([]);
   const [selectedScopeIds, setSelectedScopeIds] = useState<string[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState("");
-  const lastFocused = useRef<HTMLElement | null>(null);
+  const [draft, setDraft] = useState<ScanDraft | null>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const response = await apiFetch("/api/scopes");
-        if (!response.ok || cancelled) return;
-        const scopes = parseScopes(await response.json());
-        if (cancelled) return;
-        setSavedScopes(scopes);
-        setSelectedScopeIds((current) => current.filter((id) => scopes.some((scope) => scope.id === id)));
-      } catch {
-        if (!cancelled) setSavedScopes([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!modalOpen) return;
-    const cancel = document.getElementById("scope-modal-cancel");
-    if (cancel instanceof HTMLElement) cancel.focus();
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeModal();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [modalOpen]);
+  const scopesQuery = useQuery({
+    queryKey: queryKeys.scopes,
+    queryFn: () => getJson<ScopeListResponse>("/api/scopes", hasArray("scopes")),
+  });
+  const savedScopes = scopesQuery.data?.scopes ?? [];
+  const activeScopeIds = selectedScopeIds.filter((id) => savedScopes.some((scope) => scope.id === id));
 
   const targetList = lines(targets);
   const manualDomains = domains(scopeDomains);
-  const selectedScopes = savedScopes.filter((scope) => selectedScopeIds.includes(scope.id));
-
-  function closeModal() {
-    setModalOpen(false);
-    lastFocused.current?.focus();
-  }
+  const usingSaved = activeScopeIds.length > 0;
+  const usingManual = !usingSaved && manualDomains.length > 0;
+  const selectedScopes = savedScopes.filter((scope) => activeScopeIds.includes(scope.id));
+  const viewer = actor === "viewer";
 
   function openModal() {
     setError("");
-    if (targetList.length === 0) {
-      setError("Enter at least one target.");
+    const parsed = scanSchema.safeParse({
+      targets: targetList,
+      scope_domains: usingSaved ? [] : manualDomains,
+      scope_ids: activeScopeIds,
+      reasoning_depth: depth,
+    });
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? "Check the scan form.");
       return;
     }
-    if (manualDomains.length === 0 && selectedScopeIds.length === 0) {
-      setError(
-        "Enter at least one authorized scope domain or choose a saved scope; the scope is never inferred from the target.",
-      );
-      return;
-    }
+    setDraft(parsed.data);
     setConfirmed(false);
-    lastFocused.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setModalOpen(true);
   }
 
   async function startScan() {
-    if (!confirmed) return;
+    if (!confirmed || !draft) return;
     setStarting(true);
     setError("");
-    const body: {
-      targets: string[];
-      scope_confirmed: true;
-      reasoning_depth: (typeof DEPTHS)[number];
-      scope_ids?: string[];
-      scope_domains?: string[];
-    } = {
-      targets: targetList,
+    const body: Record<string, unknown> = {
+      targets: draft.targets,
       scope_confirmed: true,
-      reasoning_depth: depth,
+      reasoning_depth: draft.reasoning_depth,
     };
-    if (selectedScopeIds.length > 0) {
-      body.scope_ids = selectedScopeIds;
-    } else {
-      body.scope_domains = manualDomains;
-    }
+    if (draft.scope_ids.length > 0) body.scope_ids = draft.scope_ids;
+    else body.scope_domains = draft.scope_domains;
     try {
       const response = await apiFetch("/api/runs", {
         method: "POST",
@@ -156,7 +122,7 @@ export function ScanWizard() {
         if (!runId) {
           setError("The scan could not be started (HTTP 202).");
           setStarting(false);
-          closeModal();
+          setModalOpen(false);
           return;
         }
         window.location.assign(`${BASE_PATH}/runs/${encodeURIComponent(runId)}`);
@@ -179,13 +145,13 @@ export function ScanWizard() {
       setError("Network error: the API is unreachable.");
     }
     setStarting(false);
-    closeModal();
+    setModalOpen(false);
   }
 
   const scopeSummary =
-    selectedScopes.length > 0
+    draft && draft.scope_ids.length > 0
       ? selectedScopes.map((scope) => scope.domains.join(", ")).filter(Boolean).join(", ")
-      : manualDomains.join(", ");
+      : (draft?.scope_domains ?? []).join(", ");
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
@@ -197,8 +163,15 @@ export function ScanWizard() {
         </p>
       </div>
 
+      {viewer ? (
+        <p role="status" className="rounded-md border border-mt-border-strong bg-mt-surface px-3 py-2 text-sm text-mt-fg">
+          Viewer accounts can review runs but cannot start scans. Ask an operator.
+        </p>
+      ) : null}
+
       <form
         className="mt-command"
+        noValidate
         onSubmit={(event) => {
           event.preventDefault();
           openModal();
@@ -212,8 +185,9 @@ export function ScanWizard() {
             id="targets"
             rows={1}
             value={targets}
+            disabled={viewer}
             onChange={(event) => setTargets(event.target.value)}
-            className="mt-tech w-full resize-y rounded-md border border-mt-border-strong bg-mt-bg px-3 py-2 text-sm text-mt-fg placeholder:text-mt-faint focus:border-mt-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mt-focus"
+            className="mt-tech w-full resize-y rounded-md border border-mt-border-strong bg-mt-bg px-3 py-2 text-sm text-mt-fg placeholder:text-mt-faint focus:border-mt-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mt-focus disabled:opacity-[0.45]"
             placeholder="One target per line"
           />
         </div>
@@ -225,12 +199,14 @@ export function ScanWizard() {
             id="scope"
             type="text"
             value={scopeDomains}
+            disabled={viewer || usingSaved}
+            aria-describedby={usingSaved ? "scope-source-note" : undefined}
             onChange={(event) => setScopeDomains(event.target.value)}
-            className="mt-tech"
+            className="mt-tech disabled:opacity-[0.45]"
             placeholder="example.com, static.example.com"
           />
         </div>
-        <fieldset className="mt-command-field">
+        <fieldset className="mt-command-field" disabled={viewer || usingManual}>
           <legend className="text-xs text-mt-muted">Saved scopes</legend>
           {savedScopes.length > 0 ? (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -238,7 +214,8 @@ export function ScanWizard() {
                 <label key={scope.id} className="flex cursor-pointer items-center gap-2">
                   <input
                     type="checkbox"
-                    checked={selectedScopeIds.includes(scope.id)}
+                    checked={activeScopeIds.includes(scope.id)}
+                    aria-describedby={usingManual ? "scope-source-note" : undefined}
                     onChange={(event) => {
                       setSelectedScopeIds((current) =>
                         event.target.checked
@@ -274,9 +251,10 @@ export function ScanWizard() {
           <select
             id="depth"
             value={depth}
+            disabled={viewer}
             onChange={(event) => {
-              const next = event.target.value;
-              if (next === "brief" || next === "standard" || next === "detailed") setDepth(next);
+              const next = DEPTHS.find((item) => item === event.target.value);
+              if (next) setDepth(next);
             }}
             className="w-full rounded-md border border-mt-border-strong bg-mt-bg px-3 py-2 text-sm text-mt-fg focus:border-mt-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mt-focus"
           >
@@ -287,12 +265,16 @@ export function ScanWizard() {
             ))}
           </select>
         </div>
-        <Button type="submit" className="mt-command-start">
+        <Button type="submit" className="mt-command-start" disabled={viewer}>
           Start scan
         </Button>
       </form>
-      <p className="text-xs text-mt-muted">
-        Only when you are not using a saved scope. The scope is never inferred from the targets.
+      <p id="scope-source-note" className="text-xs text-mt-muted" aria-live="polite">
+        {usingSaved
+          ? "Using saved scopes — manual domains are ignored."
+          : usingManual
+            ? "Using manual domains — saved scopes are ignored."
+            : "Choose saved scopes or type domains. The scope is never inferred from the targets."}
       </p>
 
       <section className="mt-card flex flex-col gap-3 p-4" aria-labelledby="scan-pipeline-title">
@@ -325,63 +307,64 @@ export function ScanWizard() {
         </p>
       ) : null}
 
-      {modalOpen ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-mt-overlay p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="scope-modal-title"
+      <Dialog open={modalOpen} onOpenChange={(open) => { if (!starting) setModalOpen(open); }}>
+        <DialogContent
+          className="flex flex-col gap-4"
+          onOpenAutoFocus={(event) => {
+            event.preventDefault();
+            cancelRef.current?.focus();
+          }}
         >
-          <div className="flex w-full max-w-lg flex-col gap-4 rounded-md border border-mt-border bg-mt-surface p-4 shadow-mt-overlay">
-            <h2 id="scope-modal-title" className="mt-title">
-              Confirm authorized scope
-            </h2>
-            <div>
-              <p className="text-sm text-mt-fg">You are about to audit:</p>
-              <ul className="mt-1 max-h-32 list-inside list-disc overflow-y-auto text-xs text-mt-muted">
-                {targetList.map((target) => (
-                  <li key={target}>{target}</li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <p className="text-sm text-mt-fg">Restricted to the authorized scope:</p>
-              <p className="mt-tech">{scopeSummary}</p>
-            </div>
-            <p className="text-xs text-mt-muted">
-              MetaTracer only downloads public documents on these domains, extracts their metadata
-              and never attempts exploitation. Scanning systems without explicit authorization may
-              be illegal in your jurisdiction.
-            </p>
-            <label className="flex cursor-pointer items-start gap-2">
-              <input
-                type="checkbox"
-                className="mt-1"
-                checked={confirmed}
-                onChange={(event) => setConfirmed(event.target.checked)}
-                aria-label="I confirm I have explicit authorization to audit these targets and that they are inside the stated scope"
-              />
-              <span className="text-sm text-mt-fg">
-                I confirm I have explicit authorization to audit these targets and that they are
-                inside the stated scope.
-              </span>
-            </label>
-            <div className="flex gap-2">
-              <Button
-                id="scope-modal-cancel"
-                variant="secondary"
-                className="flex-1"
-                onClick={closeModal}
-              >
-                Cancel
-              </Button>
-              <Button className="flex-1" disabled={!confirmed || starting} onClick={() => void startScan()}>
-                {starting ? "Starting scan…" : "Confirm and start scan"}
-              </Button>
-            </div>
+          <DialogTitle>Confirm authorized scope</DialogTitle>
+          <DialogDescription className="sr-only">
+            Review the targets and scope, then confirm explicit authorization.
+          </DialogDescription>
+          <div>
+            <p className="text-sm text-mt-fg">You are about to audit:</p>
+            <ul className="mt-1 max-h-32 list-inside list-disc overflow-y-auto text-xs text-mt-muted">
+              {(draft?.targets ?? []).map((target) => (
+                <li key={target}>{target}</li>
+              ))}
+            </ul>
           </div>
-        </div>
-      ) : null}
+          <div>
+            <p className="text-sm text-mt-fg">Restricted to the authorized scope:</p>
+            <p className="mt-tech">{scopeSummary}</p>
+          </div>
+          <p className="text-xs text-mt-muted">
+            MetaTracer only downloads public documents on these domains, extracts their metadata
+            and never attempts exploitation. Scanning systems without explicit authorization may
+            be illegal in your jurisdiction.
+          </p>
+          <label className="flex cursor-pointer items-start gap-2">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={confirmed}
+              onChange={(event) => setConfirmed(event.target.checked)}
+              aria-label="I confirm I have explicit authorization to audit these targets and that they are inside the stated scope"
+            />
+            <span className="text-sm text-mt-fg">
+              I confirm I have explicit authorization to audit these targets and that they are
+              inside the stated scope.
+            </span>
+          </label>
+          <div className="flex gap-2">
+            <Button
+              ref={cancelRef}
+              id="scope-modal-cancel"
+              variant="secondary"
+              className="flex-1"
+              onClick={() => setModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button className="flex-1" disabled={!confirmed || starting} onClick={() => void startScan()}>
+              {starting ? "Starting scan…" : "Confirm and start scan"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

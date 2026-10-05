@@ -94,11 +94,17 @@ def _render_finding(finding: ReportFindingData) -> str:
         finding.severity.value.capitalize() if finding.severity is not None else "Unclassified"
     )
     steps = "".join(f"<li>{_t(step)}</li>" for step in finding.reproduction_steps)
+    triage = (
+        f"<dt>Triage</dt><dd>{_t(finding.triage_label)}</dd>"
+        if finding.triage_status.value != "open"
+        else ""
+    )
     return (
         f'<article class="card">'
         f"<h3>[{_t(severity_label)}] {_t(finding.title)}</h3>"
         "<dl>"
         f"<dt>Severity</dt><dd>{_t(severity_label)}</dd>"
+        f"{triage}"
         f"<dt>Affected asset</dt><dd>{_code(finding.asset_final_url)} "
         f"(source: {_code(finding.asset_source_url)}, "
         f"content-type: {_code(finding.asset_content_type)})</dd>"

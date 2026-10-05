@@ -12,6 +12,7 @@ is out of the threat model. Only IPv4-mapped IPv6 (::ffff:/96) is unwrapped.
 """
 
 import asyncio
+import re
 import socket
 from ipaddress import IPv4Address, IPv6Address, ip_address, ip_network
 
@@ -35,7 +36,20 @@ _OTHER_BLOCKED_NETWORKS = (
     ip_network("fc00::/7"),  # unique local IPv6
     ip_network("224.0.0.0/4"),  # multicast v4
     ip_network("ff00::/8"),  # multicast v6
+    # TASK-32: documentation, benchmarking and reserved ranges (SSRF lists).
+    ip_network("192.0.0.0/24"),  # IETF protocol assignments
+    ip_network("192.0.2.0/24"),  # TEST-NET-1
+    ip_network("198.51.100.0/24"),  # TEST-NET-2
+    ip_network("203.0.113.0/24"),  # TEST-NET-3
+    ip_network("198.18.0.0/15"),  # benchmarking
+    ip_network("240.0.0.0/4"),  # reserved (includes 255.255.255.255)
+    ip_network("255.255.255.255/32"),
+    ip_network("2001:db8::/32"),  # documentation
+    ip_network("100::/64"),  # discard-only
 )
+
+# Dotted IPv4 whose labels are decimal, octal (leading 0) or hex (0x).
+_IPV4_LABEL_RE = re.compile(r"(?:0x[0-9a-f]+|\d+)", re.IGNORECASE)
 
 
 class NetworkSafetyGuard:
@@ -59,7 +73,10 @@ class NetworkSafetyGuard:
 
         Must be called immediately before opening the connection. A host that
         cannot be resolved is refused: its addresses cannot be verified.
+        Non-canonical IPv4 spellings (decimal dword, octal, hex) are refused
+        before DNS: resolvers may map them onto loopback.
         """
+        _reject_noncanonical_ipv4(host)
         addresses = await self._resolve(host, port)
         if not addresses:
             raise SecurityViolationError(
@@ -99,6 +116,42 @@ class NetworkSafetyGuard:
                         f"refusing connection to blocked address {candidate} "
                         f"(host {sanitize_for_log(host)}, network {network})"
                     )
+
+
+def _reject_noncanonical_ipv4(host: str) -> None:
+    """Raise when ``host`` is an IPv4 written in a form ``ipaddress`` will not parse."""
+    if _is_noncanonical_ipv4(host):
+        raise SecurityViolationError(
+            f"refusing connection: non-canonical IPv4 host {sanitize_for_log(host)}"
+        )
+
+
+def _is_noncanonical_ipv4(host: str) -> bool:
+    text = host.strip().lower()
+    if re.fullmatch(r"0x[0-9a-f]+", text):
+        return True
+    if re.fullmatch(r"\d+", text):
+        try:
+            value = int(text, 10)
+        except ValueError:
+            return False
+        return 0 <= value <= 0xFFFFFFFF
+    if "." not in text:
+        return False
+    labels = text.split(".")
+    if not 2 <= len(labels) <= 4:
+        return False
+    if not all(_IPV4_LABEL_RE.fullmatch(label) for label in labels):
+        return False
+    # Short forms (``127.1``, ``10.1``) are not canonical dotted quads.
+    if len(labels) != 4:
+        return True
+    for label in labels:
+        if label.startswith("0x"):
+            return True
+        if len(label) > 1 and label.startswith("0"):
+            return True
+    return False
 
 
 def _parse_ip_literal(host: str) -> IPv4Address | IPv6Address | None:

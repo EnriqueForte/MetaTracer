@@ -6,6 +6,8 @@ import type { ComponentProps } from "react";
 
 import { cn } from "@/lib/utils";
 
+import { useRestoreFocus } from "./restore-focus";
+
 function Dialog(props: ComponentProps<typeof DialogPrimitive.Root>) {
   return <DialogPrimitive.Root {...props} />;
 }
@@ -33,8 +35,11 @@ function DialogOverlay({
 function DialogContent({
   className,
   children,
+  onOpenAutoFocus,
+  onCloseAutoFocus,
   ...props
 }: ComponentProps<typeof DialogPrimitive.Content>) {
+  const focus = useRestoreFocus(onOpenAutoFocus, onCloseAutoFocus);
   return (
     <DialogPrimitive.Portal>
       <DialogOverlay />
@@ -43,6 +48,7 @@ function DialogContent({
           "fixed top-1/2 left-1/2 z-50 w-[min(32rem,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-md border border-mt-border bg-mt-elevated p-6 text-mt-fg shadow-mt-overlay focus:outline-none",
           className,
         )}
+        {...focus}
         {...props}
       >
         {children}

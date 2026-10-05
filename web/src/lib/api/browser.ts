@@ -1,3 +1,5 @@
+import type { NotificationResponse } from "@/lib/api/types";
+
 export function csrfTokenFromCookie(): string {
   if (typeof document === "undefined") return "";
   const row = document.cookie.split("; ").find((part) => part.startsWith("csrf_token="));
@@ -33,13 +35,9 @@ export function parseSession(value: unknown): Exclude<SessionState, { status: "l
   return { status: "signed-out" };
 }
 
-export type NotificationItem = {
-  id: number;
+/** A terminal-run notification; `kind` is narrowed to the terminal statuses. */
+export type NotificationItem = Omit<NotificationResponse, "kind"> & {
   kind: "completed" | "failed" | "aborted";
-  target: string;
-  total_assets: number;
-  total_findings: number;
-  error_message: string | null;
 };
 
 export function parseNotifications(value: unknown): NotificationItem[] | null {
@@ -68,10 +66,12 @@ export function parseNotifications(value: unknown): NotificationItem[] | null {
     items.push({
       id: entry.id,
       kind: entry.kind,
+      run_id: typeof entry.run_id === "string" ? entry.run_id : "",
       target: entry.target,
       total_assets: entry.total_assets,
       total_findings: entry.total_findings,
       error_message: typeof entry.error_message === "string" ? entry.error_message : null,
+      created_at: typeof entry.created_at === "string" ? entry.created_at : "",
     });
   }
   return items;

@@ -3,7 +3,9 @@
 **Módulo:** `api/app.py`, `core/ratelimit.py`, `api/scopes.py`, `api/knowledge.py`, `api/auth.py`, `api/users.py`
 **Referencia:** [Auditoría 2026-10-03](../audit-2026-10-03.md) § P1-5, P1-6
 **Dependencias:** TASK-27
-**Estado:** **Pendiente** (planificada 2026-10-03).
+**Estado:** **Cerrada** (2026-10-03). ruff limpio; cobertura core/detectors/extractors/reports **90.84%** (715 passed, not e2e).
+
+`read_body_capped` y el canal `receive` paran al superar `max_request_body_bytes`, también sin `Content-Length`. Un `Content-Length` no numérico responde 400. `require_operator` cubre GET de usuarios, invitaciones, webhooks y el export de la KB. Con auth apagada esos endpoints siguen abiertos. La instalación es un único dominio de confianza: todo usuario autenticado ve todos los runs.
 
 ---
 
@@ -38,6 +40,6 @@
 
 ## 5. Criterios de aceptación (DoD)
 
-- [ ] Ningún endpoint lee más de `max_request_body_bytes` con o sin `Content-Length`.
-- [ ] Los viewers no acceden a datos de administración ni a secretos de integraciones.
-- [ ] Suite verde + ruff limpio + cobertura ≥85%.
+- [x] Ningún endpoint lee más de `max_request_body_bytes` con o sin `Content-Length`.
+- [x] Los viewers no acceden a datos de administración ni a secretos de integraciones.
+- [x] Suite verde + ruff limpio + cobertura ≥85%.

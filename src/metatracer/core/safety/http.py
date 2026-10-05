@@ -11,12 +11,17 @@ through :func:`safe_httpx_request`, which enforces, in order:
    hops, re-validating scope and guard on every hop — an out-of-scope hop
    raises RedirectOutOfScopeError before the body is read;
 5. GET downloads stream the body and abort as soon as max_file_bytes is
-   exceeded (``too_large=True``, no partial bytes kept).
+   exceeded (``too_large=True``, no partial bytes kept);
+6. the client is created with ``trust_env=False`` so ``HTTP_PROXY`` /
+   ``HTTPS_PROXY`` / ``ALL_PROXY`` cannot move the socket to an address the
+   guard never checks (TASK-27).
 
-GET requests are preceded by a cheap HEAD probe for Content-Length/Content-Type;
-when HEAD is not allowed (405/501) or fails at transport level, the wrapper
-falls back to the streaming GET. This is deliberately conservative: two
-rate-limited requests per asset instead of one blind download.
+GET requests are preceded by a HEAD probe for Content-Length/Content-Type.
+HEAD follows redirects (each hop validated). The GET then starts at that
+already-validated final URL, so the chain is not walked a second time.
+When HEAD is not allowed (405/501) or fails at transport level, the wrapper
+falls back to a streaming GET from the original URL. Residual cost: one HEAD
+per redirect hop plus one GET of the final resource (TASK-32, R3/R8).
 
 Timeouts: connect 10 s, read 20 s, pool 10 s (TASK-00); the write timeout is
 unspecified there and is set equal to the connect timeout.
@@ -172,6 +177,25 @@ async def safe_httpx_request(
                 too_large=True,
                 redirect_chain=probe.redirect_chain,
             )
+        # GET the URL the HEAD already validated. A further redirect on the
+        # GET is still checked; the HEAD chain is not requested again.
+        fetched = await _request_with_redirects(
+            "GET",
+            probe.url,
+            scope=scope,
+            guard=guard,
+            max_file_bytes=max_file_bytes,
+            rate_limiter=rate_limiter,
+            semaphore=semaphore,
+        )
+        return SafeHttpResponse(
+            url=fetched.url,
+            status_code=fetched.status_code,
+            headers=fetched.headers,
+            content=fetched.content,
+            too_large=fetched.too_large,
+            redirect_chain=probe.redirect_chain + fetched.redirect_chain,
+        )
     return await _request_with_redirects(
         "GET",
         url,
@@ -239,6 +263,9 @@ async def _request_with_redirects(
         timeout=timeout,
         headers={"User-Agent": USER_AGENT},
         follow_redirects=False,
+        # Default trust_env=True would honour HTTP(S)_PROXY and connect to a
+        # proxy the guard never validated (TASK-27, P0-1).
+        trust_env=False,
     ) as client:
         for _hop in range(MAX_REDIRECT_HOPS + 1):
             # current_url is always in scope here: the initial URL was validated

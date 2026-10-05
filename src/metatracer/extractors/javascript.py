@@ -15,6 +15,10 @@ JS_COMMENT_KEY = "comment"
 MAX_JS_COMMENTS = 32
 
 _STRING_DELIMS = frozenset({"'", '"', "`"})
+# Mutual recursion between strings and ${...} is capped so a hostile file
+# cannot raise RecursionError (TASK-32). Past the cap the rest of the buffer
+# is skipped and extraction still returns.
+_MAX_SKIP_DEPTH = 64
 
 
 class JavaScriptMetadataExtractor:
@@ -64,8 +68,10 @@ def extract_js_comments(source: str) -> list[str]:
     return [item.strip() for item in comments if item.strip()]
 
 
-def _skip_string(source: str, start: int) -> int:
+def _skip_string(source: str, start: int, depth: int = 0) -> int:
     """Return the index just after the string that starts at ``start``."""
+    if depth > _MAX_SKIP_DEPTH:
+        return len(source)
     delim = source[start]
     i = start + 1
     n = len(source)
@@ -78,25 +84,31 @@ def _skip_string(source: str, start: int) -> int:
             return i + 1
         # Template-literal interpolation: resume scanning after ``}``.
         if delim == "`" and char == "$" and i + 1 < n and source[i + 1] == "{":
-            i = _skip_template_expr(source, i + 2)
+            if depth >= _MAX_SKIP_DEPTH:
+                return n
+            i = _skip_template_expr(source, i + 2, depth + 1)
             continue
         i += 1
     return n
 
 
-def _skip_template_expr(source: str, start: int) -> int:
+def _skip_template_expr(source: str, start: int, depth: int = 0) -> int:
     """Skip ``${...}`` with nested braces; comments inside expressions are ignored."""
-    depth = 1
+    if depth > _MAX_SKIP_DEPTH:
+        return len(source)
+    brace_depth = 1
     i = start
     n = len(source)
-    while i < n and depth:
+    while i < n and brace_depth:
         char = source[i]
         if char in _STRING_DELIMS:
-            i = _skip_string(source, i)
+            if depth >= _MAX_SKIP_DEPTH:
+                return n
+            i = _skip_string(source, i, depth + 1)
             continue
         if char == "{":
-            depth += 1
+            brace_depth += 1
         elif char == "}":
-            depth -= 1
+            brace_depth -= 1
         i += 1
     return i

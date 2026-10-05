@@ -85,8 +85,16 @@ async def test_post_get_update_delete_flow(app: FastAPI, client) -> None:
     webhook_id = body["id"]
     assert body["url"] == "https://hooks.example.com/wh"
     assert body["headers"] == {"X-Token": "***"}
+    assert body["signature_status"] == "active"
     assert "signature_secret" not in body
     assert "signature_secret_hash" not in body
+    assert "supersecret" not in response.text
+
+    async with app.state.session_factory() as session:
+        stored = await WebhookConfigRepository(session).get(webhook_id)
+    assert stored is not None
+    assert stored.signature_secret == "supersecret"
+    assert stored.signature_secret_hash
 
     listed = await client.get("/api/webhooks")
     assert listed.status_code == 200

@@ -39,3 +39,21 @@ Severidad: se conservan las etiquetas con texto y la escala ya definida (Critica
 Fases 5 a 10 del plan de migración, dentro de `web/`. Esas fases ya están construidas. No se aplica a las plantillas Jinja.
 
 El retoque de densidad y jerarquía, sin copiar las referencias de tablero, está en [v2-ui-refresh.md](v2-ui-refresh.md). Lo implementa `v2-ui-engineer`, no `ui-engineer`.
+
+## Tema claro (TASK-35, 2026-10-05)
+
+**Decisión de producto:** el tema oscuro sigue siendo el default. El operador elige System, Dark o Light en el pie del sidebar; la elección se guarda en `localStorage` (`mt-theme`). System sigue `prefers-color-scheme`.
+
+**Mecánica:** `public/theme-init.js` es un script bloqueante servido desde `'self'` en el `<head>`. Pone `html[data-theme]` antes del primer paint, así que no hay parpadeo y la CSP no gana fuentes, hashes ni `unsafe-inline` nuevo. Los tokens claros se declaran en `globals.css` bajo `:root[data-theme="light"]` y, repetidos, bajo `@media (prefers-color-scheme: light) :root[data-theme="system"]`. Los nombres de token no cambian; ningún componente usa colores literales. Gráficos y mapa GPS leen los mismos tokens (`fill-mt-sev-*`, `stroke-mt-border*`).
+
+**Paleta clara:**
+
+| Token | Valor | Uso |
+| :--- | :--- | :--- |
+| `--mt-bg` / `--mt-surface` / `--mt-elevated` | `#f6f8fb` / `#ffffff` / `#eef2f7` | Lienzo, tarjetas, capas |
+| `--mt-fg` / `--mt-muted` / `--mt-faint` | `#0f1a2a` / `#46566b` / `#56667a` | Texto (≥ 5,2:1 en las tres superficies) |
+| `--mt-border-strong` | `#7b8ca2` | Bordes de inputs y chips (≥ 3,2:1) |
+| `--mt-accent` / `--mt-accent-hover` / `--mt-focus` | `#0e7490` / `#0b5d73` / `#0b5d73` | Acción, enlaces, anillo de foco |
+| Severidad (texto sobre fondo) | critical `#b4162a`/`#fde7ea`, high `#a84300`/`#ffeedd`, medium `#835600`/`#fff3d6`, low `#1d4ed8`/`#e4edff`, info `#3f4c5c`/`#eceff3`, unclassified `#56667a`/`#eef2f7` | Siempre con su etiqueta de texto |
+
+**Contraste:** `web/src/components/shell/theme.test.tsx` comprueba AA en ambos temas (texto ≥ 4,5:1; foco y bordes de control ≥ 3:1; severidad sobre su fondo y sobre `surface` ≥ 4,5:1) y que los dos bloques claros sean idénticos. Para cumplirlo en oscuro, `--mt-border-strong` pasó de `#31465c` (2,0:1) a `#536a84` (≥ 3,1:1).

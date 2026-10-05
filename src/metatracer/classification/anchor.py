@@ -35,15 +35,17 @@ def parse_gps_line(snippet: str) -> tuple[float, float] | None:
     """Parse a detector GPS line into ``(lat, lon)``; None when shape/range fails.
 
     Range rules mirror the detector: finite, lat in [-90, 90], lon in
-    [-180, 180] and not exactly ``(0, 0)``.
+    [-180, 180] and not a null-island reading (both axes under ``1e-5``).
     """
+    from metatracer.detectors.gps import is_null_island
+
     match = _GPS_LINE_RE.match(snippet.strip())
     if match is None:
         return None
     lat, lon = float(match.group(1)), float(match.group(2))
     if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
         return None
-    if lat == 0.0 and lon == 0.0:
+    if is_null_island(lat, lon):
         return None
     return lat, lon
 

@@ -22,6 +22,8 @@ def test_defaults() -> None:
     assert settings.rate_limit_rps == 2.0
     assert settings.allow_loopback is False
     assert settings.bind_host == "127.0.0.1"
+    assert settings.auth_enabled is False
+    assert settings.allow_unauthenticated_bind is False
 
 
 def test_env_override_with_prefix(monkeypatch: pytest.MonkeyPatch) -> None:

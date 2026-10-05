@@ -36,7 +36,7 @@ Valores **en minúsculas** en base de datos, JSON, API y Pydantic. La capa de pr
 | `extraction_status` | `ok` \| `skipped` \| `failed` |
 | `namespace` | `exif` \| `xmp` \| `pdfinfo` \| `iptc` \| `http` \| `html` \| `js` |
 | `user.role` (TASK-24) | `operator` \| `viewer` |
-| `triage_status` (TASK-35, planificado) | `open` \| `confirmed` \| `false_positive` \| `fixed` (default: `open`; solo lo cambia un operador, nunca el agente; independiente de `severity`) |
+| `triage_status` (TASK-35) | `open` \| `confirmed` \| `false_positive` \| `fixed` (default: `open`; solo lo cambia un operador, nunca el agente; independiente de `severity`; `false_positive` queda fuera de exports y conteos salvo inclusión explícita) |
 | Idioma de **reportes exportados** | Inglés (plataformas de bug bounty) |
 | Idioma de **documentación** (esta carpeta) | Español |
 | Idioma de **UI/CLI** | Inglés (audiencia internacional / portfolio) |
@@ -90,15 +90,15 @@ Aplican a **todas** las tasks. Un PR que las viole no está done.
 | **TASK-24** | [24-auth-basic.md](24-auth-basic.md) | Eje C: auth básica 1 usuario — cookie `HttpOnly` + CSRF, roles `operator`/`viewer`, PBKDF2 stdlib, kill-switch `METATRACER_AUTH_ENABLED` (v3.0) — **cerrada 2026-09-18** | TASK-00 a TASK-23 |
 | **TASK-25** | [25-user-registration.md](25-user-registration.md) | Multi-usuario v3.1: first-run setup desde la UI, panel de admin de usuarios, invitaciones de un solo uso y registro desde Sign In — **planificada 2026-09-19** | TASK-00 a TASK-24 |
 | **TASK-26** | [26-ui-redesign.md](26-ui-redesign.md) | Rediseño visual de la Web UI — **aplicado 2026-09-21**; cabeceras HTTP añadidas; Tailwind compilado y Alpine vendorizado en `/static` (CDN de scripts fuera) | TASK-00 a TASK-25 |
-| **TASK-27** | [27-security-hardening-p0.md](27-security-hardening-p0.md) | v3.2 P0: `trust_env=False`, auth obligatoria en bind público, HMAC real en webhooks, CSV anti-fórmula, tope pre-inflate de XMP — **pendiente** | TASK-00 a TASK-26 |
-| **TASK-28** | [28-run-recovery-abort.md](28-run-recovery-abort.md) | v3.2 P1: recovery de runs huérfanos al arrancar + abort cooperativo (API, CLI, Web V2) — **pendiente** | TASK-27 |
-| **TASK-29** | [29-agent-output-integrity.md](29-agent-output-integrity.md) | v3.2 P1: techo del guard respeta el feedback, guard de prosa LLM, escape en Markdown — **pendiente** | TASK-27 |
-| **TASK-30** | [30-data-retention.md](30-data-retention.md) | v3.2 P1: borrado de runs sin huérfanos + retención configurable (GDPR) — **pendiente** | TASK-28 |
-| **TASK-31** | [31-api-authz-hardening.md](31-api-authz-hardening.md) | v3.2 P1: tope de body con chunked + lecturas admin solo operator — **pendiente** | TASK-27 |
-| **TASK-32** | [32-core-hygiene.md](32-core-hygiene.md) | v3.2 P2: kill-switch de loopback, rangos IP, IDN, rate limiter, extractores, lockfile — **pendiente** | TASK-27 |
-| **TASK-33** | [33-backend-hygiene.md](33-backend-hygiene.md) | v3.2 P2: SSE tras evicción, retries de webhook, índices/N+1, lockout de login, import circular, `/api/ready` — **pendiente** | TASK-28, TASK-31 |
-| **TASK-34** | [34-detector-precision.md](34-detector-precision.md) | v3.2 P2: falsos positivos de email/GPS/secretos, rutas, presupuesto y caché del agente — **pendiente** | TASK-29 |
-| **TASK-35** | [35-ui-ux-improvements.md](35-ui-ux-improvements.md) | v3.2 UI/UX Web V2: arreglos de triage y paridad, cambios sin commit, filtros en URL, paleta y atajos, mapa GPS, tendencias, comparación de runs, abort/delete, pantallas Webhooks/Knowledge, TanStack Query + Zod, triage de findings (`false_positive`), light mode — **pendiente** | TASK-26 (35.5: TASK-28, TASK-30) |
+| **TASK-27** | [27-security-hardening-p0.md](27-security-hardening-p0.md) | v3.2 P0: `trust_env=False`, auth obligatoria en bind público, HMAC real en webhooks, CSV anti-fórmula, tope pre-inflate de XMP — **cerrada 2026-10-03** | TASK-00 a TASK-26 |
+| **TASK-28** | [28-run-recovery-abort.md](28-run-recovery-abort.md) | v3.2 P1: recovery de runs huérfanos al arrancar + abort cooperativo (API, CLI, Web V2) — **cerrada 2026-10-03** | TASK-27 |
+| **TASK-29** | [29-agent-output-integrity.md](29-agent-output-integrity.md) | v3.2 P1: techo del guard respeta el feedback, guard de prosa LLM, escape en Markdown — **cerrada 2026-10-03** | TASK-27 |
+| **TASK-30** | [30-data-retention.md](30-data-retention.md) | v3.2 P1: borrado de runs sin huérfanos + retención configurable (GDPR) — **cerrada 2026-10-03** | TASK-28 |
+| **TASK-31** | [31-api-authz-hardening.md](31-api-authz-hardening.md) | v3.2 P1: tope de body con chunked + lecturas admin solo operator — **cerrada 2026-10-03** | TASK-27 |
+| **TASK-32** | [32-core-hygiene.md](32-core-hygiene.md) | v3.2 P2: kill-switch de loopback, rangos IP, IDN, rate limiter, extractores, lockfile — **cerrada 2026-10-05** | TASK-27 |
+| **TASK-33** | [33-backend-hygiene.md](33-backend-hygiene.md) | v3.2 P2: SSE tras evicción, retries de webhook, índices/N+1, lockout de login, import circular, `/api/ready` — **cerrada 2026-10-05** | TASK-28, TASK-31 |
+| **TASK-34** | [34-detector-precision.md](34-detector-precision.md) | v3.2 P2: falsos positivos de email/GPS/secretos, rutas, presupuesto y caché del agente — **cerrada 2026-10-03** | TASK-29 |
+| **TASK-35** | [35-ui-ux-improvements.md](35-ui-ux-improvements.md) | v3.2 UI/UX Web V2: arreglos de triage y paridad, cambios sin commit, filtros en URL, paleta y atajos, mapa GPS, tendencias, comparación de runs, abort/delete, pantallas Webhooks/Knowledge, TanStack Query + Zod, triage de findings (`false_positive`), light mode — **cerrada 2026-10-05** | TASK-26 (35.5: TASK-28, TASK-30) |
 
 `TASK-04` **no** depende de `TASK-05`: el motor de reportes debe funcionar con clasificaciones heurísticas (campos de explicación vacíos o plantilla). `TASK-05` rellena justificación, impacto, remediación y repro. `TASK-06` orquesta el pipeline completo.
 

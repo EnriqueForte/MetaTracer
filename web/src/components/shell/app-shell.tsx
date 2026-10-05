@@ -1,21 +1,22 @@
 "use client";
 
-import { Bell, History, LayoutDashboard, Menu, Radar, Shield, Users } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Bell, BookOpen, History, LayoutDashboard, Menu, Radar, Shield, Users, Webhook } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
+import { CommandPalette, ShortcutsHelp } from "@/components/shell/command-palette";
+import { ThemeSwitcher } from "@/components/shell/theme-switcher";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  apiFetch,
-  parseNotifications,
-  parseSession,
-  truncate,
-  type NotificationItem,
-  type SessionState,
-} from "@/lib/api/browser";
+import { apiFetch, parseNotifications, truncate, type NotificationItem } from "@/lib/api/browser";
+import { ApiError } from "@/lib/api/errors";
 import { APP_VERSION, BASE_PATH } from "@/lib/constants";
+import { isTypingTarget } from "@/lib/keyboard";
+import { queryKeys } from "@/lib/query/keys";
+import { actorOf, useSession, useSessionQuery } from "@/lib/session";
+import { formatRelative } from "@/lib/time";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -24,16 +25,22 @@ const NAV = [
   { href: "/scopes", label: "Scopes", icon: Shield },
 ] as const;
 
+/** Visible to operators (and with auth off); the API rejects viewers anyway. */
+const OPERATOR_NAV = [
+  { href: "/users", label: "Users", icon: Users },
+  { href: "/webhooks", label: "Webhooks", icon: Webhook },
+  { href: "/knowledge", label: "Knowledge", icon: BookOpen },
+] as const;
+
+const NOTIFICATIONS_KEY = queryKeys.notifications;
+
+const ETHICS_TEXT =
+  "Authorized use only — audit exclusively targets you own or are explicitly authorized to test.";
+
 function kindLabel(kind: NotificationItem["kind"]): string {
   if (kind === "failed") return "Scan failed";
   if (kind === "aborted") return "Scan aborted";
   return "Scan completed";
-}
-
-function kindVariant(kind: NotificationItem["kind"]): "failed" | "aborted" | "completed" {
-  if (kind === "failed") return "failed";
-  if (kind === "aborted") return "aborted";
-  return "completed";
 }
 
 function isNavCurrent(href: string, pathname: string): boolean {
@@ -41,61 +48,44 @@ function isNavCurrent(href: string, pathname: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+async function fetchNotifications(): Promise<NotificationItem[]> {
+  const response = await apiFetch("/api/notifications");
+  if (!response.ok) throw new ApiError(response.status, "Could not load notifications.");
+  const parsed = parseNotifications(await response.json());
+  if (parsed === null) throw new ApiError(200, "Could not load notifications.");
+  return parsed;
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const panelId = useId();
+  const ethicsId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const [navOpen, setNavOpen] = useState(false);
   const [narrow, setNarrow] = useState(false);
-  const [session, setSession] = useState<SessionState>({ status: "loading" });
   const [notesOpen, setNotesOpen] = useState(false);
-  const [notes, setNotes] = useState<NotificationItem[]>([]);
-  const [notesError, setNotesError] = useState("");
-  const [apiStatus, setApiStatus] = useState<"checking" | "reachable" | "unreachable">("checking");
+  const [ethicsOpen, setEthicsOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const sessionQuery = useSessionQuery();
+  const session = useSession();
+  const actor = actorOf(session);
+  const notesQuery = useQuery({ queryKey: NOTIFICATIONS_KEY, queryFn: fetchNotifications });
+  const notes = notesQuery.data ?? [];
 
-  const loadSession = useCallback(async () => {
-    try {
-      const response = await apiFetch("/api/auth/me");
-      setApiStatus("reachable");
-      if (response.status === 401) {
-        setSession({ status: "signed-out" });
-        router.replace("/login");
-        return;
-      }
-      if (!response.ok) {
-        setSession({ status: "signed-out" });
-        return;
-      }
-      setSession(parseSession(await response.json()));
-    } catch {
-      setApiStatus("unreachable");
-      setSession({ status: "signed-out" });
-    }
-  }, [router]);
+  const networkDown = sessionQuery.isError && !(sessionQuery.error instanceof ApiError);
+  const apiStatus = sessionQuery.isPending ? "checking" : networkDown ? "unreachable" : "reachable";
+  const notesError = notesQuery.isError
+    ? notesQuery.error instanceof ApiError
+      ? "Could not load notifications."
+      : "Network error: the API is unreachable."
+    : "";
 
-  const loadNotes = useCallback(async () => {
-    try {
-      const response = await apiFetch("/api/notifications");
-      if (response.status === 401) {
-        router.replace("/login");
-        return;
-      }
-      if (!response.ok) {
-        setNotesError("Could not load notifications.");
-        return;
-      }
-      const parsed = parseNotifications(await response.json());
-      if (parsed === null) {
-        setNotesError("Could not load notifications.");
-        return;
-      }
-      setNotes(parsed);
-      setNotesError("");
-    } catch {
-      setNotesError("Network error: the API is unreachable.");
-    }
-  }, [router]);
+  useEffect(() => {
+    if (sessionQuery.isSuccess && sessionQuery.data.status === "signed-out") router.replace("/login");
+  }, [router, sessionQuery.isSuccess, sessionQuery.data]);
 
   useEffect(() => {
     const query = window.matchMedia("(max-width: 1023px)");
@@ -109,9 +99,22 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    void loadSession();
-    void loadNotes();
-  }, [loadSession, loadNotes]);
+    function onKey(event: KeyboardEvent) {
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setHelpOpen(false);
+        setPaletteOpen((open) => !open);
+        return;
+      }
+      if (event.key === "?" && !event.ctrlKey && !event.metaKey && !event.altKey && !isTypingTarget(event.target)) {
+        event.preventDefault();
+        setPaletteOpen(false);
+        setHelpOpen(true);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   useEffect(() => {
     if (!notesOpen) return;
@@ -122,14 +125,14 @@ export function AppShell({ children }: { children: ReactNode }) {
     return () => document.removeEventListener("mousedown", onPointer);
   }, [notesOpen]);
 
-  const showUsers =
-    session.status === "auth-off" ||
-    (session.status === "signed-in" && session.role === "operator");
+  const showUsers = actor === "operator";
 
   async function dismiss(id: number) {
     try {
       const response = await apiFetch(`/api/notifications/${id}`, { method: "DELETE" });
-      if (response.ok || response.status === 404) await loadNotes();
+      if (response.ok || response.status === 404) {
+        await queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY });
+      }
     } catch {
       /* a failed delete never blocks the bell */
     }
@@ -177,18 +180,28 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </Link>
               );
             })}
-            {showUsers ? (
-              <Link
-                href="/users"
-                className="mt-nav-link"
-                aria-current={isNavCurrent("/users", pathname) ? "page" : undefined}
-                onClick={() => setNavOpen(false)}
-              >
-                <Users aria-hidden="true" className="size-4" />
-                Users
-              </Link>
-            ) : null}
+            {showUsers
+              ? OPERATOR_NAV.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className="mt-nav-link"
+                      aria-current={isNavCurrent(item.href, pathname) ? "page" : undefined}
+                      onClick={() => setNavOpen(false)}
+                    >
+                      <Icon aria-hidden="true" className="size-4" />
+                      {item.label}
+                    </Link>
+                  );
+                })
+              : null}
           </nav>
+          <div className="mt-auto flex flex-col gap-1 px-2.5 pt-4">
+            <span className="mt-kicker">Theme</span>
+            <ThemeSwitcher />
+          </div>
         </aside>
         {navOpen && narrow ? (
           <div className="mt-scrim" onClick={() => setNavOpen(false)} aria-hidden="true" />
@@ -205,13 +218,31 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Menu aria-hidden="true" className="size-4" />
               Menu
             </Button>
-            <p className="mt-ethics">
-              Authorized use only
-              <span className="sr-only">
-                {" "}
-                — audit exclusively targets you own or are explicitly authorized to test.
-              </span>
-            </p>
+            <div className="relative">
+              <button
+                type="button"
+                className="mt-ethics"
+                aria-expanded={ethicsOpen}
+                aria-controls={ethicsId}
+                title={ETHICS_TEXT}
+                onClick={() => setEthicsOpen((open) => !open)}
+              >
+                Authorized use only
+              </button>
+              {ethicsOpen ? (
+                <p id={ethicsId} className="mt-ethics-detail">
+                  {ETHICS_TEXT}
+                </p>
+              ) : null}
+            </div>
+            <Button
+              variant="ghost"
+              className="py-1 text-xs"
+              aria-keyshortcuts="Control+K Meta+K"
+              onClick={() => setPaletteOpen(true)}
+            >
+              Go to… <span className="mt-tech text-mt-faint">Ctrl K</span>
+            </Button>
             <div className="mt-session ml-auto">
               <p className="mt-status" role="status">
                 <span
@@ -236,7 +267,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   onClick={() => {
                     setNotesOpen((open) => {
                       const next = !open;
-                      if (next) void loadNotes();
+                      if (next) void notesQuery.refetch();
                       return next;
                     });
                   }}
@@ -257,7 +288,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   >
                     <div className="mb-2 flex items-center justify-between gap-2 border-b border-mt-border pb-2">
                       <h2 className="text-sm font-semibold text-mt-fg">Notifications</h2>
-                      <Button variant="ghost" onClick={() => void loadNotes()}>
+                      <Button variant="ghost" onClick={() => void notesQuery.refetch()}>
                         Refresh
                       </Button>
                     </div>
@@ -269,35 +300,52 @@ export function AppShell({ children }: { children: ReactNode }) {
                     {!notesError && notes.length === 0 ? (
                       <p className="text-xs text-mt-muted">No notifications yet.</p>
                     ) : null}
-                    {notes.map((entry) => (
-                      <div
-                        key={entry.id}
-                        className="flex items-start justify-between gap-2 border-b border-mt-border py-3"
-                      >
-                        <div className="min-w-0">
-                          <p>
-                            <Badge variant={kindVariant(entry.kind)}>
-                              {kindLabel(entry.kind)} — {entry.target}
-                            </Badge>
-                          </p>
-                          <p className="mt-1 text-xs text-mt-muted">
+                    {notes.map((entry) => {
+                      const when = entry.created_at ? formatRelative(entry.created_at) : "";
+                      const body = (
+                        <>
+                          <Badge variant={entry.kind}>
+                            {kindLabel(entry.kind)} — {entry.target}
+                          </Badge>
+                          <span className="mt-1 block text-xs text-mt-muted">
                             {entry.total_assets} asset(s) · {entry.total_findings} finding(s)
-                          </p>
+                            {when ? ` · ${when}` : ""}
+                          </span>
                           {entry.error_message && (entry.kind === "failed" || entry.kind === "aborted") ? (
-                            <p className="mt-1 text-xs break-words text-mt-muted">
+                            <span className="mt-1 block text-xs break-words text-mt-muted">
                               {truncate(entry.error_message, 150)}
-                            </p>
+                            </span>
+                          ) : null}
+                        </>
+                      );
+                      return (
+                        <div
+                          key={entry.id}
+                          className="flex items-start justify-between gap-2 border-b border-mt-border py-3"
+                        >
+                          {entry.run_id ? (
+                            <Link
+                              href={`/runs/${encodeURIComponent(entry.run_id)}`}
+                              className="min-w-0 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-mt-focus"
+                              onClick={() => setNotesOpen(false)}
+                            >
+                              {body}
+                            </Link>
+                          ) : (
+                            <div className="min-w-0">{body}</div>
+                          )}
+                          {actor === "operator" ? (
+                            <Button
+                              variant="ghost"
+                              aria-label="Dismiss notification"
+                              onClick={() => void dismiss(entry.id)}
+                            >
+                              Dismiss
+                            </Button>
                           ) : null}
                         </div>
-                        <Button
-                          variant="ghost"
-                          aria-label="Dismiss notification"
-                          onClick={() => void dismiss(entry.id)}
-                        >
-                          Dismiss
-                        </Button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : null}
               </div>
@@ -320,15 +368,25 @@ export function AppShell({ children }: { children: ReactNode }) {
           <main id="main-content" className="mt-content">
             {children}
           </main>
+          <CommandPalette
+            open={paletteOpen}
+            onOpenChange={setPaletteOpen}
+            actor={actor}
+            onNavigate={(href) => router.push(href)}
+          />
+          <ShortcutsHelp open={helpOpen} onOpenChange={setHelpOpen} />
           <footer className="flex flex-col gap-2 px-6 pb-6">
             <p className="text-xs text-mt-muted">
               Passive metadata audit of publicly available documents inside the confirmed scope. Not
               an exploitation test.
             </p>
-            <p className="text-xs text-mt-muted">
+            <p className="flex flex-wrap gap-3 text-xs text-mt-muted">
               <a href="/" className="underline">
                 Classic UI
               </a>
+              <button type="button" className="underline" onClick={() => setHelpOpen(true)}>
+                Keyboard shortcuts (?)
+              </button>
             </p>
           </footer>
         </div>

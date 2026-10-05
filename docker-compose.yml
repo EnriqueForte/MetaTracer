@@ -6,7 +6,7 @@
 services:
   web:
     build: .
-    image: metatracer:0.5.1
+    image: metatracer:0.6.0
     command: ["web"]
     ports:
       - "8000:8000"
@@ -17,10 +17,13 @@ services:
       METATRACER_LLM_MODEL: "${METATRACER_LLM_MODEL:-}"
       METATRACER_FAST_MODEL: "${METATRACER_FAST_MODEL:-}"
       METATRACER_LOG_LEVEL: "${METATRACER_LOG_LEVEL:-INFO}"
-      # TASK-24 (Eje C): auth config. OFF by default (bind-address posture);
-      # set METATRACER_AUTH_ENABLED=true + METATRACER_AUTH_PASSWORD in the
-      # host env or .env to require login on the Web UI/API.
-      METATRACER_AUTH_ENABLED: "${METATRACER_AUTH_ENABLED:-false}"
+      # TASK-27: this service publishes 0.0.0.0:8000. Auth defaults ON so the
+      # process is allowed to start. A .env that sets METATRACER_AUTH_ENABLED=false
+      # overrides this default and the container exits unless
+      # METATRACER_ALLOW_UNAUTHENTICATED_BIND=true (logged warning; not a
+      # network-safety bypass).
+      METATRACER_AUTH_ENABLED: "${METATRACER_AUTH_ENABLED:-true}"
+      METATRACER_ALLOW_UNAUTHENTICATED_BIND: "${METATRACER_ALLOW_UNAUTHENTICATED_BIND:-false}"
       METATRACER_AUTH_PASSWORD: "${METATRACER_AUTH_PASSWORD:-}"
       METATRACER_SESSION_TTL_SECONDS: "${METATRACER_SESSION_TTL_SECONDS:-43200}"
     volumes:
@@ -33,18 +36,17 @@ services:
   # The app service (profile "default") stays on SQLite; to point MetaTracer
   # at Postgres set METATRACER_DATABASE_URL to the db service URL below, e.g.:
   #   docker compose --profile postgres up \
-  #     -e METATRACER_DATABASE_URL=postgresql+asyncpg://metatracer:metatracer@db:5432/metatracer
+  #     -e METATRACER_DATABASE_URL=postgresql+asyncpg://metatracer:${POSTGRES_PASSWORD}@db:5432/metatracer
   # (or export it before running compose). The port is bound to the host's
   # loopback ONLY (the corpus is sensitive: GPS, emails, internal paths); the
   # app reaches the db over the compose internal network, not the host port.
-  # The password is a LOCAL default interpolated from the environment — set
-  # POSTGRES_PASSWORD in any deployment that is not a disposable dev box.
+  # POSTGRES_PASSWORD has no default: compose fails if it is unset.
   db:
     image: pgvector/pgvector:pg17
     profiles: ["postgres"]
     environment:
       POSTGRES_USER: metatracer
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-metatracer}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
       POSTGRES_DB: metatracer
     ports:
       - "127.0.0.1:5432:5432"

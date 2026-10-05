@@ -49,12 +49,12 @@ def test_gps_fixture_carries_the_contract_coordinates(tmp_path: Path) -> None:
     assert drafts[0].field_source == "EXIF:GPSInfo"
 
 
-def test_email_fixture_plants_the_reserved_test_domain(tmp_path: Path) -> None:
+def test_email_fixture_plants_the_synthetic_domain(tmp_path: Path) -> None:
     spec = factory.spec_for("email-leak.pdf")
     drafts = _detect(spec, tmp_path)
     assert drafts
     assert all(draft.evidence_snippet == factory.TEST_EMAIL for draft in drafts)
-    assert factory.TEST_EMAIL.endswith("@acme-corp.test")
+    assert factory.TEST_EMAIL.endswith("@acme-corp.internal")
 
 
 def test_internal_path_fixture_leaks_the_windows_build_path(tmp_path: Path) -> None:

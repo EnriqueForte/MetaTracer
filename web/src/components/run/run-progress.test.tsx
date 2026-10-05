@@ -1,5 +1,7 @@
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { renderWithProviders as render } from "@/test/render";
 
 import { RunProgress } from "@/components/run/run-progress";
 
@@ -41,12 +43,24 @@ function runBody(status: string) {
   };
 }
 
-function stub(status: string) {
+function stub(status: string, role?: "operator" | "viewer") {
   vi.stubGlobal("EventSource", FakeEventSource);
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
+      if (url.includes("/api/auth/me")) {
+        if (!role) {
+          return new Response(JSON.stringify({ authenticated: false }), { status: 200 });
+        }
+        return new Response(
+          JSON.stringify({ authenticated: true, username: "ada", role }),
+          { status: 200 },
+        );
+      }
+      if (url.includes("/abort")) {
+        return new Response(JSON.stringify(runBody("aborted")), { status: 200 });
+      }
       if (url.includes("/findings")) {
         return new Response(JSON.stringify({ findings: [] }), { status: 200 });
       }
@@ -62,6 +76,7 @@ describe("RunProgress", () => {
     const panel = await screen.findByRole("region", { name: "Scan activity" });
     expect(panel).toHaveTextContent("Reading saved documents");
     expect(panel).toHaveTextContent("Documents");
+    expect(panel).toHaveTextContent("1");
     expect(screen.queryByRole("list", { name: "Progress" })).not.toBeInTheDocument();
     await act(async () => {
       source?.onmessage?.({
@@ -77,7 +92,20 @@ describe("RunProgress", () => {
     expect(panel).toHaveTextContent("Discovery");
     expect(panel).toHaveTextContent("Crawling");
     expect(panel).toHaveTextContent("https://example.com/a");
-    expect(screen.queryByRole("heading", { name: "Reports" })).not.toBeInTheDocument();
+    await act(async () => {
+      source?.onmessage?.({
+        data: JSON.stringify({
+          stage: "downloading",
+          message: "Fetching documents",
+          current_asset: null,
+          current_step: 3,
+          total_steps: 7,
+        }),
+      });
+    });
+    expect(panel).toHaveTextContent("Downloading");
+    expect(panel).toHaveTextContent("Fetching documents");
+    expect(panel).not.toHaveTextContent("Crawling");
   });
 
   it("names classification when the stream reports that step", async () => {
@@ -116,5 +144,34 @@ describe("RunProgress", () => {
     expect(screen.getByText("The report file is regenerated on the server.")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Reports" })).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Scan activity" })).not.toBeInTheDocument();
+  });
+
+  it("shows Abort scan only for an operator while the run is active", async () => {
+    stub("running", "operator");
+    render(<RunProgress runId="run-1" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Abort scan" }));
+    expect(await screen.findByRole("heading", { name: "Abort this scan?" })).toBeInTheDocument();
+  });
+
+  it("hides Abort scan from a viewer", async () => {
+    stub("running", "viewer");
+    render(<RunProgress runId="run-1" />);
+    expect(await screen.findByText("Running")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Abort scan" })).not.toBeInTheDocument();
+  });
+
+  it("hides Delete run from a viewer on a finished run", async () => {
+    stub("completed", "viewer");
+    render(<RunProgress runId="run-1" />);
+    expect(await screen.findByRole("link", { name: "Download Markdown" })).toBeInTheDocument();
+    await screen.findByText("Completed");
+    expect(screen.queryByRole("button", { name: "Delete run" })).not.toBeInTheDocument();
+  });
+
+  it("hides Abort scan once the run is completed", async () => {
+    stub("completed", "operator");
+    render(<RunProgress runId="run-1" />);
+    expect(await screen.findByRole("link", { name: "Download Markdown" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Abort scan" })).not.toBeInTheDocument();
   });
 });

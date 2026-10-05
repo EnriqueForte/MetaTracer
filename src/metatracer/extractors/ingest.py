@@ -20,10 +20,9 @@ per-domain rate limiter already paces requests (tasks README, known trap #6).
 The shared download semaphore is still passed to the gateway so its contract
 holds when concurrency is introduced.
 
-Known limitation (accepted): if the process is killed between the temp-file
-write and the ``finally`` unlink, an orphan ``metatracer-*`` file remains in
-the OS temp dir until the OS cleans it. Startup-time sweeping of stale
-``metatracer-*`` entries is possible later hardening, not MVP scope.
+If the process is killed between the temp-file write and the ``finally``
+unlink, an orphan ``metatracer-*`` file remains in the OS temp dir.
+:func:`sweep_stale_tempfiles` deletes those older than one hour at startup.
 """
 
 import asyncio
@@ -31,6 +30,7 @@ import hashlib
 import json
 import logging
 import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -72,6 +72,39 @@ from metatracer.extractors.sniff import (
 from metatracer.extractors.targets import TargetKind, TargetResolver
 
 logger = logging.getLogger("metatracer.extractors.ingest")
+
+_TEMP_PREFIX = "metatracer-"
+_STALE_TEMP_SECONDS = 60 * 60
+
+
+def sweep_stale_tempfiles(max_age_seconds: int = _STALE_TEMP_SECONDS) -> int:
+    """Delete orphan ``metatracer-*`` files in the OS temp dir older than one hour.
+
+    A crash between the download write and the ``finally`` unlink leaves the
+    bytes on disk. Files younger than the window may still belong to a live
+    scan and are left alone. Directories and unrelated names are not touched.
+    """
+    directory = Path(tempfile.gettempdir())
+    cutoff = time.time() - max_age_seconds
+    removed = 0
+    try:
+        entries = list(directory.glob(f"{_TEMP_PREFIX}*"))
+    except OSError:
+        return 0
+    for path in entries:
+        try:
+            if not path.is_file():
+                continue
+            if path.stat().st_mtime >= cutoff:
+                continue
+            path.unlink()
+            removed += 1
+        except OSError:
+            continue
+    if removed:
+        logger.info("removed %d stale temporary file(s)", removed)
+    return removed
+
 
 # Fail-closed placeholder: an asset row exists between download and extraction;
 # if the process dies in between, the row must not claim success.

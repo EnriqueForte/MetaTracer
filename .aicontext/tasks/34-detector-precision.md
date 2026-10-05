@@ -3,7 +3,7 @@
 **Módulo:** `detectors/{email,gps,paths}.py`, `classification/{classifier,rubric}.py`, `agents/{pipeline,optimizer,llm}.py`, `core/config.py`
 **Referencia:** [Auditoría 2026-10-03](../audit-2026-10-03.md) § P2 (precisión de detección)
 **Dependencias:** TASK-29
-**Estado:** **Pendiente** (planificada 2026-10-03).
+**Estado:** **Cerrada** (2026-10-03).
 
 ---
 
@@ -54,7 +54,7 @@ Reducir falsos positivos y falsos negativos reproducibles sin añadir valores a 
 
 ## 5. Criterios de aceptación (DoD)
 
-- [ ] Falsos positivos de la auditoría eliminados con tests de regresión.
-- [ ] Enums cerrados intactos.
-- [ ] Presupuesto del agente configurable e independiente de `max_assets_per_run`.
-- [ ] Suite verde + ruff limpio + cobertura ≥85%.
+- [x] Falsos positivos de la auditoría eliminados con tests de regresión.
+- [x] Enums cerrados intactos.
+- [x] Presupuesto del agente configurable e independiente de `max_assets_per_run`.
+- [x] Suite verde + ruff limpio + cobertura ≥85%.

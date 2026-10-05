@@ -24,13 +24,13 @@ Script `tests/fixtures/generate_test_fixtures.py` (o `python -m tests.fixtures.g
 | Fixture | Contenido | Tipo que debe disparar |
 | :--- | :--- | :--- |
 | 1 JPEG GPS | EXIF lat `40.4168`, lon `-3.7038` | `gps` |
-| 2 PDF email | `/Author` y `/Creator` = `security.lead@acme-corp.test` | `email` |
+| 2 PDF email | `/Author` y `/Creator` = `security.lead@acme-corp.internal` | `email` |
 | 3 PDF path | XMP con `C:\Users\dev_admin\Projects\ConfidentialApp\build.pdf` | `internal_path` |
 | 4 PDF software | `/Producer` = `Apache FOP Version 2.4` | `software_version` |
 | 5 PDF/JPEG debug | `TODO: delete staging API key before public release - JIRA-4412` | `debug_comment` |
 | 6 Limpio | PDF + JPEG sanitizados | **cero** findings |
 
-Usar Pillow + piexif y reportlab/pypdf. Dominio de prueba reservado: `acme-corp.test` (no es un target real).
+Usar Pillow + piexif y reportlab/pypdf. Dominio sintético: `acme-corp.internal` (`.test` ya no es un buzón; TASK-34).
 
 **Servidor mock:** `pytest` fixture HTTP (`httpx` ASGI o `uvicorn` en puerto efímero) que sirve esos archivos y una página HTML que los enlaza.
 

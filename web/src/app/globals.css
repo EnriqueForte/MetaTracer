@@ -8,15 +8,23 @@
 
   Text tokens are chosen to stay at or above WCAG AA 4.5:1 on --mt-bg.
   Severity is never color-only: badges keep a text label.
+
+  Themes (TASK-35): dark is the default. public/theme-init.js sets
+  html[data-theme] to "dark" | "light" | "system" before the first paint;
+  "system" follows prefers-color-scheme. The light palette is declared twice
+  (attribute and media query) and must stay identical; a test checks it and
+  the AA ratios of both themes.
 */
 :root {
+  color-scheme: dark;
   --mt-bg: #070b11;
   --mt-surface: #0d1420;
   --mt-elevated: #111b29;
   --mt-overlay: rgba(7, 11, 17, 0.78);
 
   --mt-border: #1c2938;
-  --mt-border-strong: #31465c;
+  /* >= 3:1 on bg, surface and elevated: input and chip boundaries (WCAG 1.4.11). */
+  --mt-border-strong: #536a84;
   --mt-fg: #e8eef6;
   --mt-muted: #9aabc0;
   --mt-faint: #8b9cb0;
@@ -80,6 +88,106 @@
   --mt-duration: 160ms;
   --mt-ease: cubic-bezier(0.2, 0, 0, 1);
 }
+
+/* light-theme:start */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --mt-bg: #f6f8fb;
+  --mt-surface: #ffffff;
+  --mt-elevated: #eef2f7;
+  --mt-overlay: rgba(15, 26, 42, 0.45);
+  --mt-border: #d6dee8;
+  --mt-border-strong: #7b8ca2;
+  --mt-fg: #0f1a2a;
+  --mt-muted: #46566b;
+  --mt-faint: #56667a;
+  --mt-accent: #0e7490;
+  --mt-accent-hover: #0b5d73;
+  --mt-accent-fg: #ffffff;
+  --mt-accent-soft: color-mix(in srgb, var(--mt-accent) 12%, transparent);
+  --mt-focus: #0b5d73;
+  --mt-secondary: #2563eb;
+  --mt-secondary-hover: #1d4ed8;
+  --mt-danger: #b42318;
+  --mt-danger-bg: #fdecea;
+  --mt-danger-border: #e8958b;
+  --mt-warning: #8a5300;
+  --mt-warning-bg: #fff4dc;
+  --mt-warning-border: #d9ad5c;
+  --mt-success: #0f7a4f;
+  --mt-success-bg: #e3f6ed;
+  --mt-success-border: #7cc7a3;
+  --mt-sev-critical: #b4162a;
+  --mt-sev-critical-bg: #fde7ea;
+  --mt-sev-high: #a84300;
+  --mt-sev-high-bg: #ffeedd;
+  --mt-sev-medium: #835600;
+  --mt-sev-medium-bg: #fff3d6;
+  --mt-sev-low: #1d4ed8;
+  --mt-sev-low-bg: #e4edff;
+  --mt-sev-info: #3f4c5c;
+  --mt-sev-info-bg: #eceff3;
+  --mt-sev-unclassified: #56667a;
+  --mt-sev-unclassified-bg: #eef2f7;
+  --mt-chart-1: #0e7490;
+  --mt-chart-2: #2563eb;
+  --mt-chart-3: #0f7a4f;
+  --mt-chart-4: #a16207;
+  --mt-chart-5: #c2410c;
+  --mt-shadow-overlay: 0 16px 40px rgba(15, 26, 42, 0.18);
+  --mt-shadow-card: 0 1px 2px rgba(15, 26, 42, 0.06);
+}
+
+@media (prefers-color-scheme: light) {
+  :root[data-theme="system"] {
+    color-scheme: light;
+    --mt-bg: #f6f8fb;
+    --mt-surface: #ffffff;
+    --mt-elevated: #eef2f7;
+    --mt-overlay: rgba(15, 26, 42, 0.45);
+    --mt-border: #d6dee8;
+    --mt-border-strong: #7b8ca2;
+    --mt-fg: #0f1a2a;
+    --mt-muted: #46566b;
+    --mt-faint: #56667a;
+    --mt-accent: #0e7490;
+    --mt-accent-hover: #0b5d73;
+    --mt-accent-fg: #ffffff;
+    --mt-accent-soft: color-mix(in srgb, var(--mt-accent) 12%, transparent);
+    --mt-focus: #0b5d73;
+    --mt-secondary: #2563eb;
+    --mt-secondary-hover: #1d4ed8;
+    --mt-danger: #b42318;
+    --mt-danger-bg: #fdecea;
+    --mt-danger-border: #e8958b;
+    --mt-warning: #8a5300;
+    --mt-warning-bg: #fff4dc;
+    --mt-warning-border: #d9ad5c;
+    --mt-success: #0f7a4f;
+    --mt-success-bg: #e3f6ed;
+    --mt-success-border: #7cc7a3;
+    --mt-sev-critical: #b4162a;
+    --mt-sev-critical-bg: #fde7ea;
+    --mt-sev-high: #a84300;
+    --mt-sev-high-bg: #ffeedd;
+    --mt-sev-medium: #835600;
+    --mt-sev-medium-bg: #fff3d6;
+    --mt-sev-low: #1d4ed8;
+    --mt-sev-low-bg: #e4edff;
+    --mt-sev-info: #3f4c5c;
+    --mt-sev-info-bg: #eceff3;
+    --mt-sev-unclassified: #56667a;
+    --mt-sev-unclassified-bg: #eef2f7;
+    --mt-chart-1: #0e7490;
+    --mt-chart-2: #2563eb;
+    --mt-chart-3: #0f7a4f;
+    --mt-chart-4: #a16207;
+    --mt-chart-5: #c2410c;
+    --mt-shadow-overlay: 0 16px 40px rgba(15, 26, 42, 0.18);
+    --mt-shadow-card: 0 1px 2px rgba(15, 26, 42, 0.06);
+  }
+}
+/* light-theme:end */
 
 @theme inline {
   --font-sans: var(--mt-font-sans);
@@ -349,13 +457,73 @@ body {
   margin: 0;
   padding: 3px 8px;
   border: 1px solid var(--mt-border);
-  border-radius: 999px;
+  border-radius: var(--mt-radius-md);
   background: var(--mt-surface);
   color: var(--mt-muted);
+  font: inherit;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
   line-height: 1.2;
+  cursor: pointer;
+}
+
+.mt-ethics:hover {
+  color: var(--mt-fg);
+}
+
+.mt-ethics:focus-visible {
+  outline: 2px solid var(--mt-focus);
+  outline-offset: 2px;
+}
+
+.mt-theme-switch {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--mt-border-strong);
+  border-radius: var(--mt-radius-md);
+}
+
+.mt-theme-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: var(--mt-radius-sm);
+  background: transparent;
+  color: var(--mt-muted);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mt-theme-option[aria-checked="true"] {
+  background: var(--mt-accent-soft);
+  color: var(--mt-fg);
+}
+
+.mt-theme-option:focus-visible {
+  outline: 2px solid var(--mt-focus);
+  outline-offset: 1px;
+}
+
+.mt-ethics-detail {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  left: 0;
+  width: min(22rem, calc(100vw - 2rem));
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--mt-border-strong);
+  border-radius: var(--mt-radius-md);
+  background: var(--mt-elevated);
+  color: var(--mt-fg);
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .mt-status {
@@ -617,7 +785,8 @@ body {
   height: 8px;
   border-radius: 50%;
   background: var(--mt-accent-hover);
-  animation: mt-asset 1.4s var(--mt-ease) infinite;
+  /* Plays once each time a stage becomes active (the marker remounts per stage). */
+  animation: mt-asset 1.4s var(--mt-ease) 1 forwards;
 }
 
 .mt-stage-asset[data-stage="ai_analysis"] {

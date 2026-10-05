@@ -410,7 +410,7 @@ cualquier rediseño de la Web UI.
 
 - Factory de fixtures (`tests/fixtures/generate_test_fixtures.py`): los 6 casos (JPEG GPS,
   PDF email, PDF path, PDF software, PDF/JPEG debug, limpio) con Pillow/piexif/reportlab/pypdf;
-  dominio reservado `acme-corp.test`.
+  dominio sintético `acme-corp.internal` (`.test` no es un buzón; TASK-34).
 - Servidor mock HTTP (ASGI/uvicorn en puerto efímero) que sirve fixtures y una página que los
   enlaza; cero sitios de terceros en CI.
 - Conflicto loopback: `METATRACER_ALLOW_LOOPBACK=true` solo en el proceso de test

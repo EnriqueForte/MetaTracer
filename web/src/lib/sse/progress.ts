@@ -22,7 +22,7 @@ export type WorkStage = (typeof STAGES)[number];
 export type StageState = "pending" | "active" | "done" | "failed";
 
 export type ProgressTick = {
-  stage: WorkStage | "completed" | "failed";
+  stage: WorkStage | "completed" | "failed" | "aborted";
   message: string;
   current_asset: string | null;
   current_step: number;
@@ -36,6 +36,7 @@ export function parseProgressEvent(value: unknown): ProgressTick | null {
   const known =
     stage === "completed" ||
     stage === "failed" ||
+    stage === "aborted" ||
     STAGES.includes(stage as WorkStage);
   if (!known) return null;
   if (typeof row.message !== "string") return null;
@@ -58,7 +59,7 @@ export function applyProgress(
 ): StageState[] {
   const next = [...states];
   if (event.stage === "completed") return next.map(() => "done");
-  if (event.stage === "failed") {
+  if (event.stage === "failed" || event.stage === "aborted") {
     const active = next.findIndex((state) => state === "active");
     if (active >= 0) next[active] = "failed";
     return next;

@@ -129,6 +129,7 @@ class LangChainAgentClient:
         strong_model_name: str,
         fast_model_name: str,
         rate_limit_rps: float = 2.0,
+        llm_concurrency: int = 1,
         retry_policy: RetryPolicy | None = None,
     ) -> None:
         self._strong = strong_llm
@@ -137,6 +138,10 @@ class LangChainAgentClient:
         self._fast_name = fast_model_name
         self._retry_policy = retry_policy or RetryPolicy()
         self._min_interval_s = 1.0 / rate_limit_rps if rate_limit_rps > 0 else 0.0
+        # Caps in-flight model calls. Default 1 keeps the sequential pace.
+        # The per-call interval in ``_pace`` still applies inside the slot.
+        slots = llm_concurrency if llm_concurrency >= 1 else 1
+        self._slots = asyncio.Semaphore(slots)
 
     available: bool = True
 
@@ -162,6 +167,19 @@ class LangChainAgentClient:
         )
 
     async def _structured(
+        self,
+        llm: StructuredChatModel,
+        model_name: str,
+        schema: type[T],
+        system_prompt: str,
+        payload: dict[str, Any],
+    ) -> LLMResult[T]:
+        async with self._slots:
+            return await self._structured_in_slot(
+                llm, model_name, schema, system_prompt, payload
+            )
+
+    async def _structured_in_slot(
         self,
         llm: StructuredChatModel,
         model_name: str,
@@ -311,5 +329,6 @@ def build_default_client(
         strong_model_name=settings.llm_model,
         fast_model_name=settings.fast_model or settings.llm_model,
         rate_limit_rps=settings.rate_limit_rps,
+        llm_concurrency=settings.llm_concurrency,
         retry_policy=retry_policy,
     )

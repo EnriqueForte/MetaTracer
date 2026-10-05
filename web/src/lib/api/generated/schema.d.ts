@@ -27,6 +27,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ready
+         * @description Readiness: the database answers. Liveness stays on ``/api/health``.
+         */
+        get: operations["ready_api_ready_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/runs": {
         parameters: {
             query?: never;
@@ -75,6 +95,37 @@ export interface paths {
         get: operations["get_run_api_runs__run_id__get"];
         put?: never;
         post?: never;
+        /**
+         * Remove Run
+         * @description Delete a terminal run and the personal data that belongs to it (TASK-30).
+         *
+         *     Operator + CSRF come from the router. 404 if the run does not exist,
+         *     409 if it is still pending or running. Exported reports for this run
+         *     are removed from the reports directory.
+         */
+        delete: operations["remove_run_api_runs__run_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/runs/{run_id}/abort": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Abort Run
+         * @description Stop a pending or running scan (TASK-28). Operator + CSRF via the router.
+         *
+         *     404 when the run does not exist, 409 when it is already terminal.
+         *     The SSE stream receives a terminal ``aborted`` event from the orchestrator.
+         */
+        post: operations["abort_run_api_runs__run_id__abort_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -116,11 +167,35 @@ export interface paths {
          * List Findings
          * @description Findings in report order (critical -> info, unclassified last).
          *
-         *     Filters are exploration-only: exported reports stay complete. Invalid enum
-         *     values are rejected by FastAPI with 422.
+         *     Filters are exploration-only. The list includes false positives with their
+         *     ``triage_status`` (the UI hides them by default); exports leave them out.
+         *     Invalid enum values are rejected by FastAPI with 422.
          */
         get: operations["list_findings_api_runs__run_id__findings_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/runs/{run_id}/findings/{finding_id}/triage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Triage Finding
+         * @description Operator triage (CSRF + operator via the router's mutation dependencies).
+         *
+         *     Changes ``triage_status`` and the note only. Severity and evidence stay
+         *     exactly as stored (rule 6); the agent never calls this.
+         */
+        put: operations["triage_finding_api_runs__run_id__findings__finding_id__triage_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -243,6 +318,26 @@ export interface paths {
          * @description One aggregated snapshot of runs, findings, top domains and agent usage.
          */
         get: operations["get_stats_api_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Compare
+         * @description Findings new in ``b``, resolved since ``a`` and present in both.
+         */
+        get: operations["compare_api_compare_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -706,6 +801,39 @@ export interface components {
             error_message: string | null;
         };
         /**
+         * ComparedFindingResponse
+         * @description One finding of a comparison. ``finding_id`` belongs to run ``b`` except for ``resolved``.
+         */
+        ComparedFindingResponse: {
+            /** Finding Id */
+            finding_id: string;
+            /** Run Id */
+            run_id: string;
+            finding_type: components["schemas"]["FindingType"];
+            severity: components["schemas"]["Severity"] | null;
+            /** Evidence Snippet */
+            evidence_snippet: string;
+            /** Asset Url */
+            asset_url: string;
+            /** @default open */
+            triage_status: components["schemas"]["TriageStatus"];
+        };
+        /** ComparedRun */
+        ComparedRun: {
+            /** Run Id */
+            run_id: string;
+            /** Target */
+            target: string;
+            status: components["schemas"]["RunStatus"];
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Total Findings */
+            total_findings: number;
+        };
+        /**
          * Confidence
          * @enum {string}
          */
@@ -742,6 +870,11 @@ export interface components {
             agent_usage: {
                 [key: string]: number;
             };
+            /**
+             * Trends
+             * @default []
+             */
+            trends: components["schemas"]["SeverityTrendPoint"][];
         };
         /**
          * ExtractionStatus
@@ -819,6 +952,14 @@ export interface components {
             asset_final_url: string;
             /** Asset Content Type */
             asset_content_type: string;
+            /** @default open */
+            triage_status: components["schemas"]["TriageStatus"];
+            /** Triage Note */
+            triage_note?: string | null;
+            /** Triaged By */
+            triaged_by?: string | null;
+            /** Triaged At */
+            triaged_at?: string | null;
         };
         /**
          * FindingType
@@ -989,6 +1130,20 @@ export interface components {
             username: string;
             /** Password */
             password: string;
+        };
+        /**
+         * RunComparisonResponse
+         * @description GET /api/compare: findings new / resolved / persistent from ``a`` to ``b``.
+         */
+        RunComparisonResponse: {
+            a: components["schemas"]["ComparedRun"];
+            b: components["schemas"]["ComparedRun"];
+            /** New */
+            new: components["schemas"]["ComparedFindingResponse"][];
+            /** Resolved */
+            resolved: components["schemas"]["ComparedFindingResponse"][];
+            /** Persistent */
+            persistent: components["schemas"]["ComparedFindingResponse"][];
         };
         /**
          * RunCreatedResponse
@@ -1226,10 +1381,84 @@ export interface components {
          */
         Severity: "critical" | "high" | "medium" | "low" | "info";
         /**
+         * SeverityTrendPoint
+         * @description Findings created on one UTC day, by severity (TASK-35, block 35.4).
+         */
+        SeverityTrendPoint: {
+            /** Date */
+            date: string;
+            /**
+             * Critical
+             * @default 0
+             */
+            critical: number;
+            /**
+             * High
+             * @default 0
+             */
+            high: number;
+            /**
+             * Medium
+             * @default 0
+             */
+            medium: number;
+            /**
+             * Low
+             * @default 0
+             */
+            low: number;
+            /**
+             * Info
+             * @default 0
+             */
+            info: number;
+            /**
+             * Unclassified
+             * @default 0
+             */
+            unclassified: number;
+        };
+        /**
          * SkipReason
          * @enum {string}
          */
         SkipReason: "unsupported_type" | "too_large" | "out_of_scope" | "duplicate_hash" | "empty_body";
+        /**
+         * TriageRequest
+         * @description PUT /api/runs/{run_id}/findings/{finding_id}/triage body (TASK-35).
+         *
+         *     Unknown keys are a 422: a client sending ``severity`` must not get a 200.
+         */
+        TriageRequest: {
+            status: components["schemas"]["TriageStatus"];
+            /** Note */
+            note?: string | null;
+        };
+        /** TriageResponse */
+        TriageResponse: {
+            /** Finding Id */
+            finding_id: string;
+            triage_status: components["schemas"]["TriageStatus"];
+            /** Triage Note */
+            triage_note: string | null;
+            /** Triaged By */
+            triaged_by: string | null;
+            /** Triaged At */
+            triaged_at: string | null;
+            severity: components["schemas"]["Severity"] | null;
+            /** Evidence Snippet */
+            evidence_snippet: string;
+        };
+        /**
+         * TriageStatus
+         * @description Operator triage of a finding (TASK-35). Independent of severity.
+         *
+         *     Only an operator changes it; the agent never does. ``false_positive``
+         *     hides the finding from exports and dashboard counts by default but keeps
+         *     severity and evidence untouched (rule 6).
+         * @enum {string}
+         */
+        TriageStatus: "open" | "confirmed" | "false_positive" | "fixed";
         /**
          * UserCreate
          * @description POST /api/users body.
@@ -1381,6 +1610,28 @@ export interface operations {
             };
         };
     };
+    ready_api_ready_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+        };
+    };
     list_runs_api_runs_get: {
         parameters: {
             query?: {
@@ -1481,6 +1732,66 @@ export interface operations {
             };
         };
     };
+    remove_run_api_runs__run_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    abort_run_api_runs__run_id__abort_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     stream_run_api_runs__run_id__stream_get: {
         parameters: {
             query?: never;
@@ -1523,6 +1834,8 @@ export interface operations {
                 confidence?: components["schemas"]["Confidence"] | null;
                 /** @description Case-insensitive substring search */
                 q?: string | null;
+                /** @description Filter by operator triage status */
+                triage_status?: components["schemas"]["TriageStatus"] | null;
             };
             header?: never;
             path: {
@@ -1552,11 +1865,49 @@ export interface operations {
             };
         };
     };
+    triage_finding_api_runs__run_id__findings__finding_id__triage_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+                finding_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TriageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TriageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     export_run_api_runs__run_id__export_get: {
         parameters: {
             query: {
                 /** @description Report format */
                 format: "md" | "json" | "html" | "csv" | "bounty";
+                /** @description Keep findings triaged as false_positive (default: excluded) */
+                include_false_positives?: boolean;
             };
             header?: never;
             path: {
@@ -1770,6 +2121,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DashboardStatsResponse"];
+                };
+            };
+        };
+    };
+    compare_api_compare_get: {
+        parameters: {
+            query: {
+                /** @description Baseline run id */
+                a: string;
+                /** @description Run under review */
+                b: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunComparisonResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

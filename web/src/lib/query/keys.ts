@@ -1,0 +1,14 @@
+export const queryKeys = {
+  session: ["session"] as const,
+  notifications: ["notifications"] as const,
+  runs: ["runs"] as const,
+  run: (runId: string) => ["run", runId] as const,
+  findings: (runId: string) => ["findings", runId] as const,
+  feedback: (findingId: string) => ["feedback", findingId] as const,
+  stats: ["stats"] as const,
+  scopes: ["scopes"] as const,
+  users: ["users"] as const,
+  invitations: ["invitations"] as const,
+  webhooks: ["webhooks"] as const,
+  compare: (a: string, b: string) => ["compare", a, b] as const,
+};

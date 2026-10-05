@@ -12,11 +12,13 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 WORKDIR /build
-# Packaging files first (better layer caching); src changes most often, last.
-COPY pyproject.toml README.md ./
+# Hashed lock of the runtime deps (TASK-32). The project itself is installed
+# afterwards without re-resolving, so piexif (dev extra) never enters the image.
+COPY requirements.lock pyproject.toml README.md ./
 COPY src ./src
-# Closed dependency list (TASK-00): everything resolves from pyproject.toml.
-RUN pip install .
+ENV PIP_NO_BUILD_ISOLATION=1
+RUN pip install --require-hashes -r requirements.lock \
+ && pip install --no-deps --no-cache-dir .
 
 ########## Runtime: no toolchain, non-root user, only what runtime needs ##########
 FROM python:3.12-slim AS runtime

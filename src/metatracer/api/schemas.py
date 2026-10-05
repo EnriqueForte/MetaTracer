@@ -11,7 +11,7 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from metatracer.db.models import (
     Asset,
@@ -23,6 +23,7 @@ from metatracer.db.models import (
     RunStatus,
     Severity,
     SkipReason,
+    TriageStatus,
 )
 from metatracer.reports.builder import ReportFindingData
 from metatracer.services.dashboard import DashboardStats
@@ -113,6 +114,11 @@ class FindingResponse(BaseModel):
     asset_source_url: str
     asset_final_url: str
     asset_content_type: str
+    # TASK-35 operator triage; independent of severity.
+    triage_status: TriageStatus = TriageStatus.open
+    triage_note: str | None = None
+    triaged_by: str | None = None
+    triaged_at: datetime | None = None
 
     @classmethod
     def from_report(cls, entry: ReportFindingData) -> FindingResponse:
@@ -132,7 +138,33 @@ class FindingResponse(BaseModel):
             asset_source_url=entry.asset_source_url,
             asset_final_url=entry.asset_final_url,
             asset_content_type=entry.asset_content_type,
+            triage_status=entry.triage_status,
+            triage_note=entry.triage_note or None,
+            triaged_by=entry.triaged_by or None,
+            triaged_at=entry.triaged_at,
         )
+
+
+class TriageRequest(BaseModel):
+    """PUT /api/runs/{run_id}/findings/{finding_id}/triage body (TASK-35).
+
+    Unknown keys are a 422: a client sending ``severity`` must not get a 200.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: TriageStatus
+    note: str | None = Field(default=None, max_length=500)
+
+
+class TriageResponse(BaseModel):
+    finding_id: str
+    triage_status: TriageStatus
+    triage_note: str | None
+    triaged_by: str | None
+    triaged_at: datetime | None
+    severity: Severity | None
+    evidence_snippet: str
 
 
 class FindingsResponse(BaseModel):
@@ -191,6 +223,48 @@ class RunListResponse(BaseModel):
         return cls(total=total, runs=runs, has_more=has_more, next_cursor=next_cursor)
 
 
+class SeverityTrendPoint(BaseModel):
+    """Findings created on one UTC day, by severity (TASK-35, block 35.4)."""
+
+    date: str  # YYYY-MM-DD, UTC
+    critical: int = 0
+    high: int = 0
+    medium: int = 0
+    low: int = 0
+    info: int = 0
+    unclassified: int = 0
+
+
+class ComparedRun(BaseModel):
+    run_id: str
+    target: str
+    status: RunStatus
+    started_at: datetime
+    total_findings: int
+
+
+class ComparedFindingResponse(BaseModel):
+    """One finding of a comparison. ``finding_id`` belongs to run ``b`` except for ``resolved``."""
+
+    finding_id: str
+    run_id: str
+    finding_type: FindingType
+    severity: Severity | None
+    evidence_snippet: str
+    asset_url: str
+    triage_status: TriageStatus = TriageStatus.open
+
+
+class RunComparisonResponse(BaseModel):
+    """GET /api/compare: findings new / resolved / persistent from ``a`` to ``b``."""
+
+    a: ComparedRun
+    b: ComparedRun
+    new: list[ComparedFindingResponse]
+    resolved: list[ComparedFindingResponse]
+    persistent: list[ComparedFindingResponse]
+
+
 class DashboardStatsResponse(BaseModel):
     """GET /api/stats: one aggregated snapshot of the local data (TASK-11).
 
@@ -204,6 +278,7 @@ class DashboardStatsResponse(BaseModel):
     top_domains: list[dict[str, Any]]
     top_evidence: list[dict[str, Any]]
     agent_usage: dict[str, int]
+    trends: list[SeverityTrendPoint] = []
 
     @classmethod
     def from_dashboard_stats(cls, stats: DashboardStats) -> DashboardStatsResponse:
@@ -214,6 +289,7 @@ class DashboardStatsResponse(BaseModel):
             top_domains=stats.top_domains,
             top_evidence=stats.top_evidence,
             agent_usage=stats.agent_usage,
+            trends=[SeverityTrendPoint(**point) for point in stats.trends],
         )
 
 

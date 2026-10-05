@@ -51,10 +51,12 @@ Security notes:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import logging
 import secrets
+import time
 from base64 import b64decode, b64encode
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -102,6 +104,64 @@ def _get_dummy_hash() -> str:
             f"${b64encode(derived).decode('ascii')}"
         )
     return _dummy_hash_memory[0]
+
+
+# Ten failures of the same username+IP start a lock. A later correct password
+# stays blocked until the window ends (TASK-33).
+_LOGIN_FAILURES_BEFORE_LOCK = 10
+_LOGIN_LOCK_SECONDS = 60
+
+
+class LoginLockout:
+    """Progressive lockout keyed by username and client IP."""
+
+    def __init__(
+        self,
+        *,
+        failures: int = _LOGIN_FAILURES_BEFORE_LOCK,
+        base_seconds: int = _LOGIN_LOCK_SECONDS,
+    ) -> None:
+        self._failures = failures
+        self._base_seconds = base_seconds
+        self._state: dict[tuple[str, str], tuple[int, float]] = {}
+
+    def retry_after(self, username: str, ip: str) -> int | None:
+        count, until = self._state.get(self._key(username, ip), (0, 0.0))
+        remaining = until - time.monotonic()
+        if count >= self._failures and remaining > 0:
+            return max(1, int(remaining + 0.999))
+        return None
+
+    def record_failure(self, username: str, ip: str) -> None:
+        key = self._key(username, ip)
+        count, until = self._state.get(key, (0, 0.0))
+        if count >= self._failures and until <= time.monotonic():
+            count = 0
+        count += 1
+        delay = 0.0
+        if count >= self._failures:
+            delay = self._base_seconds * (2 ** (count - self._failures))
+        self._state[key] = (count, time.monotonic() + delay)
+
+    def clear(self, username: str, ip: str) -> None:
+        self._state.pop(self._key(username, ip), None)
+
+    def reset(self) -> None:
+        self._state.clear()
+
+    @staticmethod
+    def _key(username: str, ip: str) -> tuple[str, str]:
+        return (username.strip().lower(), ip)
+
+
+login_lockout = LoginLockout()
+_setup_lock = asyncio.Lock()
+
+
+def _client_ip(request: Request) -> str:
+    if request.client is None:
+        return ""
+    return request.client.host or ""
 
 
 def hash_password(password: str) -> str:
@@ -284,6 +344,22 @@ async def require_operator_action(
         )
 
 
+async def require_operator(
+    user: Annotated[CurrentUser | None, Depends(get_current_user)],
+) -> None:
+    """Operator role on every method, including GET (TASK-31).
+
+    Auth disabled (``user is None``) is a no-op. This does not check CSRF;
+    mutating routers keep :func:`require_operator_action` for that. Use it
+    on admin reads (users, invitations, webhook config, KB export) so a
+    viewer cannot list accounts or integration secrets.
+    """
+    if user is None:
+        return
+    if user.role is not UserRole.operator:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "operator role required")
+
+
 # --- Login / logout -----------------------------------------------------------
 
 class LoginRequest(BaseModel):
@@ -428,19 +504,30 @@ async def login_endpoint(
         cookie = request.cookies.get(CSRF_COOKIE_NAME, "")
         if not header or not cookie or not hmac.compare_digest(header, cookie):
             raise HTTPException(status.HTTP_403_FORBIDDEN, "CSRF check failed")
+    ip = _client_ip(request)
+    retry_after = login_lockout.retry_after(body.username, ip)
+    if retry_after is not None:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "too many login attempts",
+            headers={"Retry-After": str(retry_after)},
+        )
     async with session_factory() as db:
         stored = (
             await db.exec(select(User).where(User.username == body.username))
         ).first()
         if stored is None:
             verify_password(body.password, _get_dummy_hash())
+            login_lockout.record_failure(body.username, ip)
             raise HTTPException(
                 status.HTTP_401_UNAUTHORIZED, "invalid credentials"
             )
         if not verify_password(body.password, stored.password_hash):
+            login_lockout.record_failure(body.username, ip)
             raise HTTPException(
                 status.HTTP_401_UNAUTHORIZED, "invalid credentials"
             )
+        login_lockout.clear(body.username, ip)
 
         incoming = request.cookies.get(SESSION_COOKIE_NAME)
         if incoming:
@@ -648,20 +735,25 @@ async def setup_endpoint(
     _pre_session_csrf(request, response, settings)
     _validate_password_length(body.password)
     username = body.username.strip()
-    async with session_factory() as db:
-        user = User(
-            username=username,
-            password_hash=hash_password(body.password),
-            role=UserRole.operator,
-        )
-        db.add(user)
-        await db.flush()
-        token, csrf = await _create_session_and_cookies(db, user.id, settings)
-    # Burn the token ONLY after the user was committed (a failed setup leaves
-    # the token valid for a corrected retry). The completed flag distinguishes
-    # "setup done here" (409 on retries) from "provisioned from env" (404).
-    request.app.state.setup_token = None
-    request.app.state.setup_completed = True
+    # One operator per installation: the process lock serializes the check
+    # and the insert so two concurrent setups cannot both commit (TASK-33).
+    async with _setup_lock:
+        async with session_factory() as db:
+            existing = (await db.exec(select(User))).first()
+            if existing is not None:
+                raise HTTPException(
+                    status.HTTP_409_CONFLICT, "this installation already has a user"
+                )
+            user = User(
+                username=username,
+                password_hash=hash_password(body.password),
+                role=UserRole.operator,
+            )
+            db.add(user)
+            await db.flush()
+            token, csrf = await _create_session_and_cookies(db, user.id, settings)
+        request.app.state.setup_token = None
+        request.app.state.setup_completed = True
     _set_session_cookies(request, response, token, csrf, settings)
     logger.info("first operator created via setup", extra={"user": username})
     return {
@@ -704,7 +796,20 @@ async def register_endpoint(
                 select(InvitationCode).where(InvitationCode.code_hash == code_hash)
             )
         ).first()
-        if invitation is None:
+        now = _utc_now()
+        expires_at = None
+        if invitation is not None and invitation.expires_at is not None:
+            expires_at = invitation.expires_at
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=UTC)
+        stale = invitation is not None and (
+            invitation.used_at is not None
+            or invitation.used_by is not None
+            or (expires_at is not None and expires_at <= now)
+        )
+        if invitation is None or stale:
+            # Used, expired and unknown codes all burn one PBKDF2 so the
+            # response time does not reveal which case it was (TASK-33).
             verify_password(body.password, _get_dummy_hash())
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid invitation code")
         if (

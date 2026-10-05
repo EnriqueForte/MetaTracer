@@ -3,7 +3,11 @@
 **Módulo:** `services/orchestrator.py`, `api/runs.py`, `cli/main.py`, Web V2
 **Referencia:** [Auditoría 2026-10-03](../audit-2026-10-03.md) § P1-1
 **Dependencias:** TASK-27
-**Estado:** **Pendiente** (planificada 2026-10-03).
+**Estado:** **Cerrada** (2026-10-03). ruff limpio; cobertura core/detectors/extractors/reports **90.78%** (710 passed, not e2e). Vitest de la Web V2 en verde, incluido el botón Abort.
+
+Al arrancar, los runs `pending`/`running` con `started_at` anterior al proceso quedan `aborted` (`error_message="interrupted: process restarted"`, `completed_at` UTC) y disparan notificación y webhook `aborted`. `POST /api/runs/{id}/abort`, Ctrl+C en `scan`/`watch` y el botón de la Web V2 cancelan el scan en curso. El SSE terminal es `aborted`, distinto de `failed`.
+
+Limitación multi-proceso: los slots de concurrencia viven en memoria. Un segundo proceso solo aborta runs empezados antes de su arranque; no es un lock entre procesos.
 
 ---
 
@@ -46,7 +50,7 @@ Hoy un reinicio del servidor deja los runs en `running` para siempre (`orchestra
 
 ## 5. Criterios de aceptación (DoD)
 
-- [ ] Ningún run queda en `running` tras un reinicio.
-- [ ] Abort disponible en API, CLI (Ctrl+C) y Web V2.
-- [ ] `aborted` ≠ `failed` en todas las superficies (contrato TASK-20).
-- [ ] Suite verde + ruff limpio + cobertura ≥85%.
+- [x] Ningún run queda en `running` tras un reinicio.
+- [x] Abort disponible en API, CLI (Ctrl+C) y Web V2.
+- [x] `aborted` ≠ `failed` en todas las superficies (contrato TASK-20).
+- [x] Suite verde + ruff limpio + cobertura ≥85%.

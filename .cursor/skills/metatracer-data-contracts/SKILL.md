@@ -22,9 +22,9 @@ Enums en **minúsculas** en DB, JSON, API y Pydantic. La presentación (CLI/UI/M
 | `extraction_status` | `ok` \| `skipped` \| `failed` |
 | `skip_reason` | `unsupported_type` \| `too_large` \| `out_of_scope` \| `duplicate_hash` \| `empty_body` |
 | `namespace` | `exif` \| `xmp` \| `pdfinfo` \| `iptc` \| `http` \| `html` \| `js` |
-| `namespace` | `exif` \| `xmp` \| `pdfinfo` \| `iptc` \| `http` \| `html` \| `js` |
 | `feedback.vote` | `up` \| `down` (TASK-13, v2.1+) |
 | `user.role` | `operator` \| `viewer` (TASK-24, v3.0 Eje C) |
+| `triage_status` | `open` \| `confirmed` \| `false_positive` \| `fixed` (TASK-35; default `open`; solo operador) |
 
 ## Modelos (SQLModel)
 
@@ -52,6 +52,12 @@ dedup_signature = sha256(f"{asset_id}:{finding_type}:{evidence_snippet.strip().l
 ```
 
 Unique constraint `(asset_id, dedup_signature)`. Insertar ignorando conflictos; al consolidar, `field_source` se concatena con `" | "` (ordenado, sin duplicados).
+
+`dedup_signature` incluye el `asset_id`, que es nuevo en cada run. Para comparar entre runs (watch, `/api/compare`) se usa `finding_identity = sha256(f"{asset.final_url}:{finding_type}:{evidence_snippet.strip().lower()}")` (TASK-35).
+
+## Triage (TASK-35)
+
+`Finding.triage_status` (no nulo, default `open`, indexado), `triage_note` (≤500), `triaged_by` (user id, `local` con auth off, `cli`), `triaged_at` UTC. Lo cambia solo un operador por `PUT /api/runs/{run_id}/findings/{finding_id}/triage` o `metatracer findings triage`. No toca `severity` ni `evidence_snippet`. `false_positive` queda fuera de los exports (salvo `include_false_positives`) y de los conteos del dashboard (contador `dismissed` aparte). No genera feedback para el clasificador: son decisiones distintas.
 
 ## Idiomas por capa
 

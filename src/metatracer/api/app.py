@@ -1,9 +1,10 @@
 """FastAPI application factory (TASK-06, subtask 6.3).
 
-Security posture of v1.0: there is NO authentication, so the only protection
-is the bind address — ``settings.bind_host`` defaults to ``127.0.0.1`` and the
-server is meant for localhost / a trusted network only. The Docker image sets
-``METATRACER_BIND_HOST=0.0.0.0`` deliberately (TASK-07); nothing else should.
+Security posture of v1.0: there is NO authentication unless
+``METATRACER_AUTH_ENABLED`` is set, so a loopback bind is the default
+protection — ``settings.bind_host`` defaults to ``127.0.0.1``. The Docker
+image binds ``0.0.0.0`` and refuses to start while auth is off (TASK-27)
+unless ``METATRACER_ALLOW_UNAUTHENTICATED_BIND`` is set.
 
 The lifespan wires the shared stack once — engine, schema, session factory,
 ProgressBus and the single ScanOrchestratorService — stores it on
@@ -12,6 +13,8 @@ from paths relative to this module so the installed package works from any
 working directory (see ``[tool.setuptools.package-data]``).
 """
 
+import asyncio
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -26,20 +29,27 @@ from metatracer import __version__
 from metatracer.agents.knowledge import KnowledgeRetriever
 from metatracer.agents.pipeline import AgentPipeline
 from metatracer.api import auth as auth_api
-from metatracer.api import feedback, knowledge, notifications, runs, scopes, stats, users
+from metatracer.api import compare, feedback, knowledge, notifications, runs, scopes, stats, users
 from metatracer.api.pages import router as pages_router
 from metatracer.api.security_headers import apply_security_headers
 from metatracer.api.webhooks import WebhookDispatcher
 from metatracer.api.webhooks import register_routes as register_webhook_routes
-from metatracer.core.config import Settings
+from metatracer.core.config import Settings, enforce_loopback_test_only
 from metatracer.core.logging import configure_logging
-from metatracer.core.ratelimit import ApiRateLimiter, enforce_body_limit
+from metatracer.core.ratelimit import (
+    ApiRateLimiter,
+    cap_request_body,
+    enforce_body_limit,
+    reject_bad_content_length,
+)
 from metatracer.core.safety.guard import NetworkSafetyGuard
 from metatracer.db.engine import create_db_engine, create_session_factory, init_db
+from metatracer.extractors.ingest import sweep_stale_tempfiles
 from metatracer.reports.builder import DEFAULT_REPORTS_DIR
 from metatracer.services.notifications import NotificationBus
 from metatracer.services.orchestrator import ScanOrchestratorService
 from metatracer.services.progress import ProgressBus
+from metatracer.services.retention import prune_expired_runs
 from metatracer.services.watch import DeltaReporter
 
 _PACKAGE_DIR = Path(__file__).parent
@@ -56,9 +66,11 @@ STATIC_DIR = _PACKAGE_DIR / "static"
 # - /api/runs/*/stream is the SSE stream: the browser holds it open for the
 #   whole scan, so counting keep-alives against a client's budget would break
 #   the dashboard under a normal single scan. The stream endpoint is itself
-#   bounded: one subscriber per run id and it closes on terminal events.
+#   bounded: each subscriber closes on a terminal event. Several clients may
+#   watch the same run; the bus fans out to every queue.
 _RATE_LIMIT_EXEMPT_PREFIXES: tuple[str, ...] = (
     "/api/health",
+    "/api/ready",
     "/static/",
 )
 
@@ -70,6 +82,49 @@ _RATE_LIMIT_EXEMPT_PREFIXES: tuple[str, ...] = (
 _PAGE_AUTH_EXEMPT: frozenset[str] = frozenset(
     {"/login", "/register", "/setup", "/api/health"}
 )
+
+_RETENTION_INTERVAL_SECONDS = 24 * 3600
+_WEBHOOK_RETRY_SECONDS = 15
+
+
+async def _retention_loop(app: FastAPI) -> None:
+    """Delete expired terminal runs at startup and once a day (TASK-30)."""
+    logger = logging.getLogger("metatracer.api.retention")
+    while True:
+        settings: Settings = app.state.settings
+        try:
+            await prune_expired_runs(
+                app.state.session_factory,
+                retention_days=settings.retention_days,
+                reports_dir=app.state.reports_dir,
+            )
+        except Exception:
+            logger.warning("retention sweep failed", exc_info=True)
+        await asyncio.sleep(_RETENTION_INTERVAL_SECONDS)
+
+
+async def _webhook_retry_loop(app: FastAPI) -> None:
+    """Retry due webhook deliveries without waiting for another scan (TASK-33)."""
+    logger = logging.getLogger("metatracer.api.webhooks")
+    while True:
+        try:
+            await app.state.webhook_dispatcher.sweep_due_retries()
+        except Exception:
+            logger.warning("webhook retry sweep failed", exc_info=True)
+        await asyncio.sleep(_WEBHOOK_RETRY_SECONDS)
+
+
+def _as_http_exception(exc: BaseException) -> HTTPException | None:
+    """HTTPException raised directly, or the single one inside a task group.
+
+    BaseHTTPMiddleware reads the body in a child task. A cap raised from
+    ``receive`` therefore surfaces as an ``ExceptionGroup`` (TASK-31).
+    """
+    if isinstance(exc, HTTPException):
+        return exc
+    if isinstance(exc, BaseExceptionGroup) and len(exc.exceptions) == 1:
+        return _as_http_exception(exc.exceptions[0])
+    return None
 
 
 def _is_rate_limit_exempt(path: str) -> bool:
@@ -90,10 +145,12 @@ def create_app(
     reports; tests point it at a tmp_path.
     """
     settings = settings if settings is not None else Settings()
+    enforce_loopback_test_only(settings)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         configure_logging(settings.log_level)
+        sweep_stale_tempfiles()
         engine = create_db_engine(settings.database_url)
         await init_db(engine)
         app.state.settings = settings
@@ -133,6 +190,7 @@ def create_app(
             agents=agents,
             delta_reporter=app.state.delta_reporter,
         )
+        await app.state.orchestrator.recover_interrupted_runs()
         register_webhook_routes(app, app.state.session_factory)
         app.state.reports_dir = reports_dir
         app.state.templates = Jinja2Templates(directory=TEMPLATES_DIR)
@@ -149,7 +207,17 @@ def create_app(
         app.state.setup_token = await auth_api.ensure_default_user(
             app.state.session_factory, settings
         )
+        retention_task = asyncio.create_task(_retention_loop(app))
+        webhook_retry_task = asyncio.create_task(_webhook_retry_loop(app))
         yield
+        retention_task.cancel()
+        webhook_retry_task.cancel()
+        for task in (retention_task, webhook_retry_task):
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        # R7: stop in-flight work, then release the engine.
         await app.state.webhook_dispatcher.shutdown()
         await app.state.orchestrator.shutdown()
         await engine.dispose()
@@ -159,8 +227,9 @@ def create_app(
         version=__version__,
         description=(
             "Sensitive metadata discovery for authorized security audits. "
-            "Authentication is optional (METATRACER_AUTH_ENABLED): when off, "
-            "bind to localhost / trusted networks only."
+            "Authentication is optional on loopback (METATRACER_AUTH_ENABLED). "
+            "A non-loopback bind refuses to start while auth is off unless "
+            "METATRACER_ALLOW_UNAUTHENTICATED_BIND is set."
         ),
         lifespan=lifespan,
     )
@@ -180,9 +249,9 @@ def create_app(
             if limiter is not None and not _is_rate_limit_exempt(request.url.path):
                 await limiter.check(request)
             if not _is_rate_limit_exempt(request.url.path):
-                length = request.headers.get("content-length")
-                if length is not None and length.isdigit():
-                    enforce_body_limit(int(length), max_body)
+                declared = reject_bad_content_length(request.headers.get("content-length"))
+                enforce_body_limit(declared, max_body)
+                cap_request_body(request, max_body)
             # TASK-24 (v3.0, Eje C): HTML pages are browser surfaces, not API
             # consumers — an unauthenticated page hit redirects to /login
             # instead of answering 401 JSON. Auth-disabled deployments skip
@@ -217,14 +286,19 @@ def create_app(
             ):
                 auth_api._ensure_csrf_cookie(request, response, settings)
             return apply_security_headers(response, request)
-        except HTTPException as exc:
+        except Exception as exc:
             # Middleware-raised HTTPExceptions do not flow through FastAPI's
             # exception handlers outside the router, so render the JSON here.
+            # A body-cap raised inside BaseHTTPMiddleware's receive task is
+            # wrapped in an ExceptionGroup; unwrap that single HTTPException.
+            http_exc = _as_http_exception(exc)
+            if http_exc is None:
+                raise
             return apply_security_headers(
                 JSONResponse(
-                    status_code=exc.status_code,
-                    content={"detail": exc.detail},
-                    headers=exc.headers,
+                    status_code=http_exc.status_code,
+                    content={"detail": http_exc.detail},
+                    headers=http_exc.headers,
                 ),
                 request,
             )
@@ -238,26 +312,40 @@ def create_app(
         """
         return {"status": "ok"}
 
+    @app.get("/api/ready")
+    async def ready(request: Request) -> dict[str, str]:
+        """Readiness: the database answers. Liveness stays on ``/api/health``."""
+        from sqlalchemy import text
+
+        try:
+            async with request.app.state.engine.connect() as connection:
+                await connection.execute(text("SELECT 1"))
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail="database unavailable") from exc
+        return {"status": "ok"}
+
     # TASK-24 (v3.0, Eje C): every data router takes the auth dependencies
     # UNCONDITIONALLY. When auth is disabled (default) they no-op and the
     # behavior is exactly v0.5.0; when enabled, reads require a session
     # (401), and mutations additionally require CSRF + the operator role
-    # (403). get_current_user is resolved once per request (FastAPI caches
-    # dependency results), so require_operator_action reusing it as a
-    # sub-dependency costs nothing extra. See metatracer.api.auth.
+    # (403). Admin reads (users, invitations) also require the operator role
+    # on GET (TASK-31): require_operator_action allows any authenticated
+    # reader on safe methods. get_current_user is resolved once per request.
     data_deps = [Depends(auth_api.get_current_user)]
     action_deps = [Depends(auth_api.require_operator_action)]
+    operator_deps = [Depends(auth_api.require_operator)]
 
     app.include_router(runs.router, dependencies=data_deps + action_deps)
     app.include_router(scopes.router, dependencies=data_deps + action_deps)
     app.include_router(stats.router, dependencies=data_deps)
+    app.include_router(compare.router, dependencies=data_deps)
     app.include_router(notifications.router, dependencies=data_deps + action_deps)
     app.include_router(feedback.router, dependencies=data_deps + action_deps)
     app.include_router(knowledge.router, dependencies=data_deps + action_deps)
     app.include_router(auth_api.router)  # login/logout/me/setup/register are pre-auth by design
-    app.include_router(users.router, dependencies=data_deps + action_deps)
+    app.include_router(users.router, dependencies=data_deps + action_deps + operator_deps)
     app.include_router(
-        users.invitations_router, dependencies=data_deps + action_deps
+        users.invitations_router, dependencies=data_deps + action_deps + operator_deps
     )
     app.include_router(pages_router)  # pages gate themselves (redirect to /login)
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

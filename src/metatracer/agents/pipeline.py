@@ -187,7 +187,7 @@ class AgentPipeline:
         assets_by_id = {asset.id: asset for asset in assets}
 
         target_domain = _target_domain(run)
-        optimizer = ContextOptimizer(self._settings.max_assets_per_run)
+        optimizer = ContextOptimizer(self._settings.max_agent_findings)
         optimized = optimizer.optimize(
             [(finding, assets_by_id.get(finding.asset_id)) for finding in findings],
             target_domain,
@@ -201,6 +201,14 @@ class AgentPipeline:
                 "payload": entry.payload,
                 "had_baseline_severity": entry.had_baseline_severity,
             }
+            # TASK-29: the persisted baseline (already includes operator
+            # feedback) travels beside the payload. It is not a PAYLOAD_KEYS
+            # field and is not sent to the model.
+            row = next(
+                (finding for finding in findings if finding.id == entry.finding_id), None
+            )
+            if row is not None and row.severity is not None:
+                item["baseline_severity"] = row.severity.value
             # TASK-13: attach operator-guided examples of the same type when
             # present. examples_to_payload caps the total size; an empty list
             # is omitted so the payload contract never changes.

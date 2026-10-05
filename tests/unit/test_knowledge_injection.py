@@ -113,10 +113,10 @@ async def test_analyze_node_merges_retrieved_context_into_payload() -> None:
     _, model_payload = client.calls[0]
     # closed payload contract untouched
     assert model_payload["finding_type"] == "gps"
-    assert model_payload["evidence_snippet"] == "Latitude: 41.6521"
-    # retrieved context merged as a separate key, string-only and capped
-    assert "retrieved_evidence" in model_payload
-    first = model_payload["retrieved_evidence"][0]
+    assert model_payload["evidence_snippet"] == "<<<EVIDENCE>>>\nLatitude: 41.6521\n<<<END>>>"
+    # historical precedent is labeled as not evidence of this finding
+    assert "retrieved_evidence" not in model_payload
+    first = model_payload["historical_not_evidence"][0]
     assert first["finding_type"] == "gps"
     assert first["title"] == "Public square GPS"
     assert "score" not in first  # score is not part of the prompt contract

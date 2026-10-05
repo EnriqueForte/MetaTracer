@@ -41,7 +41,7 @@ JS_PATH = "/static/app.js"
 LEAKY_HTML = (
     b"<!doctype html>\n<html><head><title>Leaky page</title>"
     b'<meta name="generator" content="WordPress 6.4.2">'
-    b'<meta name="author" content="recon@acme-corp.test">'
+    b'<meta name="author" content="recon@acme-corp.internal">'
     b"</head><body>\n"
     b"  <!-- TODO: remove staging credentials before go-live -->\n"
     b'  <script src="/static/app.js"></script>\n'

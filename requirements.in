@@ -1,0 +1,33 @@
+# Runtime dependencies for the Docker builder. Keep in lockstep with
+# [project.dependencies] in pyproject.toml. piexif is a dev extra (fixtures
+# only) and must not appear here. Regenerate with:
+#   pip-compile --generate-hashes --allow-unsafe --resolver=backtracking requirements.in
+pydantic>=2.7
+pydantic-settings>=2.3
+sqlmodel>=0.0.18
+aiosqlite>=0.20
+asyncpg>=0.29.0
+alembic>=1.13.0
+pgvector>=0.3.0
+langgraph>=0.1.0
+langchain-core>=0.2.0
+langchain-openai>=1.0
+httpx>=0.27.0,<1
+# httpx2/httpcore2 are an unapproved fork. Pin the stack to releases that
+# still declare httpx (langsmith 0.12+ and openai 3+ switched). TASK-00.
+langsmith>=0.3.45,<0.12
+openai>=1.0,<3
+pillow>=10.3.0
+pypdf>=4.2.0
+typer>=0.12.0
+rich>=13.7.0
+fastapi>=0.111.0
+uvicorn>=0.30.0
+jinja2>=3.1
+beautifulsoup4>=4.12
+tenacity>=8.3
+python-dotenv>=1.0
+# Present in the image so `pip install --no-deps .` can build without
+# downloading a build backend (PIP_NO_BUILD_ISOLATION=1).
+setuptools>=68
+wheel

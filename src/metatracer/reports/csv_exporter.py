@@ -19,7 +19,9 @@ Contract notes:
 
 The writer is the stdlib ``csv`` module (RFC 4180, ``QUOTE_MINIMAL``), the
 file is UTF-8 **with BOM** so spreadsheet apps treat it as UTF-8 instead of
-latin-1. No network, no LLM, no reads of the original asset files: the data
+latin-1. Cells whose text starts with ``=``, ``+``, ``-``, ``@``, tab or CR
+are prefixed with ``'`` so a spreadsheet does not evaluate them as formulas
+(TASK-27). No network, no LLM, no reads of the original asset files: the data
 comes from :class:`ReportData` only.
 """
 
@@ -46,6 +48,7 @@ CSV_COLUMNS = [
     "impact",
     "explanation",
     "remediation",
+    "triage_status",  # TASK-35, lowercase enum value
 ]
 
 
@@ -68,9 +71,21 @@ class CsvReportExporter:
         return path
 
 
+# Spreadsheet formula triggers (OWASP CSV injection). Prefix, do not strip:
+# the evidence text stays recoverable and a sheet treats the cell as text.
+_FORMULA_TRIGGERS = frozenset("=+-@\t\r")
+
+
+def neutralize_spreadsheet_formula(value: str) -> str:
+    """Prefix formula-like text so a spreadsheet will not evaluate the cell."""
+    if value and value[0] in _FORMULA_TRIGGERS:
+        return "'" + value
+    return value
+
+
 def _row(data: ReportData, finding) -> dict[str, str]:
     """Map one report finding onto the CSV columns (lowercase enums)."""
-    return {
+    raw = {
         "run_id": data.run_id,
         "target": data.target,
         "severity": finding.severity.value if finding.severity is not None else "",
@@ -82,4 +97,6 @@ def _row(data: ReportData, finding) -> dict[str, str]:
         "impact": finding.impact,
         "explanation": finding.explanation,
         "remediation": finding.remediation,
+        "triage_status": finding.triage_status.value,
     }
+    return {key: neutralize_spreadsheet_formula(value) for key, value in raw.items()}

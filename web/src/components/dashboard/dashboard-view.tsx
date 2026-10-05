@@ -1,17 +1,20 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { Files, ScanSearch, ShieldAlert, Sparkles } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
 
 import { EvidenceTable } from "@/components/dashboard/evidence-table";
 import { FindingsTypeChart } from "@/components/dashboard/findings-type-chart";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { SeverityOverview } from "@/components/dashboard/severity-overview";
+import { parseTrend, SeverityTrend, type TrendPoint } from "@/components/dashboard/severity-trend";
 import { TopDomains } from "@/components/dashboard/top-domains";
 import { Button } from "@/components/ui/button";
 import { ErrorState, LoadingState } from "@/components/ui/states";
 import { apiFetch } from "@/lib/api/browser";
+import { ApiError } from "@/lib/api/errors";
+import { queryKeys } from "@/lib/query/keys";
 
 type Stats = {
   runs: Record<string, number>;
@@ -19,6 +22,7 @@ type Stats = {
   findings: {
     total: number;
     unclassified: number;
+    dismissed: number;
     severity_breakdown: Record<string, number>;
     by_type: Record<string, number>;
   };
@@ -31,6 +35,7 @@ type Stats = {
     total_tokens: number;
     latency_ms: number;
   };
+  trends: TrendPoint[];
 };
 
 function num(value: unknown): number | null {
@@ -120,48 +125,57 @@ function parseStats(value: unknown): Stats | null {
     findings: {
       total: findingsTotal,
       unclassified,
+      dismissed: num(findingsRow.dismissed) ?? 0,
       severity_breakdown: severityCounts,
       by_type: typeCounts,
     },
     top_domains: domains,
     top_evidence: evidence,
     agent_usage: usage as Stats["agent_usage"],
+    trends: parseTrend(row.trends),
   };
 }
 
+async function fetchStats(): Promise<Stats> {
+  const response = await apiFetch("/api/stats");
+  if (!response.ok) throw new ApiError(response.status, "Could not load the dashboard data.");
+  const parsed = parseStats(await response.json());
+  if (!parsed) throw new ApiError(200, "Could not load the dashboard data.");
+  return parsed;
+}
+
+function Onboarding() {
+  return (
+    <section className="mt-card flex flex-col gap-3 p-4" aria-labelledby="onboarding-title">
+      <h2 id="onboarding-title" className="mt-section-title">
+        No data yet
+      </h2>
+      <p className="text-sm text-mt-fg">
+        Run a scan to start building the dashboard — runs, findings, domains and agent usage will
+        appear here.
+      </p>
+      <ol className="flex list-decimal flex-col gap-1 ps-5 text-sm text-mt-muted">
+        <li>Enter the public targets you are authorized to audit.</li>
+        <li>Name the authorized scope: domains, or a saved scope. It is never guessed from the targets.</li>
+        <li>Confirm the scope in the dialog. Nothing is downloaded before that confirmation.</li>
+      </ol>
+      <Button className="self-start" asChild>
+        <Link href="/">Start your first scan</Link>
+      </Button>
+    </section>
+  );
+}
+
 export function DashboardView() {
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const response = await apiFetch("/api/stats");
-      if (!response.ok) {
-        setError("Could not load the dashboard data.");
-        setStats(null);
-        return;
-      }
-      const parsed = parseStats(await response.json());
-      if (!parsed) {
-        setError("Could not load the dashboard data.");
-        setStats(null);
-        return;
-      }
-      setStats(parsed);
-    } catch {
-      setError("Network error: the API is unreachable.");
-      setStats(null);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const query = useQuery({ queryKey: queryKeys.stats, queryFn: fetchStats });
+  const stats = query.data ?? null;
+  const loading = query.isPending;
+  const error = query.isError
+    ? query.error instanceof ApiError
+      ? "Could not load the dashboard data."
+      : "Network error: the API is unreachable."
+    : "";
+  const load = () => query.refetch();
 
   const typeRank = stats
     ? Object.entries(stats.findings.by_type)
@@ -185,11 +199,7 @@ export function DashboardView() {
       </div>
       {loading && !stats ? <LoadingState label="Loading dashboard" /> : null}
       {error ? <ErrorState message={error} onRetry={() => void load()} /> : null}
-      {stats && stats.runs.total === 0 ? (
-        <p className="text-sm text-mt-muted">
-          No data yet. Run a scan to start building the dashboard — runs, findings, domains and agent usage will appear here.
-        </p>
-      ) : null}
+      {stats && stats.runs.total === 0 ? <Onboarding /> : null}
       {stats && stats.runs.total > 0 ? (
         <div className="flex flex-col gap-5">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -203,7 +213,7 @@ export function DashboardView() {
             <MetricCard
               label="Findings"
               value={formatCount(stats.findings.total)}
-              detail={`High ${stats.findings.severity_breakdown.high ?? 0} · Unclassified ${stats.findings.unclassified}`}
+              detail={`High ${stats.findings.severity_breakdown.high ?? 0} · Unclassified ${stats.findings.unclassified} · Dismissed ${stats.findings.dismissed}`}
               icon={ShieldAlert}
               accentClass="bg-mt-sev-high"
             />
@@ -226,6 +236,7 @@ export function DashboardView() {
             <SeverityOverview total={stats.findings.total} breakdown={stats.findings.severity_breakdown} />
             <FindingsTypeChart rows={typeRank} />
           </div>
+          {stats.trends.length > 0 ? <SeverityTrend points={stats.trends} /> : null}
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
             <TopDomains rows={domainRank} />
             <EvidenceTable rows={stats.top_evidence} />

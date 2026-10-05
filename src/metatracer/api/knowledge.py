@@ -11,11 +11,12 @@ import os
 from pathlib import Path
 from tempfile import mkstemp
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from metatracer.agents.knowledge import KnowledgeRetriever, RetrievedEvidence
+from metatracer.api.auth import require_operator
 from metatracer.db.models import FindingType
 from metatracer.knowledge.portable import export_kb, import_kb
 
@@ -97,8 +98,8 @@ class ImportResponse(BaseModel):
     imported: int
 
 
-@router.post("/export")
-async def export_kb_endpoint(request: Request) -> FileResponse:
+@router.post("/export", dependencies=[Depends(require_operator)])
+async def export_kb_endpoint(request: Request, background: BackgroundTasks) -> FileResponse:
     """Export the historical precedents as a downloadable portable KB JSON.
 
     The writer streams to a temporary file (never persists a copy on the
@@ -113,18 +114,16 @@ async def export_kb_endpoint(request: Request) -> FileResponse:
     os.close(fd)  # close the descriptor: FileResponse opens the path itself
     try:
         await export_kb(factory, Path(tmp_name))
-        return FileResponse(
-            tmp_name,
-            media_type="application/json",
-            filename="kb-export.json",
-        )
-    finally:
-        # The FileResponse streams after this handler returns; schedule the
-        # cleanup on the next loop tick so the download completes.
-        import asyncio
-
-        loop = asyncio.get_running_loop()
-        loop.call_later(2.0, lambda: Path(tmp_name).unlink(missing_ok=True))
+    except Exception:
+        Path(tmp_name).unlink(missing_ok=True)
+        raise
+    # Starlette runs this after the file has been streamed (TASK-33).
+    background.add_task(Path(tmp_name).unlink, missing_ok=True)
+    return FileResponse(
+        tmp_name,
+        media_type="application/json",
+        filename="kb-export.json",
+    )
 
 
 @router.post("/import", response_model=ImportResponse)
@@ -141,17 +140,12 @@ async def import_kb_endpoint(request: Request) -> ImportResponse:
     if factory is None:
         raise HTTPException(status_code=503, detail="knowledge index is not configured")
 
-    # Defense in depth: the API-edge middleware already rejects oversized
-    # Content-Length, but re-check here so a chunked/streamed body is bounded
-    # even if the middleware wiring changes (v2.3 perf slice).
-    from metatracer.core.ratelimit import enforce_body_limit
+    # Count the bytes as they arrive. A chunked body has no Content-Length,
+    # and a lying Content-Length must not let the handler buffer past the cap.
+    from metatracer.core.ratelimit import read_body_capped
 
-    content_length = request.headers.get("content-length")
-    if content_length is not None and content_length.isdigit():
-        enforce_body_limit(
-            int(content_length), int(getattr(request.app.state, "max_request_body_bytes", 0))
-        )
-    body = await request.body()
+    max_body = int(getattr(request.app.state, "max_request_body_bytes", 0))
+    body = await read_body_capped(request, max_body)
     if not body:
         raise HTTPException(status_code=422, detail="empty body: send the portable KB JSON")
     fd, tmp_name = mkstemp(suffix=".json")

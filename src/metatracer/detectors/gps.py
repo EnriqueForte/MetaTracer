@@ -7,7 +7,10 @@ formula is applied here. XMP GPS is already decimal, so the value is only
 range-validated — the formula is never re-applied to it.
 
 A finding requires both coordinates, finite values, lat in [-90, 90], lon in
-[-180, 180] and not exactly ``(0, 0)`` (a null GPS block, not a real place).
+[-180, 180] and not a null-island reading (``abs(lat) < 1e-5`` and
+``abs(lon) < 1e-5``). Exact ``(0, 0)`` and near-zero rationals such as
+``1/1000`` seconds are an empty GPS block, not a real place. The same
+threshold is applied by :func:`classification.anchor.parse_gps_line`.
 Altitude is appended to the snippet when present, without a unit: the tags
 carry no unit string and inventing one is forbidden.
 """
@@ -37,6 +40,9 @@ _EXIF_GPS_KEYS = frozenset(
 _XMP_GPS_LOCAL_KEYS = frozenset({"GPSLatitude", "GPSLongitude", "GPSAltitude"})
 
 _HEMISPHERE_SIGNS = {"N": 1.0, "E": 1.0, "S": -1.0, "W": -1.0}
+
+# Near (0, 0) is an empty GPS block. 1e-5 degrees is about one metre.
+NULL_ISLAND_EPSILON = 1e-5
 
 
 class GpsDetector:
@@ -110,8 +116,13 @@ def _in_range(lat: float, lon: float) -> bool:
         and math.isfinite(lon)
         and -90.0 <= lat <= 90.0
         and -180.0 <= lon <= 180.0
-        and (lat != 0.0 or lon != 0.0)  # (0, 0) is an empty GPS block, not evidence
+        and not is_null_island(lat, lon)
     )
+
+
+def is_null_island(lat: float, lon: float) -> bool:
+    """True when both coordinates sit on the empty-GPS neighbourhood of (0, 0)."""
+    return abs(lat) < NULL_ISLAND_EPSILON and abs(lon) < NULL_ISLAND_EPSILON
 
 
 def _parse_dms(raw: str) -> tuple[float, ...] | None:

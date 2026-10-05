@@ -21,6 +21,23 @@ class SecurityViolationError(MetaTracerError):
     """The safety guard blocked an operation (SSRF, blocked IP range, bad scheme)."""
 
 
+class LoopbackOutsideTestsError(MetaTracerError):
+    """``METATRACER_ALLOW_LOOPBACK`` is set outside the test suite.
+
+    TASK-32. The flag exists so pytest can reach a local mock server. A
+    serve, scan or watch process refuses to start when it is set and
+    ``PYTEST_CURRENT_TEST`` is absent.
+    """
+
+
+class UnauthenticatedPublicBindError(MetaTracerError):
+    """Refusing to listen on a non-loopback address while authentication is off.
+
+    TASK-27. The escape hatch is ``METATRACER_ALLOW_UNAUTHENTICATED_BIND``; it
+    is logged and does not disable scope checks or the network safety guard.
+    """
+
+
 class ScopeNotConfirmedError(MetaTracerError):
     """A network operation was attempted with scope_confirmed=False."""
 
@@ -43,6 +60,23 @@ class RunNotFoundError(MetaTracerError):
     def __init__(self, token: str) -> None:
         self.token = token
         super().__init__(f"run not found: {token}")
+
+
+class RunNotAbortableError(MetaTracerError):
+    """The run exists but is already in a terminal status (TASK-28)."""
+
+    def __init__(self, run_id: str, status: str) -> None:
+        self.run_id = run_id
+        self.status = status
+        super().__init__(f"run {run_id} is already {status}")
+
+
+class RunActiveError(MetaTracerError):
+    """A pending or running scan cannot be deleted (TASK-30)."""
+
+    def __init__(self, run_id: str) -> None:
+        self.run_id = run_id
+        super().__init__(f"run {run_id} is still active")
 
 
 class ScopeNotFoundError(MetaTracerError):

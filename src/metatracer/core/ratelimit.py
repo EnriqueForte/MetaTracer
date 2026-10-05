@@ -10,10 +10,11 @@ ingestion pipeline, which has its own ``DomainRateLimiter`` in
    dependency enters the closed supply chain, and the algorithm is
    deliberately small enough to audit in one sitting (threat 15).
 
-2. :func:`enforce_body_limit` — cheap exact check that a request body fits
-   the configured cap before anything reads it. It never buffers the body
-   itself; callers that use ``await request.body()`` afterwards are still
-   bounded by this pre-check (the middleware runs first).
+2. :func:`enforce_body_limit` — cheap exact check that a declared
+   ``Content-Length`` fits the configured cap before anything reads it.
+   :func:`read_body_capped` and :func:`cap_request_body` bound the bytes that
+   actually arrive, including chunked bodies with no ``Content-Length``
+   (TASK-31).
 
 Design notes:
 
@@ -94,31 +95,37 @@ class ApiRateLimiter:
         key = client_key(request)
         now = time.monotonic()
         async with self._lock:
-            state = self._states.get(key)
-            if state is None:
-                state = self._states[key] = _WindowState()
-            # Drop arrivals older than the window and refresh liveness.
-            cutoff = now - WINDOW_SECONDS
-            while state.starts and state.starts[0] <= cutoff:
-                state.starts.popleft()
-            state.last_seen = now
-            if len(state.starts) >= self._limit:
-                # The requester is already at the cap: answer 429. The sleep
-                # yields to other coroutines (e.g. a scan's SSE or polling)
-                # before the error is sent — never a busy-wait.
-                await asyncio.sleep(0)
-                retry = self._retry_seconds_for(state)
-                raise HTTPException(
-                    status_code=429,
-                    detail="rate limit exceeded: too many requests from this client",
-                    headers={"Retry-After": str(max(1, retry))},
-                )
-            state.starts.append(now)
-            if now - self._last_sweep >= _SWEEP_EVERY_SECONDS:
-                self._last_sweep = now
-                idle_cutoff = now - WINDOW_SECONDS
-                for stale in [k for k, s in self._states.items() if s.last_seen < idle_cutoff]:
-                    del self._states[stale]
+            # Decision only. The 429 is raised after the lock is released so
+            # two concurrent checks are not serialized by an await (TASK-32).
+            retry_after = self._admit(key, now)
+        if retry_after is not None:
+            raise HTTPException(
+                status_code=429,
+                detail="rate limit exceeded: too many requests from this client",
+                headers={"Retry-After": str(max(1, retry_after))},
+            )
+
+    def _admit(self, key: str, now: float) -> int | None:
+        """Record one arrival under the caller's lock. Return retry seconds if over limit.
+
+        Synchronous on purpose: nothing here may await.
+        """
+        state = self._states.get(key)
+        if state is None:
+            state = self._states[key] = _WindowState()
+        cutoff = now - WINDOW_SECONDS
+        while state.starts and state.starts[0] <= cutoff:
+            state.starts.popleft()
+        state.last_seen = now
+        if len(state.starts) >= self._limit:
+            return self._retry_seconds_for(state)
+        state.starts.append(now)
+        if now - self._last_sweep >= _SWEEP_EVERY_SECONDS:
+            self._last_sweep = now
+            idle_cutoff = now - WINDOW_SECONDS
+            for stale in [k for k, s in self._states.items() if s.last_seen < idle_cutoff]:
+                del self._states[stale]
+        return None
 
     def _retry_seconds_for(self, state: _WindowState) -> int:
         """Whole seconds until the *this client's* window rolls over.
@@ -136,9 +143,9 @@ class ApiRateLimiter:
 def enforce_body_limit(length: int | None, max_bytes: int) -> None:
     """Raise a 413 when a declared Content-Length exceeds ``max_bytes``.
 
-    ``length is None`` (chunked transfer) cannot be pre-empted; the caller is
-    responsible for bounding the chunked path (the DB-backed endpoints
-    already stream to temp files).
+    ``length is None`` (chunked transfer) cannot be pre-empted from the
+    header. :func:`cap_request_body` and :func:`read_body_capped` count the
+    bytes as they arrive and stop at the same cap.
     """
     if max_bytes <= 0:
         return
@@ -148,3 +155,79 @@ def enforce_body_limit(length: int | None, max_bytes: int) -> None:
             detail=f"request body too large: {length} bytes exceeds the "
             f"{max_bytes} byte limit",
         )
+
+
+def reject_bad_content_length(header: str | None) -> int | None:
+    """Return a declared length, or 400 when the header is not an integer.
+
+    ``None`` means the header is absent (chunked or empty). A present header
+    must be a non-negative integer; ``+5`` and blanks are rejected.
+    """
+    if header is None:
+        return None
+    if not header.isdigit():
+        raise HTTPException(
+            status_code=400,
+            detail="Content-Length must be a non-negative integer",
+        )
+    return int(header)
+
+
+def cap_request_body(request: Request, max_bytes: int) -> None:
+    """Stop reading the ASGI body once ``max_bytes`` would be exceeded.
+
+    Replaces ``request._receive``. A chunk that would cross the cap is not
+    forwarded, so the handler never accumulates it. ``max_bytes <= 0``
+    disables the cap.
+    """
+    if max_bytes <= 0:
+        return
+    original = request._receive
+    consumed = 0
+
+    async def receive():
+        nonlocal consumed
+        message = await original()
+        if message["type"] == "http.request":
+            chunk = message.get("body", b"")
+            if chunk and consumed + len(chunk) > max_bytes:
+                raise HTTPException(
+                    status_code=413,
+                    detail=(
+                        "request body too large: exceeds the "
+                        f"{max_bytes} byte limit"
+                    ),
+                )
+            consumed += len(chunk)
+        return message
+
+    request._receive = receive
+
+
+async def read_body_capped(request: Request, max_bytes: int) -> bytes:
+    """Read the body, stopping before storing more than ``max_bytes``.
+
+    A declared ``Content-Length`` that is not an integer is 400. A declared
+    or actual size over the cap is 413, and the overflowing chunk is not
+    kept. ``max_bytes <= 0`` reads the body with no cap (guard disabled).
+    """
+    declared = reject_bad_content_length(request.headers.get("content-length"))
+    if max_bytes <= 0:
+        return await request.body()
+    enforce_body_limit(declared, max_bytes)
+    chunks: list[bytes] = []
+    total = 0
+    async for chunk in request.stream():
+        if not chunk:
+            continue
+        if total + len(chunk) > max_bytes:
+            raise HTTPException(
+                status_code=413,
+                detail=(
+                    "request body too large: exceeds the "
+                    f"{max_bytes} byte limit"
+                ),
+            )
+        chunks.append(chunk)
+        total += len(chunk)
+    return b"".join(chunks)

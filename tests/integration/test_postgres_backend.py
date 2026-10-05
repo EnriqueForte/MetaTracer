@@ -226,3 +226,83 @@ async def test_knowledge_search_api_page_over_postgres(pg_engine: AsyncEngine) -
     # an empty-but-functional index (no 503 path, no crash).
     retriever = KnowledgeRetriever(pg_engine, create_session_factory(pg_engine))
     assert await retriever.retrieve({"evidence_snippet": "x"}) == []
+
+
+async def test_delete_cascade_leaves_no_orphans_on_postgres(pg_engine: AsyncEngine) -> None:
+    from sqlalchemy import text
+
+    from metatracer.agents.knowledge_pg import PgVectorKnowledgeIndex
+    from metatracer.db.models import (
+        Asset,
+        Confidence,
+        DetectorMethod,
+        ExtractionStatus,
+        Finding,
+        FindingType,
+        Run,
+        RunStatus,
+    )
+    from metatracer.db.repositories import RunRepository
+    from metatracer.services.retention import delete_run
+
+    await init_db(pg_engine)
+    factory = create_session_factory(pg_engine)
+    async with factory() as session:
+        run = await RunRepository(session).create(
+            Run(
+                target_input='["target.example"]',
+                allowed_scope='["target.example"]',
+                scope_confirmed=True,
+                status=RunStatus.completed,
+            )
+        )
+        asset = Asset(
+            run_id=run.id,
+            source_url="https://target.example/a.pdf",
+            final_url="https://target.example/a.pdf",
+            content_type="application/pdf",
+            file_hash_sha256="cd" * 32,
+            file_size_bytes=8,
+            extraction_status=ExtractionStatus.ok,
+        )
+        session.add(asset)
+        await session.commit()
+        await session.refresh(asset)
+        session.add(
+            Finding(
+                run_id=run.id,
+                asset_id=asset.id,
+                finding_type=FindingType.email,
+                field_source="pdfinfo:Author",
+                evidence_snippet="ada@target.example",
+                dedup_signature="pg-sig",
+                detector_method=DetectorMethod.rule,
+                confidence=Confidence.high,
+            )
+        )
+        await session.commit()
+        run_id = run.id
+    await PgVectorKnowledgeIndex(pg_engine, factory).rebuild()
+    await delete_run(factory, run_id)
+    async with pg_engine.connect() as conn:
+        findings = (
+            await conn.execute(
+                text("SELECT COUNT(*) FROM finding WHERE run_id = :run_id"),
+                {"run_id": run_id},
+            )
+        ).scalar_one()
+        vectors = (
+            await conn.execute(
+                text("SELECT COUNT(*) FROM knowledge_vectors WHERE run_id = :run_id"),
+                {"run_id": run_id},
+            )
+        ).scalar_one()
+        runs = (
+            await conn.execute(
+                text("SELECT COUNT(*) FROM run WHERE id = :run_id"),
+                {"run_id": run_id},
+            )
+        ).scalar_one()
+    assert findings == 0
+    assert vectors == 0
+    assert runs == 0

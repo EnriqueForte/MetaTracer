@@ -22,16 +22,19 @@ Design contract:
   through the run's ``safe_httpx_request`` gateway (which enforces the run
   scope and would reject them); the client is used instead, with the write
   time HTTPS validation re-checked at send time.
-- Secrets: the plaintext signature secret is only ever accepted at the
-  CLI/API edge and stored as a SHA-256 hash; it can never be read back. For
-  signature needs, a config may carry precomputed headers (e.g. token) through
-  the ``headers`` JSON field, which is redacted in every read API response.
+- Secrets: the plaintext HMAC secret is accepted at the CLI/API edge and
+  stored on the config (same treatment as ``headers``, which already hold
+  tokens). It is never returned by a read API. Deliveries with a secret send
+  ``X-MetaTracer-Timestamp`` and ``X-MetaTracer-Signature`` over the exact
+  body bytes. A pre-TASK-27 row that only has ``signature_secret_hash`` is
+  delivered unsigned, with a warning, until the operator sets the secret again.
 """
 
 from __future__ import annotations
 
 import asyncio
 import hashlib
+import hmac
 import json
 import logging
 import time
@@ -125,12 +128,53 @@ class WebhookUpdate(BaseModel):
 
 
 def _hash_secret(secret: str) -> str:
-    """One-way local SHA-256 of the plaintext signature secret (never stored plaintext)."""
+    """SHA-256 of the plaintext secret. Marks legacy rows; not used to sign."""
     return hashlib.sha256(secret.encode("utf-8")).hexdigest()
 
 
+def _apply_signature_secret(config: WebhookConfig, secret: str | None) -> None:
+    """Persist a new plaintext secret. Empty values leave the stored secret as-is."""
+    if not secret:
+        return
+    config.signature_secret = secret
+    config.signature_secret_hash = _hash_secret(secret)
+
+
+def webhook_body_bytes(payload: dict[str, Any]) -> bytes:
+    """Canonical body: UTF-8 JSON, compact separators, sorted keys.
+
+    This exact byte string is what is signed and what is sent (``content=``).
+    Receivers must HMAC the raw body, not a re-encoded document.
+    """
+    return json.dumps(
+        payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+    ).encode("utf-8")
+
+
+def _signature_status(config: WebhookConfig) -> str:
+    """``active`` | ``needs_secret`` | ``none``. Never reveals the secret."""
+    if config.signature_secret:
+        return "active"
+    if config.signature_secret_hash:
+        return "needs_secret"
+    return "none"
+
+
+def _signing_secret(config: WebhookConfig) -> str | None:
+    """Plaintext secret, or None when the delivery must go out unsigned."""
+    if config.signature_secret:
+        return config.signature_secret
+    if config.signature_secret_hash:
+        logger.warning(
+            "webhook %s has only a legacy signature hash; re-enter the secret "
+            "to enable HMAC (unsigned until then)",
+            config.id,
+        )
+    return None
+
+
 def _public(config: WebhookConfig) -> dict[str, Any]:
-    """Public representation; header values and the secret hash are never exposed."""
+    """Public representation; header values and the secret are never exposed."""
     headers = json.loads(config.headers or "{}")
     return {
         "id": config.id,
@@ -140,6 +184,7 @@ def _public(config: WebhookConfig) -> dict[str, Any]:
         "headers": {key: "***" for key in headers},
         "max_retries": config.max_retries,
         "active": config.active,
+        "signature_status": _signature_status(config),
         "created_at": config.created_at.isoformat(),
     }
 
@@ -158,13 +203,19 @@ def register_routes(app, session_factory=None) -> None:
     data router. Webhooks are the MOST sensitive surface (they can exfiltrate
     third-party metadata to an arbitrary URL), so the wiring is unconditional
     here too: auth disabled → no-op dependencies (v0.5.0 behavior); auth
-    enabled → 401 without a session, CSRF + operator role on mutations.
+    enabled → 401 without a session, CSRF + operator role on mutations,
+    and the operator role on GET as well (TASK-31: webhook config is an
+    integration secret, not a viewer read).
     """
     # Late import: app.py imports webhooks (for the dispatcher), so a module-
     # level import of metatracer.api.app from here would cycle.
     from metatracer.api import auth as auth_api
 
-    auth_deps = [Depends(auth_api.get_current_user), Depends(auth_api.require_operator_action)]
+    auth_deps = [
+        Depends(auth_api.get_current_user),
+        Depends(auth_api.require_operator_action),
+        Depends(auth_api.require_operator),
+    ]
 
     async def _list(request: Request) -> list[dict[str, Any]]:
         factory = session_factory or request.app.state.session_factory
@@ -175,15 +226,14 @@ def register_routes(app, session_factory=None) -> None:
     async def _create(request: Request, body: WebhookCreate) -> dict[str, Any]:
         factory = session_factory or request.app.state.session_factory
         config = WebhookConfig(
-            name=body.name,
+            name=body.name or "",
             url=str(body.url),
             event=body.event,
             headers=json.dumps(body.headers or {}),
             max_retries=body.max_retries,
             active=body.active,
         )
-        if body.signature_secret:
-            config.signature_secret_hash = _hash_secret(body.signature_secret)
+        _apply_signature_secret(config, body.signature_secret)
         async with factory() as session:
             created = await WebhookConfigRepository(session).create(config)
         return _public(created)
@@ -209,8 +259,7 @@ def register_routes(app, session_factory=None) -> None:
                 cfg.max_retries = body.max_retries
             if body.active is not None:
                 cfg.active = body.active
-            if body.signature_secret:
-                cfg.signature_secret_hash = _hash_secret(body.signature_secret)
+            _apply_signature_secret(cfg, body.signature_secret)
             updated = await repo.update(cfg)
         return _public(updated)
 
@@ -283,6 +332,20 @@ def register_routes(app, session_factory=None) -> None:
 
 
 # --- Dispatcher ---------------------------------------------------------------
+
+class _RedactHttpxHeaders(logging.Filter):
+    """Drop httpx/httpcore debug lines that would print webhook header values.
+
+    Operator headers may carry tokens (TASK-33, review R4). The status code
+    path does not need those lines.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        text = record.getMessage().lower()
+        if "header" in text or "authorization" in text or "cookie" in text:
+            return False
+        return True
+
 
 class WebhookDispatcher:
     """Persists relay-buffer rows and delivers terminal-run events outbound.
@@ -440,6 +503,21 @@ class WebhookDispatcher:
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
 
+    async def sweep_due_retries(self) -> int:
+        """Retry deliveries whose ``next_retry_at`` has passed.
+
+        Independent of new scans (TASK-33). A first attempt still in flight
+        has ``next_retry_at is None`` and is left to the task that owns it.
+        """
+        async with self._session_factory() as session:
+            pending = await WebhookDeliveryRepository(session).list_pending()
+        due = [row for row in pending if row.next_retry_at is not None]
+        for delivery in due:
+            task = asyncio.create_task(self._attempt(delivery.webhook_id, delivery.run_id))
+            self._tasks.add(task)
+            task.add_done_callback(self._tasks.discard)
+        return len(due)
+
     async def _attempt(self, webhook_id: str, run_id: str) -> None:
         """One attempt; schedules retries with backoff when the send fails."""
         async with self._session_factory() as session:
@@ -511,6 +589,18 @@ class WebhookDispatcher:
             "Content-Type": "application/json",
             **(json.loads(config.headers or "{}") or {}),
         }
+        body = webhook_body_bytes(payload)
+        secret = _signing_secret(config)
+        if secret:
+            # Sign the bytes we are about to send, not a second serialization.
+            timestamp = str(int(time.time()))
+            mac = hmac.new(
+                secret.encode("utf-8"),
+                timestamp.encode("ascii") + b"." + body,
+                hashlib.sha256,
+            ).hexdigest()
+            headers["X-MetaTracer-Timestamp"] = timestamp
+            headers["X-MetaTracer-Signature"] = f"sha256={mac}"
         try:
             import httpx
 
@@ -531,12 +621,25 @@ class WebhookDispatcher:
                 except SecurityViolationError as exc:  # noqa: PERF203
                     return None, f"webhook target rejected ({sanitize_for_log(exc)})"
             timeout = httpx.Timeout(connect=5.0, read=10.0, write=10.0, pool=5.0)
-            async with httpx.AsyncClient(
-                timeout=timeout, follow_redirects=False, headers=headers
-            ) as client:
-                response = await client.post(config.url, json=payload)
-                # Body never read: we only need the status code.
-                return response.status_code, None
+            redactor = _RedactHttpxHeaders()
+            httpx_logger = logging.getLogger("httpx")
+            httpcore_logger = logging.getLogger("httpcore")
+            httpx_logger.addFilter(redactor)
+            httpcore_logger.addFilter(redactor)
+            try:
+                async with httpx.AsyncClient(
+                    timeout=timeout,
+                    follow_redirects=False,
+                    headers=headers,
+                    # Same proxy bypass as safe_httpx_request (TASK-27, P0-1).
+                    trust_env=False,
+                ) as client:
+                    response = await client.post(config.url, content=body)
+                    # Body never read: we only need the status code.
+                    return response.status_code, None
+            finally:
+                httpx_logger.removeFilter(redactor)
+                httpcore_logger.removeFilter(redactor)
         except Exception as exc:
             return None, sanitize_for_log(exc, max_length=300)
 

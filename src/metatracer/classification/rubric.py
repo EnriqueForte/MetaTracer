@@ -29,8 +29,8 @@ RANK_TO_SEVERITY: dict[int, Severity] = {rank: sev for sev, rank in SEVERITY_RAN
 # Mandatory heuristic ceilings (subtask 3.2.3). The heuristic never exceeds
 # these, and the TASK-05 guard deescalates agent proposals above them when the
 # snippet does not support more:
-# - gps: coordinates alone never justify critical (no geocoding, no "this is
-#   the CEO's home" inference).
+# - gps: the detector snippet is coordinates only, so critical is not offered.
+#   The ceiling stays high. No geocoding and no "this is the CEO's home".
 # - software_version: a name+version is never more than low; claiming an RCE
 #   from the string "wkhtmltopdf" would be inventing exploitability.
 # - email: a corporate address is at most medium.
@@ -63,12 +63,14 @@ RUBRIC_PROMPT_TEXT = """\
 SEVERITY RUBRIC (source of truth, TASK-03):
 
 - critical: a secret or credential value is present in the evidence snippet
-  (e.g. "password=", "api_key=", "BEGIN PRIVATE KEY", "TODO: token=ghp_..."),
-  or GPS coordinates plus text identifying a non-public home/person/facility.
-  NOT enough on its own: a GPS coordinate alone; the bare word "CONFIDENTIAL".
+  (e.g. "password=", "api_key=", "BEGIN PRIVATE KEY", "TODO: token=ghp_...",
+  an AWS access key id, a GitHub token). The bare word "credentials" or
+  "password" without a value is not critical. NOT enough: "CONFIDENTIAL".
 - high: an internal path containing a username or an internal UNC share
   (e.g. "C:\\Users\\jdoe\\...", "\\\\CORP-DC01\\share\\..."), or precise GPS
-  coordinates without further context. NOT enough: "/var/www/html" with no user.
+  coordinates. GPS is never critical: the snippet is coordinates only and
+  carries no home, person or facility name. NOT enough: "/var/www/html"
+  with no user.
 - medium: a personal corporate email (name.surname@company.com); a debug
   comment referencing a project/ticket/staging (e.g. "JIRA-8812"); a generic
   Unix deploy path ("/var/www/intranet"). A vendor address such as

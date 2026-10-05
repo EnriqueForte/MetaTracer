@@ -20,6 +20,7 @@ Fuente de verdad: `.aicontext/tasks/README.md`. Valores **en minúsculas** en ba
 | `extraction_status` | `ok` \| `skipped` \| `failed` |
 | `skip_reason` | `unsupported_type` \| `too_large` \| `out_of_scope` \| `duplicate_hash` \| `empty_body` |
 | `namespace` | `exif` \| `xmp` \| `pdfinfo` \| `iptc` \| `http` \| `html` \| `js` |
+| `triage_status` | `open` \| `confirmed` \| `false_positive` \| `fixed` (default `open`; solo operador, nunca el agente; no toca `severity` ni la evidencia) |
 
 No añadir valores sin actualizar antes `.aicontext/tasks/README.md`.
 
