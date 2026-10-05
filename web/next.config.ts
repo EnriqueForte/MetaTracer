@@ -41,6 +41,10 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   basePath: "/v2",
+  // next dev allows HMR only from localhost. Opening 127.0.0.1 otherwise
+  // answers the dev socket with a bare "Unauthorized", hydration never
+  // finishes, and the shell stays on the server-rendered scan page.
+  allowedDevOrigins: ["127.0.0.1"],
   poweredByHeader: false,
   async rewrites() {
     return {

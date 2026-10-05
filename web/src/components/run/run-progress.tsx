@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FindingsPanel } from "@/components/run/findings-panel";
+import { LiveActivity } from "@/components/run/live-activity";
 import { apiFetch } from "@/lib/api/browser";
 import { safeUrl } from "@/lib/security/safe-url";
 import {
@@ -36,6 +37,7 @@ type RunSnapshot = {
   total_assets: number;
   total_findings: number;
   error_message: string | null;
+  started_at: string | null;
   completed_at: string | null;
   asset_issues: AssetIssue[];
 };
@@ -103,9 +105,17 @@ function parseRun(value: unknown): RunSnapshot | null {
     total_assets: row.total_assets,
     total_findings: row.total_findings,
     error_message: typeof row.error_message === "string" ? row.error_message : null,
+    started_at: typeof row.started_at === "string" ? row.started_at : null,
     completed_at: typeof row.completed_at === "string" ? row.completed_at : null,
     asset_issues: issues,
   };
+}
+
+function stageLabel(stages: StageState[]): string | null {
+  const index = stages.findIndex((state) => state === "active");
+  if (index < 0) return null;
+  const key = STAGES[index];
+  return key ? STAGE_LABELS[key] : null;
 }
 
 function formatWhen(value: string): string {
@@ -116,12 +126,9 @@ export function RunProgress({ runId }: { runId: string }) {
   const [run, setRun] = useState<RunSnapshot | null>(null);
   const [loadError, setLoadError] = useState("");
   const [stages, setStages] = useState<StageState[]>(initialStages);
-  const [message, setMessage] = useState("Connecting to the live stream…");
+  const [message, setMessage] = useState("");
   const [currentAsset, setCurrentAsset] = useState("");
-  const [currentStep, setCurrentStep] = useState<number | null>(null);
-  const [totalSteps, setTotalSteps] = useState<number | null>(null);
   const [contractError, setContractError] = useState(false);
-  const [trace, setTrace] = useState<string[]>([]);
   const sourceRef = useRef<EventSource | null>(null);
   const pollRef = useRef<number | null>(null);
 
@@ -190,7 +197,15 @@ export function RunProgress({ runId }: { runId: string }) {
       sourceRef.current = null;
     }
 
-    void refresh();
+    void refresh().then((snapshot) => {
+      if (
+        snapshot !== "missing" &&
+        snapshot !== "error" &&
+        (snapshot.status === "pending" || snapshot.status === "running")
+      ) {
+        startPolling();
+      }
+    });
     const source = new EventSource(`/api/runs/${encodeURIComponent(runId)}/stream`);
     sourceRef.current = source;
     source.onmessage = (event) => {
@@ -208,13 +223,7 @@ export function RunProgress({ runId }: { runId: string }) {
       }
       setMessage(tick.message);
       setCurrentAsset(tick.current_asset ?? "");
-      setCurrentStep(tick.current_step);
-      setTotalSteps(tick.total_steps);
       setStages((current) => applyProgress(current, tick));
-      setTrace((current) => {
-        const next = [...current, tick.message];
-        return next.length > 6 ? next.slice(next.length - 6) : next;
-      });
       if (tick.stage === "completed" || tick.stage === "failed") {
         closeStream();
         void refresh();
@@ -313,70 +322,16 @@ export function RunProgress({ runId }: { runId: string }) {
       ) : null}
 
       {live ? (
-        <div className="flex flex-col gap-2">
-          <ol className="mt-stages" aria-label="Progress">
-            {STAGES.map((key, index) => {
-              const state = stages[index];
-              return (
-                <li
-                  key={key}
-                  className="mt-stage"
-                  data-state={state}
-                  data-stage={key}
-                  aria-current={state === "active" ? "step" : undefined}
-                >
-                  <span className="mt-stage-line" aria-hidden="true" />
-                  {state === "active" ? (
-                    <span
-                      className="mt-stage-asset"
-                      data-stage={key}
-                      aria-hidden="true"
-                      title={currentAsset || STAGE_LABELS[key]}
-                    />
-                  ) : null}
-                  <span className="mt-stage-node">
-                    <span className="mt-stage-dot" aria-hidden="true" />
-                    <span>
-                      {state === "active" ? <span className="mt-spin" aria-hidden="true" /> : null}
-                      {STAGE_LABELS[key]}
-                      {key === "ai_analysis" && state === "active" ? (
-                        <span className="mt-meta block font-normal">Classifying extracted evidence</span>
-                      ) : null}
-                    </span>
-                  </span>
-                  {state === "failed" ? (
-                    <span aria-hidden="true" className="text-mt-danger">
-                      Failed
-                    </span>
-                  ) : null}
-                  <span className="sr-only">{state}</span>
-                </li>
-              );
-            })}
-          </ol>
-          <p className="mt-tech whitespace-pre-wrap">{message}</p>
-          {currentAsset ? <p className="mt-tech break-all">{currentAsset}</p> : null}
-          {totalSteps !== null && currentStep !== null ? (
-            <p className="text-xs text-mt-muted">
-              Step {currentStep} / {totalSteps}
-            </p>
-          ) : null}
-          {contractError ? (
-            <p className="text-xs text-mt-muted">A progress event could not be read.</p>
-          ) : null}
-          {trace.length > 0 ? (
-            <div className="mt-card flex flex-col gap-2 p-3" aria-label="Recent progress">
-              <p className="mt-kicker">Recent progress</p>
-              <ol className="flex flex-col gap-1">
-                {trace.map((entry, index) => (
-                  <li key={`${index}-${entry}`} className="mt-tech text-xs text-mt-muted">
-                    {entry}
-                  </li>
-                ))}
-              </ol>
-            </div>
-          ) : null}
-        </div>
+        <LiveActivity
+          startedAt={run.started_at}
+          totalAssets={run.total_assets}
+          totalFindings={run.total_findings}
+          issueCount={run.asset_issues.length}
+          stageLabel={stageLabel(stages)}
+          message={message}
+          currentAsset={currentAsset}
+          contractError={contractError}
+        />
       ) : null}
 
       {finished ? <FindingsPanel runId={run.run_id} totalAssets={run.total_assets} /> : null}

@@ -56,36 +56,34 @@ function stub(status: string) {
 }
 
 describe("RunProgress", () => {
-  it("shows the seven stages in one row and marks the active step", async () => {
+  it("shows a live activity panel that follows stored counts and stream steps", async () => {
     stub("running");
     render(<RunProgress runId="run-1" />);
-    expect(await screen.findByRole("list", { name: "Progress" })).toBeInTheDocument();
-    expect(screen.getAllByRole("listitem")).toHaveLength(7);
+    const panel = await screen.findByRole("region", { name: "Scan activity" });
+    expect(panel).toHaveTextContent("Reading saved documents");
+    expect(panel).toHaveTextContent("Documents");
+    expect(screen.queryByRole("list", { name: "Progress" })).not.toBeInTheDocument();
     await act(async () => {
       source?.onmessage?.({
         data: JSON.stringify({
           stage: "discovery",
           message: "Crawling",
           current_asset: "https://example.com/a",
-          current_step: 1,
-          total_steps: 3,
+          current_step: 2,
+          total_steps: 7,
         }),
       });
     });
-    const active = screen.getByRole("listitem", { current: "step" });
-    expect(active).toHaveTextContent("Discovery");
-    expect(active).toHaveAttribute("data-state", "active");
-    expect(screen.getByText("https://example.com/a")).toBeInTheDocument();
-    expect(active.querySelector(".mt-stage-asset")).not.toBeNull();
-    expect(active.querySelector(".mt-stage-asset")).toHaveAttribute("title", "https://example.com/a");
-    expect(screen.getByLabelText("Recent progress")).toHaveTextContent("Crawling");
+    expect(panel).toHaveTextContent("Discovery");
+    expect(panel).toHaveTextContent("Crawling");
+    expect(panel).toHaveTextContent("https://example.com/a");
     expect(screen.queryByRole("heading", { name: "Reports" })).not.toBeInTheDocument();
   });
 
-  it("keeps the moving marker on the active stage without an asset URL", async () => {
+  it("names classification when the stream reports that step", async () => {
     stub("running");
     render(<RunProgress runId="run-1" />);
-    expect(await screen.findByRole("list", { name: "Progress" })).toBeInTheDocument();
+    const panel = await screen.findByRole("region", { name: "Scan activity" });
     await act(async () => {
       source?.onmessage?.({
         data: JSON.stringify({
@@ -97,12 +95,8 @@ describe("RunProgress", () => {
         }),
       });
     });
-    const active = screen.getByRole("listitem", { current: "step" });
-    expect(active).toHaveTextContent("Classification and AI analysis");
-    const marker = active.querySelector(".mt-stage-asset");
-    expect(marker).not.toBeNull();
-    expect(marker).toHaveAttribute("data-stage", "ai_analysis");
-    expect(marker).toHaveAttribute("title", "Classification and AI analysis");
+    expect(panel).toHaveTextContent("Classification and AI analysis");
+    expect(panel).toHaveTextContent("Classifying");
   });
 
   it("puts the five exports in the run bar", async () => {
@@ -121,6 +115,6 @@ describe("RunProgress", () => {
     expect(screen.getByRole("link", { name: "Download Bounty TXT" })).toBeInTheDocument();
     expect(screen.getByText("The report file is regenerated on the server.")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Reports" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("list", { name: "Progress" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Scan activity" })).not.toBeInTheDocument();
   });
 });
