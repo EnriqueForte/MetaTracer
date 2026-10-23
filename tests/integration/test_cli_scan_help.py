@@ -34,6 +34,10 @@ def test_python_dash_m_entry_point_matches_readme() -> None:
         [sys.executable, "-m", "metatracer", "--help"],
         capture_output=True,
         text=True,
+        # Rich/Typer emit UTF-8; on Windows the shell default (cp1252) cannot
+        # decode part of the help output and turns stdout into None (T2).
+        encoding="utf-8",
+        errors="replace",
         timeout=60,
         check=False,
     )

@@ -154,7 +154,7 @@ consultar la lista aprobada ni el procedimiento.
   3.17.4 vendorizado (`static/alpine-csp-3.17.4.min.js`); el CLI compilador no se versiona, no
   entra en Docker y la app no lo descarga. Regla vigente: nunca re-introducir un `<script src>`
   de terceros, ni `@latest`, ni orígenes adicionales (fuentes, iconos remotos).
-- Huecos conocidos de la lista, empezando por `langchain-openai` (ver §3.4).
+- Huecos conocidos de la lista, empezando por `langchain-openai` (ver §3.4). **Resuelto:** aprobada y en producción desde TASK-05.
 
 **Amenazas que cubre:** 15.
 
@@ -530,7 +530,7 @@ declaró, es una decisión, no un detalle de implementación.
 
 | Necesidad | Task que la pide | Estado |
 | :--- | :--- | :--- |
-| `langchain-openai` (clase `ChatOpenAI`) | TASK-05 (5.2.2) | **Sin aprobar.** No está en la lista de TASK-00 y no vive en `langchain-core`. Antes de implementar TASK-05 hay que aprobarla y añadirla a TASK-00, o resolver el cliente con `httpx` contra la API compatible con OpenAI |
+| `langchain-openai` (clase `ChatOpenAI`) | TASK-05 (5.2.2) | **Aprobada y en producción** — presente en `pyproject.toml` (con techo `openai<3` y pin de `langsmith`); TASK-05 cerrada. El hueco documentado aquí queda resuelto |
 
 Este hueco no se resuelve dentro del código: aplica el protocolo de escalado
 ([agents.md §4.4](agents.md#44-protocolo-de-escalado-cuándo-parar-y-preguntar)).

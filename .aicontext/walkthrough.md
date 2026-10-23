@@ -2,7 +2,7 @@
 
 **Proyecto:** MetaTracer  
 **Audiencia:** entrevista técnica o demo del MVP  
-**Estado del producto:** v1.0–v1.2, v2.0, v2.1+, v2.2, v2.3 y v2.4 cerrados. **v3.0 en curso** — [Eje A watch/headless](tasks/22-watch-headless.md) cerrado; pendientes [Ejes B/C](features/12-platform-v3.md) (PostgreSQL+pgvector, auth).
+**Estado del producto:** v1.0–v1.2, v2.0, v2.1+, v2.2, v2.3 y v2.4 cerrados. **v3.0 cerrada** (watch/headless, PostgreSQL+pgvector, auth básica). **v3.1 cerrada** (multi-usuario + rediseño de la Web UI). **v3.2 cerrada** (hardening post-auditoría 2026-10-03, TASK-27 → TASK-35). Suite vérificada: **787 passed, 6 skipped** · cobertura **91.30%** (≥85% DoD) · ruff limpio.
 
 Este recorrido no abre `src/`. Las tasks son la fuente de verdad; aquí solo el *por qué*.
 
@@ -72,12 +72,13 @@ la evidencia. Si no hay API key o el modelo cae, el reporte sale igual con plant
 heurísticas (`Not generated (heuristic baseline)`). El grafo no es el orquestador del
 scan: el scan es determinista; el grafo solo enriquece findings ya persistidos.
 
-## 4. SQLite ahora, PostgreSQL + pgvector después (1 min)
+## 4. SQLite ahora, PostgreSQL + pgvector ya (1 min)
 
-El hunter corre esto en su máquina. SQLite evita ops. El schema no usa tipos exclusivos
-de SQLite (UUIDs como `str`, timestamps UTC) para no bloquear el paso a PostgreSQL +
-pgvector que RAG (v2.1+) necesita. Un solo writer: los scans de la API van en serie.
-[Requisitos técnicos](features/07-technical-requirements.md).
+El hunter corre esto en su máquina. SQLite evita ops; desde **v3.0 (TASK-23)** se soporta
+PostgreSQL + asyncpg + pgvector (Alembic gestiona el schema; `METATRACER_DATABASE_URL`).
+El schema no usa tipos exclusivos de SQLite (UUIDs como `str`, timestamps UTC). Un solo
+writer por defecto; concurrencia acotada con `METATRACER_MAX_CONCURRENT_RUNS` (Postgres).
+[Requisitos técnicos](features/07-technical-requirements.md), [Eje B](features/12-platform-v3.md).
 
 ## 5. Contexto pequeño, menos alucinaciones (1 min)
 
@@ -118,14 +119,27 @@ las cabeceras de recon de cualquier descarga `ok` van al namespace `http`
 `.js` in-scope van a `js`. Cero `finding_type` nuevos. Cero dependencias runtime nuevas.
 `author_name` sigue fuera.
 
+## 7. v3.1 y v3.2 en una frase (1 min)
+
+**v3.1** añadió multi-usuario (first-run setup, panel de admin, invitaciones de un solo uso)
+y el rediseño visual de la Web UI (design system `.mt-*`, Tailwind compilado offline y
+Alpine CSP vendored en `/static`, sin CDN). **v3.2** cerró el hardening de la auditoría de
+2026-10-03: `trust_env=False` (P0-1), auth obligatoria en bind público, HMAC real en
+webhooks, CSV anti-fórmula, tope pre-inflate de XMP, recovery/abort de runs, integridad del
+agente (guard de prosa, techo con feedback), retención GDPR, authz del API, higiene de
+core/backend, precisión de detectores y las mejoras UI/UX de Web V2 (triage, filtros por URL,
+mapa GPS, comparación de runs, light mode).
+
 ## Cómo demostrarlo
 
 ```bash
 python -m metatracer scan example.com -s example.com -y
-python -m metatracer serve
+python -m metatracer serve                          # auth OFF por defecto en loopback
+METATRACER_AUTH_ENABLED=true python -m metatracer serve   # v3.0+: login + CSRF
 python -m metatracer watch <scope-id> --once                      # v3.0: una iteración
 python -m metatracer watch <scope-id> --interval 21600 --webhook <id>  # v3.0: deltas continuos
 ```
 
-Scope nunca se infiere. `-y` confirma autorización. Docker: `docker compose up --build`.
-Suite: `pytest` (e2e usa loopback **solo** con el flag de test).
+Scope nunca se infiere. `-y` confirma autorización. Docker: `docker compose up --build`
+(auth ON por defecto en el contenedor). Suite: `pytest` (e2e usa loopback **solo** con el
+flag de test; tests Postgres se skipean sin servidor).

@@ -20,11 +20,19 @@ performance & UI polish (API rate limiting, request body cap, accessibility, sha
 helpers, consistent states) → **v2.4** multi-engagement (union of saved scopes per run,
 keyset-paginated run history). Closed: **v3.0** platform (headless watch with
 deterministic deltas — `metatracer watch`; PostgreSQL+pgvector; basic auth with
-session cookies, CSRF and operator/viewer roles — `METATRACER_AUTH_ENABLED`) and
+session cookies, CSRF and operator/viewer roles — `METATRACER_AUTH_ENABLED`),
 **v3.1** (multi-user registration with first-run setup, admin panel and one-time
 invitations; **Web UI redesign** — design system `.mt-*`, Tailwind compiled offline and
-Alpine CSP vendored under `/static`, no CDN scripts). Full suite green, `ruff` clean,
-coverage ≥85%.
+Alpine CSP vendored under `/static`, no CDN scripts) and **v3.2** (hardening after the
+2026-10-03 audit, TASK-27 → TASK-35: `trust_env=False`, auth-required public bind,
+webhook HMAC, CSV formula neutralization, XMP pre-inflate cap, run recovery/abort,
+agent output integrity, GDPR retention, API authz, webhook retries, detector precision,
+Web V2 UX).
+
+Suite verified on 2026-10-23: **787 passed, 6 skipped** (e2e included, loopback test
+flag); coverage **91.30%** on core/detectors/extractors/reports (DoD ≥85%); `ruff`
+clean. PostgreSQL integration tests skip when no server is reachable (local Docker redir
+not supported).
 
 See `.aicontext/tasks/`. Architecture tour (Spanish): `.aicontext/walkthrough.md`.
 
@@ -91,7 +99,8 @@ on). Compose defaults auth to **true**. If `.env` sets `METATRACER_AUTH_ENABLED=
 uses that value and the container exits until you enable auth or the override. Roadmap: **v3.0**
 platform vision — watch/headless mode (done), PostgreSQL+pgvector (done), basic auth (done)
 (`.aicontext/features/12-platform-v3.md`); **v3.1** — multi-user registration and Web UI redesign
-(done); **v3.2** — hardening after the 2026-10-03 audit, starting with TASK-27.
+(done); **v3.2** — hardening after the 2026-10-03 audit, TASK-27 → TASK-35 (all closed;
+suite verified 787 passed / coverage 91.30%).
 
 ## Requirements
 

@@ -4,8 +4,8 @@
 **PRD:** [índice](../.aicontext/PRD.md) · **Backlog:** [tasks](../.aicontext/tasks/README.md)
 **Documento hermano:** [skills.md](skills.md) (define las skills; este define los agentes)
 **Versión:** 1.5
-**Estado:** Operativo — 2 rules, 3 skills transversales + `metatracer-ui` materializada y los **8 subagentes** (incluye `ui-architect` y `v2-ui-engineer`); backlog `TASK-00` → `TASK-26` (v3.1, rediseño de UI aplicado 2026-09-21). El retoque de Web V2 está planificado en `.aicontext/architecture/v2-ui-refresh.md` y no es una task del backlog Jinja.
-**Fecha:** 21 de septiembre de 2026
+**Estado:** Operativo — 2 rules, 3 skills transversales + `metatracer-ui` materializada y los **8 subagentes** (incluye `ui-architect` y `v2-ui-engineer`); backlog `TASK-00` → `TASK-35` (v1.0 → v3.2, cerradas 2026-10-05; suite 787 passed, cobertura 91.30%). El retoque de Web V2 está planificado en `.aicontext/architecture/v2-ui-refresh.md` y no es una task del backlog Jinja.
+**Fecha:** 23 de octubre de 2026 (actualización T2)
 
 Este documento define qué capacidades (rules, skills) y qué agentes (subagentes) necesita el
 desarrollo de MetaTracer, derivados del análisis del PRD y del backlog `TASK-00` → `TASK-26`.
