@@ -12,12 +12,35 @@ export type Actor = "unknown" | "operator" | "viewer";
 
 type LoadedSession = Exclude<SessionState, { status: "loading" }>;
 
+/** Persist the double-submit token where csrfTokenFromCookie() reads it. */
+export function persistCsrfToken(token: string | null): void {
+  if (typeof document === "undefined" || !token) return;
+  let meta = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]');
+  if (!meta) {
+    meta = document.createElement("meta") as HTMLMetaElement;
+    meta.name = "csrf-token";
+    document.head.appendChild(meta);
+  }
+  meta.content = token;
+}
+
 /** 401 is a normal "signed out" answer; any other non-2xx is an error. */
 async function fetchSession(): Promise<LoadedSession> {
   const response = await apiFetch("/api/auth/me");
-  if (response.status === 401) return { status: "signed-out" };
+  if (response.status === 401) {
+    // /me hands the pre-session token in the response header (MIN-01 parity);
+    // without a session there is no body to carry it.
+    persistCsrfToken(response.headers.get("x-csrf-token"));
+    return { status: "signed-out" };
+  }
   if (!response.ok) throw new ApiError(response.status, "session check failed");
-  return parseSession(await response.json());
+  const body = await response.json();
+  // A signed-in /me exposes the token in the JSON; keep the meta in sync so
+  // mutations send the same value the server expects from the cookie.
+  if (body && typeof body === "object" && typeof (body as { csrf_token?: unknown }).csrf_token === "string") {
+    persistCsrfToken((body as { csrf_token: string }).csrf_token);
+  }
+  return parseSession(body);
 }
 
 export function useSessionQuery() {

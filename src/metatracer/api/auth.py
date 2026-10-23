@@ -394,22 +394,28 @@ def _cookie_params(request: Request, http_only: bool) -> dict:
     }
 
 
-def _ensure_csrf_cookie(request: Request, response: Response, settings: Settings) -> None:
+def _ensure_csrf_cookie(request: Request, response: Response, settings: Settings) -> str:
     """Set a random CSRF cookie if the request does not already carry one.
 
     Pre-session CSRF (review 2026-09-18): the login POST itself is a mutation
     and must pass the double-submit check, so every page render issues a
     throwaway CSRF token first. The value is random and unrelated to the
     session; login rotates it together with the session.
+
+    Returns the token that is (or now is) in force, so callers can echo it
+    back to the client without generating a second value (MIN-01/V2 parity).
     """
-    if request.cookies.get(CSRF_COOKIE_NAME):
-        return
+    existing = request.cookies.get(CSRF_COOKIE_NAME)
+    if existing:
+        return existing
+    token = secrets.token_urlsafe(_SESSION_TOKEN_BYTES)
     response.set_cookie(
         CSRF_COOKIE_NAME,
-        secrets.token_urlsafe(_SESSION_TOKEN_BYTES),
+        token,
         max_age=settings.session_ttl_seconds,
         **_cookie_params(request, http_only=False),
     )
+    return token
 
 
 async def _create_session_and_cookies(
@@ -590,21 +596,40 @@ async def logout_endpoint(request: Request, response: Response) -> dict:
 
 
 @router.get("/me")
-async def me_endpoint(request: Request) -> dict:
-    """Diagnostic: who is the caller (never exposes hashes or tokens)."""
+async def me_endpoint(request: Request, response: Response) -> dict:
+    """Who is the caller (never exposes hashes or tokens), plus the CSRF token.
+
+    This is the V2 bootstrap: the browser reads ``csrf_token`` from this
+    response (200 when signed in, 401 when signed out) and echoes it back in
+    ``X-CSRF-Token`` on mutations (MIN-01/V1+V2 parity). The server keeps the
+    double-submit invariant: mutation headers are compared against the cookie
+    with :func:`hmac.compare_digest`; exposing the same value in the body does
+    not weaken that (an attacker cannot read the response body cross-origin).
+
+    Takes over the pre-session cookie mint that the API middleware used to do
+    for this path, so the response never carries two different Set-Cookie
+    values for ``csrf_token``.
+    """
     settings = _auth_settings(request)
     if settings is None or not settings.auth_enabled:
         return {"authenticated": False}
+    token = _ensure_csrf_cookie(request, response, settings)
     try:
         user = await _resolve_session(request)
     except _InvalidSession:
-        raise HTTPException(
-            status.HTTP_401_UNAUTHORIZED, "authentication required"
-        ) from None
+        # Use the injected Response (which carries the freshly-minted cookie)
+        # instead of raising or returning a new JSONResponse: either would
+        # discard the Set-Cookie. The pre-session token travels both in the
+        # body-less header and in the cookie, on the SAME object (MIN-01/V2
+        # parity).
+        response.status_code = status.HTTP_401_UNAUTHORIZED
+        response.headers["X-CSRF-Token"] = token
+        return {"detail": "authentication required"}
     return {
         "authenticated": True,
         "username": user.username,
         "role": user.role.value,
+        "csrf_token": token,
     }
 
 

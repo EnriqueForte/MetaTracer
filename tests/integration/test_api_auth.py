@@ -192,8 +192,21 @@ class TestLoginFlow:
         assert body["authenticated"] is True
         assert body["username"] == "operator"
         assert body["role"] == "operator"
+        # The session token (HttpOnly) and password hash must never leave the
+        # server; the CSRF token is deliberately non-HttpOnly and is exposed
+        # so Web V2 can echo it back on mutations (MIN-01 parity).
         assert "password_hash" not in me.text.lower()
-        assert "token" not in me.text.lower()
+        assert "metatracer_session" not in me.text.lower()
+        assert body["csrf_token"]
+
+    async def test_me_returns_csrf_token_while_signed_out(self, client: httpx.AsyncClient):
+        """Web V2 bootstraps the pre-session CSRF from GET /me even when 401."""
+        client.cookies.clear()
+        response = await client.get("/api/auth/me")
+        assert response.status_code == 401
+        assert response.headers["x-csrf-token"]
+        assert response.cookies.get("csrf_token")
+        assert response.headers["x-csrf-token"] == response.cookies.get("csrf_token")
 
     async def test_logout_invalidates_session(self, client: httpx.AsyncClient):
         payload = await _login(client)

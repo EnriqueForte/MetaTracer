@@ -2,8 +2,15 @@ import type { NotificationResponse } from "@/lib/api/types";
 
 export function csrfTokenFromCookie(): string {
   if (typeof document === "undefined") return "";
-  const row = document.cookie.split("; ").find((part) => part.startsWith("csrf_token="));
-  return row ? decodeURIComponent(row.slice("csrf_token=".length)) : "";
+  // The double-submit token is delivered in-page by the server: every page
+  // shell emits <meta name="csrf-token" content="..."> (see base.html and the
+  // standalone auth templates). JS echoes it back in the X-CSRF-Token header.
+  //
+  // Reading the raw cookie from JS is NOT a browser API (document.cookie only
+  // exists as a jsdom shim), so the meta tag is the only portable channel.
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  const content = meta ? meta.getAttribute("content") ?? "" : "";
+  return content;
 }
 
 export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {

@@ -6,6 +6,7 @@ import { AuthPanel } from "@/components/auth/auth-panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiFetch, csrfTokenFromCookie } from "@/lib/api/browser";
+import { persistCsrfToken } from "@/lib/session";
 import { BASE_PATH } from "@/lib/constants";
 
 export function SetupForm() {
@@ -16,7 +17,22 @@ export function SetupForm() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    void apiFetch("/api/auth/me");
+    // Bootstrap: GET /me mints the pre-session CSRF token (header on 401,
+    // body on 200) and persists it for csrfTokenFromCookie() in submit().
+    void apiFetch("/api/auth/me")
+      .then(async (response) => {
+        if (response.status === 401) {
+          persistCsrfToken(response.headers.get("x-csrf-token"));
+          return;
+        }
+        if (!response.ok) return;
+        const payload: unknown = await response.json();
+        if (payload && typeof payload === "object") {
+          const csrf = (payload as { csrf_token?: unknown }).csrf_token;
+          persistCsrfToken(typeof csrf === "string" ? csrf : null);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   async function submit() {

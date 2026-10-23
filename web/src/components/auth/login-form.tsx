@@ -7,14 +7,25 @@ import { AuthPanel } from "@/components/auth/auth-panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiFetch, csrfTokenFromCookie } from "@/lib/api/browser";
+import { persistCsrfToken } from "@/lib/session";
 import { BASE_PATH } from "@/lib/constants";
 
 async function ensureCsrf(): Promise<"on" | "off" | "in"> {
   const response = await apiFetch("/api/auth/me");
-  if (response.status === 401) return "on";
+  // GET /me mints+returns the pre-session CSRF token in the response header
+  // (401) or body (200); persist it so csrfTokenFromCookie() can echo it.
+  if (response.status === 401) {
+    persistCsrfToken(response.headers.get("x-csrf-token"));
+    return "on";
+  }
   if (!response.ok) return "on";
   const payload: unknown = await response.json();
   if (payload && typeof payload === "object" && (payload as { authenticated?: unknown }).authenticated === true) {
+    persistCsrfToken(
+      typeof (payload as { csrf_token?: unknown }).csrf_token === "string"
+        ? (payload as { csrf_token: string }).csrf_token
+        : null,
+    );
     return "in";
   }
   return "off";
