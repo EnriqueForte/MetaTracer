@@ -18,6 +18,12 @@ dependencies = [
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
     "sqlmodel>=0.0.18",
+    # SQLAlchemy's asyncio bridge (used by SQLModel's AsyncSession) needs
+    # greenlet at import time. sqlmodel only declares plain SQLAlchemy, so a
+    # clean `pip install .` (CI, a fresh venv) failed with
+    # "SQLAlchemy asyncio module requires greenlet". It was already in
+    # requirements.lock, which is why the Docker image worked and CI did not.
+    "sqlalchemy[asyncio]>=2.0.0",
     "aiosqlite>=0.20",
     "asyncpg>=0.29.0",
     "alembic>=1.13.0",
