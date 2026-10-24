@@ -67,14 +67,17 @@ interprets.
    `GET /api/compare?a=<run>&b=<run>` match findings across runs by asset URL, type and
    evidence.
 
-The Web UI runs on Jinja2 + Alpine CSP 3.17.4 (vendored) + Tailwind 3.4.16 compiled
-offline into `/static` with a custom `.mt-*` design system — no CDN scripts, no Node
-build step. Security headers (CSP, frame/nosniff, HSTS) are applied by
-`api/security_headers.py`. Web V2 (`web/`, Next.js under `/v2`) adds filters in the URL,
-a command palette (Ctrl/⌘+K), keyboard shortcuts (`?` lists them), a GPS map drawn
-locally (no map tiles), run comparison, Webhooks and Knowledge screens for operators,
-and a System / Dark / Light theme switch. `GET /api/ready` checks the database;
-`/api/health` stays a stateless liveness probe.
+The Web UI is **Web V2** (`web/`): Next.js 16 + React 19 + Tailwind 4, TypeScript
+strict, TanStack Query for server data and Zod at form boundaries. It serves from the
+origin root; FastAPI is API-only (since T11 the Jinja/Alpine Web V1 is gone). Features:
+filters in the URL, a command palette (Ctrl/⌘+K), keyboard shortcuts (`?` lists them),
+a GPS map drawn locally (no map tiles), run comparison, Webhooks and Knowledge screens
+for operators, finding triage, and a System / Dark / Light theme switch. Security
+headers for the API come from `api/security_headers.py`; the app shell's come from
+`web/next.config.ts`. `GET /api/ready` checks the database; `/api/health` stays a
+stateless liveness probe. One origin is served by Caddy in production
+(`deploy/Caddyfile`), so the session cookie (`SameSite=Lax`) and the CSP
+(`connect-src 'self'`) keep working.
 
 SQLite (default, single writer) or PostgreSQL + pgvector (`METATRACER_DATABASE_URL=postgresql+asyncpg://...`,
 Alembic-managed schema, optional parallel scans via `METATRACER_MAX_CONCURRENT_RUNS`). Optional
@@ -152,9 +155,9 @@ single origin, so the browser sees one host for the session cookie
 
 | Service | Role |
 | :--- | :--- |
-| `web` | FastAPI: Web V1, JSON API and SSE. Not published; reachable only from the proxy. |
-| `web-v2` | Next.js (Web V2) UI shell, built with `output: 'standalone'`. No secrets, no DB. |
-| `proxy` | Caddy. Routes `/`, `/api/*`, `/static/*` → `web`; `/v2/*` → `web-v2`. |
+| `web` | FastAPI: JSON API and SSE. Not published; reachable only from the proxy. |
+| `web-v2` | Next.js (Web V2): the product UI. No secrets, no DB. |
+| `proxy` | Caddy. Routes `/api/*` and `/static/*` → `web`; everything else → `web-v2`. |
 
 The Python image still does **not** contain Node (`web/` is in `.dockerignore`);
 Web V2 is a separate image. `deploy/Caddyfile` disables proxy buffering on
@@ -163,7 +166,7 @@ Web V2 is a separate image. `deploy/Caddyfile` disables proxy buffering on
 ```powershell
 docker build -t metatracer .
 
-# Web UI + API on http://localhost:8000 (V1 at /, V2 at /v2); ./data and
+# Web UI + API on http://localhost:8000 (all of it is Web V2); ./data and
 # ./reports persist on the host
 docker compose up --build
 
@@ -216,7 +219,8 @@ enable it anywhere else.
 - `src/metatracer/classification/` — severity rubric + heuristic classifier
 - `src/metatracer/agents/` — LangGraph agent loop, evidence guard, heuristic fallback
 - `src/metatracer/reports/` — Markdown/JSON exporters
-- `src/metatracer/services/`, `cli/`, `api/` — shared orchestrator, Typer CLI, FastAPI UI
+- `src/metatracer/services/`, `cli/`, `api/` — shared orchestrator, Typer CLI, FastAPI API
+  (API-only since T11; the UI lives in `web/`)
 - `tests/` — `unit/`, `integration/` (incl. e2e), `agents/`, `fixtures/` (see
   `tests/README.md` for marks and the loopback test flag)
 - `data/` — runtime SQLite database (git-ignored)

@@ -1,15 +1,18 @@
-"""Browser security headers for every HTTP response (UI and API).
+"""Browser security headers for API responses (T11: Web V1 is gone).
 
-Styles and Alpine are served from ``/static`` (Tailwind CSS 3.4.16 compiled offline,
-Alpine CSP 3.17.4 vendored). Inline page scripts, the sign-out ``onclick`` handler and a
-few ``style`` attributes remain, so ``script-src`` and ``style-src`` keep
-``'unsafe-inline'``. No third-party script origin is allowed. The policy still refuses
-plugins and framing.
+FastAPI serves JSON and SSE only; every HTML document comes from Web V2
+(Next.js), which sets its own headers in ``web/next.config.ts``. This module
+still protects the API surface (JSON, streams, downloads) and any future
+server-rendered response.
+
+The CSP keeps ``'unsafe-inline'`` for the API's own JSON/error pages; it bans
+plugins and framing and allows no third-party origin. Next's policy is the one
+that governs the app shell.
 
 HSTS is sent only when the client connection is HTTPS and not local. Browsers
 ignore HSTS on plain HTTP, and pinning ``localhost`` breaks the default
 ``127.0.0.1`` bind. ``upgrade-insecure-requests`` is omitted for the same
-reason: it would send the local UI to HTTPS.
+reason: it would send the local API to HTTPS.
 """
 
 from starlette.requests import Request

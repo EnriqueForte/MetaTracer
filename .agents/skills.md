@@ -148,12 +148,12 @@ consultar la lista aprobada ni el procedimiento.
   volúmenes solo `data/` y `reports/`, Compose sin `ALLOW_LOOPBACK`.
 - Secretos: `.env` nunca versionado ni dentro de la imagen; `.env.example` con nombres, jamás
   valores.
-- **Assets de terceros de la UI (cerrado en TASK-26):** Tailwind y Alpine eran cadena de
-  suministro ejecutándose en el navegador del hunter. Desde el rediseño (2026-09-21) no hay CDN:
-  Tailwind 3.4.16 está compilado offline a `static/tailwind.css` y Alpine es el build CSP
-  3.17.4 vendorizado (`static/alpine-csp-3.17.4.min.js`); el CLI compilador no se versiona, no
-  entra en Docker y la app no lo descarga. Regla vigente: nunca re-introducir un `<script src>`
-  de terceros, ni `@latest`, ni orígenes adicionales (fuentes, iconos remotos).
+- **Assets de terceros de la UI (cerrado en TASK-26, reactivado en T11):** Tailwind y Alpine
+  eran cadena de suministro ejecutándose en el navegador del hunter. Desde el rediseño
+  (2026-09-21) no hubo CDN: Tailwind compilado offline y Alpine CSP vendorizado. **T11 retiró
+  V1 por completo**; Web V2 empaqueta Tailwind 4 y Radix/Lucide en el bundle de Next, sin CDN
+  ni `<script src>` de terceros. Regla vigente (sigue aplicando): nunca re-introducir un
+  script de terceros, ni `@latest`, ni orígenes adicionales (fuentes, iconos remotos).
 - Huecos conocidos de la lista, empezando por `langchain-openai` (ver §3.4). **Resuelto:** aprobada y en producción desde TASK-05.
 
 **Amenazas que cubre:** 15.
@@ -375,19 +375,17 @@ cualquier rediseño de la Web UI.
 - API FastAPI: contratos de los 5 endpoints (`POST /api/runs` 202/403/409, `GET` status, SSE
   stream, findings con filtro, export attachment), bind `127.0.0.1` por defecto, auth opcional
   desde TASK-24 (`METATRACER_AUTH_ENABLED`; roles `operator`/`viewer`).
-- **Web UI (stack real tras TASK-26):** Jinja2 + Alpine CSP 3.17.4 vendorizado
-  (`static/alpine-csp-3.17.4.min.js`) + Tailwind 3.4.16 **compilado offline**
-  (`static/tailwind.css`, sin CDN) + design system propio `static/metatracer.css` (tokens
-  `.mt-*`, sidebar, layout por breakpoint, matrices de estado de TASK-20). Modal bloqueante de
-  scope, EventSource para progreso, dashboard con tarjetas y barras por severidad, drawer de
-  finding con separación evidencia / `AI analysis — not evidence`, estado vacío digno, tema
-  oscuro táctico (dark-only).
-- **Renderizado de contenido del target:** autoescape de Jinja2 siempre activo; nunca `|safe`
-  ni `x-html` sobre snippets, URLs o mensajes de error; URLs de asset solo por `safeUrl()`.
-- **Cadena de suministro de la UI:** cero scripts de terceros en runtime; CSS y Alpine sirven
-  de `/static` con hash documentado en TASK-26; iconos SVG inline; cabeceras de respuesta las
-  pone `api/security_headers.py` (CSP conserva `'unsafe-inline'` por los scripts inline y el
-  `onclick` de Sign out; sin `unsafe-eval`, sin orígenes de terceros, HSTS tras proxy TLS).
+- **Web UI (stack real tras T11):** Next.js 16 + React 19 + Tailwind 4 en `web/`, servida
+  desde la raíz del origen por Caddy (`deploy/Caddyfile`). **Web V1 (Jinja + Alpine) fue
+  retirada**: no quedan plantillas, `api/pages.py` ni `/static` de V1; FastAPI es solo-API.
+  Tokens `.mt-*` como CSS variables, TanStack Query para datos de servidor, Zod en fronteras
+  de formulario, primitivas Radix + Lucide empaquetadas (sin CDN).
+- **Renderizado de contenido del target:** prohibido `dangerouslySetInnerHTML` y cualquier
+  markdown-a-HTML; todo dato va como nodo de texto; URLs de asset solo por `safeUrl()`.
+- **Cadena de suministro de la UI:** cero scripts de terceros en runtime; todo empaquetado
+  en el bundle de Next (sin CDN); iconos SVG inline; cabeceras del shell en
+  `web/next.config.ts` (sin `unsafe-eval` en producción) y las de la API en
+  `api/security_headers.py` (sin orígenes de terceros, HSTS tras proxy TLS).
 - Paridad: CLI y UI muestran los mismos findings/severidades para el mismo `run_id`.
 
 **Amenazas que cubre:** 10, 11, 12, 15.
