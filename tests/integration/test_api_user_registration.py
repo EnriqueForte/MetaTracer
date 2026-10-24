@@ -205,6 +205,42 @@ class TestSetupFlow:
                 )
                 assert response.status_code == 404
 
+    async def test_me_reports_setup_available_in_setup_mode(self, tmp_path: Path):
+        """T9: the UI gates /setup from GET /api/auth/me, not a new endpoint."""
+        app = create_app(
+            _settings(tmp_path, auth_password=""),
+            reports_dir=tmp_path / "reports",
+        )
+        async with app.router.lifespan_context(app):
+            assert app.state.setup_token  # booted in setup mode
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app), base_url="http://testserver"
+            ) as client:
+                me = await client.get("/api/auth/me")
+                assert me.status_code == 401  # signed out, but posture is known
+                assert me.json()["setup_available"] is True
+
+                # After the first operator exists, setup is closed.
+                ok = await client.post(
+                    "/api/auth/setup",
+                    json={
+                        "setup_token": app.state.setup_token,
+                        "username": "root",
+                        "password": "first-pass-1",
+                    },
+                    headers={"X-CSRF-Token": client.cookies.get("csrf_token", "")},
+                )
+                assert ok.status_code == 200
+                after = await client.get("/api/auth/me")
+                assert after.status_code == 200
+                assert after.json()["setup_available"] is False
+
+    async def test_me_reports_setup_unavailable_when_provisioned(self, client: httpx.AsyncClient):
+        """Provisioned from env: auth is on but there is no setup to offer."""
+        me = await client.get("/api/auth/me")
+        assert me.status_code == 401
+        assert me.json()["setup_available"] is False
+
     async def test_setup_short_password_is_422(self, tmp_path: Path):
         app = create_app(
             _settings(tmp_path, auth_password=""), reports_dir=tmp_path / "reports"

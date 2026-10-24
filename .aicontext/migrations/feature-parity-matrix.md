@@ -1,6 +1,6 @@
 # Matriz de paridad Web V1 → Web V2
 
-Recorrida el 2026-09-29. Las filas de pantalla V1 están en `verified` salvo Setup, que sigue en `in_progress` por el 404 HTML. CLI, pipeline y lo no implementado en V1 siguen en `out_of_scope`. Ninguna fila está en `missing`. El detalle está en [phase-14-parity.md](../architecture/phase-14-parity.md).
+Recorrida el 2026-09-29; **Setup cerrado el 2026-10-24 (T9)**. Todas las filas de pantalla V1 están en `verified`. CLI, pipeline y lo no implementado en V1 siguen en `out_of_scope`. Ninguna fila está en `missing`. El detalle está en [phase-14-parity.md](../architecture/phase-14-parity.md).
 
 Leyenda de estado: `not_started` | `in_progress` | `verified` | `out_of_scope` | `missing` (regresión: bloquea el corte).
 
@@ -35,7 +35,7 @@ Leyenda de estado: `not_started` | `in_progress` | `verified` | `out_of_scope` |
 | Import de scope | File input → POST body crudo | Igual, sin “mejorar” el JSON | `POST /api/scopes/import` | No evaluar el fichero; es texto/JSON | Fixture portable | verified |
 | Login | `login.html` | `/v2/login` | `POST /api/auth/login` | CSRF pre-sesión; no guardar password | Playwright | verified |
 | Register | `register.html`, 404 si auth off | Igual | `POST /api/auth/register` | Código de invitación como texto | Ambos modos de auth | verified |
-| Setup | `setup.html` | `/v2/setup`. El formulario existe. El 404 HTML de V1 (auth off, password por entorno, o setup ya consumido) no se replica: no hay un GET que diga si el setup está disponible sin inventar un endpoint | `POST /api/auth/setup` | El token no va en el bundle. El POST sigue respondiendo 404 cuando el setup no aplica | Test con auth on y setup disponible | in_progress |
+| Setup | `setup.html` | `/v2/setup`. El formulario existe **y la página tiene el gate** (T9): `GET /api/auth/me` reporta `setup_available`; auth off → 404, ya provisionado → `/login`, API caída → el form se queda y el POST falla cerrado | `POST /api/auth/setup` | El token no va en el bundle. El POST sigue respondiendo 404 cuando el setup no aplica | Backend: `me` reporta la postura en ambas ramas; unit del helper | verified |
 | Users e invitaciones | `users.html` | `/v2/users`. Alta, rol, borrado, invitación y revocación. El código se muestra una vez. Los 409 de “último operator” salen como HTTP genérico, no con el texto de V1 | `/api/users`, `/api/invitations` | Código de invitación una sola vez, texto; no `mailto:` automático | e2e operator | verified |
 | Rol viewer | Mutaciones ocultas en parte; el API responde 403 | Ocultar controles y seguir manejando el 403 | `require_operator_action` | La UI no es la autoridad | Playwright viewer | verified |
 | Auth desactivado | Sin redirect a login | Mismo modo, sin pantalla de login forzosa | Dependencies no-op | No inventar credenciales | e2e | verified |

@@ -614,6 +614,13 @@ async def me_endpoint(request: Request, response: Response) -> dict:
     if settings is None or not settings.auth_enabled:
         return {"authenticated": False}
     token = _ensure_csrf_cookie(request, response, settings)
+    # First-run posture, so the UI can gate /setup without a second endpoint
+    # (T9). Mirrors the three gates of pages.setup_page: auth ON, no operator
+    # provisioned from the environment, and a live in-memory setup token.
+    setup_available = bool(
+        not settings.auth_password.get_secret_value()
+        and getattr(request.app.state, "setup_token", None) is not None
+    )
     try:
         user = await _resolve_session(request)
     except _InvalidSession:
@@ -624,12 +631,13 @@ async def me_endpoint(request: Request, response: Response) -> dict:
         # parity).
         response.status_code = status.HTTP_401_UNAUTHORIZED
         response.headers["X-CSRF-Token"] = token
-        return {"detail": "authentication required"}
+        return {"detail": "authentication required", "setup_available": setup_available}
     return {
         "authenticated": True,
         "username": user.username,
         "role": user.role.value,
         "csrf_token": token,
+        "setup_available": setup_available,
     }
 
 
