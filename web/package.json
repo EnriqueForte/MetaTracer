@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run && node --test scripts/coexist-proxy.test.mjs scripts/dev-with-api.test.mjs",
+    "test": "vitest run && node --test scripts/coexist-proxy.test.mjs scripts/dev-with-api.test.mjs scripts/routing-contract.test.mjs",
     "coexist": "node scripts/coexist-proxy.mjs",
     "test:e2e": "playwright test",
     "generate:api": "openapi-typescript ../spikes/web-v2-contract/openapi.json -o src/lib/api/generated/schema.d.ts"

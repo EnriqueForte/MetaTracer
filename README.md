@@ -146,10 +146,25 @@ Multi-stage image on `python:3.12-slim` with a non-root `metatracer` user. The
 entrypoint accepts `web` (uvicorn serving the API + Web UI) or passes its
 arguments verbatim to the CLI.
 
+Since **T10** the default `docker compose up` starts **three** services behind a
+single origin, so the browser sees one host for the session cookie
+(`SameSite=Lax`) and the CSP (`connect-src 'self'`):
+
+| Service | Role |
+| :--- | :--- |
+| `web` | FastAPI: Web V1, JSON API and SSE. Not published; reachable only from the proxy. |
+| `web-v2` | Next.js (Web V2) UI shell, built with `output: 'standalone'`. No secrets, no DB. |
+| `proxy` | Caddy. Routes `/`, `/api/*`, `/static/*` → `web`; `/v2/*` → `web-v2`. |
+
+The Python image still does **not** contain Node (`web/` is in `.dockerignore`);
+Web V2 is a separate image. `deploy/Caddyfile` disables proxy buffering on
+`/api/*` so `GET /api/runs/{id}/stream` stays live.
+
 ```powershell
 docker build -t metatracer .
 
-# Web UI + API on http://localhost:8000; ./data and ./reports persist on the host
+# Web UI + API on http://localhost:8000 (V1 at /, V2 at /v2); ./data and
+# ./reports persist on the host
 docker compose up --build
 
 # Ephemeral CLI: reports land in .\reports and the container is deleted on exit

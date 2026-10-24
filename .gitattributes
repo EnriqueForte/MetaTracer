@@ -1,0 +1,5 @@
+# Shell scripts must keep LF: CRLF breaks the shebang and `set -e` parsing
+# inside Alpine/Debian images (seen with deploy/smoke.sh in T10).
+*.sh            text eol=lf
+docker/*.sh     text eol=lf
+web/scripts/*.mjs text eol=lf

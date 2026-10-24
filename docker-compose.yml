@@ -4,12 +4,14 @@
 # here — the container keeps the default safety posture (loopback/private
 # targets blocked). Secrets arrive via the host environment, never baked in.
 services:
+  # Web V1 + JSON API (FastAPI). NOT published directly any more: the proxy is
+  # the only public entrypoint, so the browser sees one origin (T10).
   web:
     build: .
     image: metatracer:0.6.0
     command: ["web"]
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     environment:
       METATRACER_BIND_HOST: "0.0.0.0"
       METATRACER_LLM_API_KEY: "${METATRACER_LLM_API_KEY:-}"
@@ -17,9 +19,9 @@ services:
       METATRACER_LLM_MODEL: "${METATRACER_LLM_MODEL:-}"
       METATRACER_FAST_MODEL: "${METATRACER_FAST_MODEL:-}"
       METATRACER_LOG_LEVEL: "${METATRACER_LOG_LEVEL:-INFO}"
-      # TASK-27: this service publishes 0.0.0.0:8000. Auth defaults ON so the
-      # process is allowed to start. A .env that sets METATRACER_AUTH_ENABLED=false
-      # overrides this default and the container exits unless
+      # TASK-27: auth defaults ON because the service is reachable from the
+      # proxy over the compose network. A .env that sets
+      # METATRACER_AUTH_ENABLED=false makes the container exit unless
       # METATRACER_ALLOW_UNAUTHENTICATED_BIND=true (logged warning; not a
       # network-safety bypass).
       METATRACER_AUTH_ENABLED: "${METATRACER_AUTH_ENABLED:-true}"
@@ -30,6 +32,41 @@ services:
       - ./data:/app/data
       - ./reports:/app/reports
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/opt/venv/bin/python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=4).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+  # Web V2 (Next.js). UI shell only: no scan secrets, no LLM key, no database.
+  # It reaches the API through the same origin (/api/*), so METATRACER_API_ORIGIN
+  # is the internal service name and `/api` never leaves the compose network.
+  web-v2:
+    build:
+      context: ./web
+    image: metatracer-web-v2:0.6.0
+    expose:
+      - "3000"
+    environment:
+      METATRACER_API_ORIGIN: "http://web:8000"
+      NODE_ENV: "production"
+    restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_started
+
+  # Single public entrypoint (T10, option B): routes by path, keeps one origin.
+  proxy:
+    image: caddy:2-alpine
+    ports:
+      - "8000:8080"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+    restart: unless-stopped
+    depends_on:
+      - web
+      - web-v2
 
   # Optional PostgreSQL + pgvector backend (TASK-23, Eje B):
   #   docker compose --profile postgres up

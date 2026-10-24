@@ -1,0 +1,69 @@
+# MetaTracer — same-origin entrypoint for Web V1 + Web V2 (T10)
+# ---------------------------------------------------------------------------
+# One origin is a hard requirement: the session cookie is SameSite=Lax and the
+# CSP is `connect-src 'self'`. Routing by path is the whole job; Caddy never
+# inspects or rewrites bodies.
+#
+#   /            -> web      (FastAPI: Web V1 + JSON API + SSE)
+#   /api/*       -> web      (including GET /api/runs/{id}/stream)
+#   /static/*    -> web      (V1 compiled CSS, vendored Alpine, favicon)
+#   /v2/*        -> web-v2   (Next.js UI shell)
+#
+# Order matters: the more specific /api and /static matchers must win over the
+# catch-all "/". Caddy evaluates handle blocks in file order.
+
+:8080 {
+	encode zstd gzip
+
+	# --- API (JSON + SSE) ---------------------------------------------------
+	handle /api/* {
+		reverse_proxy web:8000 {
+			# SSE: never buffer the progress stream, or the UI freezes until the
+			# terminal event. flush_interval -1 disables Caddy's own buffering.
+			flush_interval -1
+			# Preserve the browser-facing Host so FastAPI builds absolute URLs
+			# (e.g. /static links) against the public origin, not the container.
+			header_up Host {host}
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+
+	# --- V1 static assets ---------------------------------------------------
+	handle /static/* {
+		reverse_proxy web:8000 {
+			header_up Host {host}
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+
+	# --- Web V2 (Next.js) ---------------------------------------------------
+	handle /v2/* {
+		reverse_proxy web-v2:3000 {
+			header_up Host {host}
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+
+	# --- Web V1 and everything else -----------------------------------------
+	handle {
+		reverse_proxy web:8000 {
+			header_up Host {host}
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+
+	# Security headers for the responses that Caddy generates itself (errors,
+	# redirects). Application responses carry their own from
+	# api/security_headers.py and next.config.ts; do not duplicate them here or
+	# a stricter CSP could be silently overwritten.
+	header {
+		-Server
+	}
+
+	log {
+		output stdout
+		# Never log cookies or Authorization: a session token in a proxy log is
+		# a leak with a long tail (threat 8/14).
+		format console
+	}
+}

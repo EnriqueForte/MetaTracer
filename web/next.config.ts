@@ -41,6 +41,9 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   basePath: "/v2",
+  // Standalone output for the Docker image (web/Dockerfile): a self-contained
+  // server.js that needs no node_modules tree at runtime. Harmless in dev.
+  output: "standalone",
   // next dev allows HMR only from localhost. Opening 127.0.0.1 otherwise
   // answers the dev socket with a bare "Unauthorized", hydration never
   // finishes, and the shell stays on the server-rendered scan page.
