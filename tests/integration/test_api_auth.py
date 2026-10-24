@@ -58,8 +58,9 @@ async def _login(
 ) -> dict:
     """Login flow as the UI does it: GET /login first (issues the throwaway
     pre-session CSRF cookie), then POST credentials with the header."""
-    page = await client.get("/login")
-    assert page.status_code == 200
+    page = await client.get("/api/auth/me")
+    # Signed out answers 401, but the pre-session CSRF token is issued.
+    assert page.status_code in (200, 401)
     csrf = client.cookies.get("csrf_token", "")
     response = await client.post(
         "/api/auth/login",
@@ -100,15 +101,9 @@ class TestAuthDisabledKillSwitch:
                 assert health.status_code == 200
                 runs = await client.get("/api/runs")
                 assert runs.status_code == 200
-                page = await client.get("/", follow_redirects=False)
-                assert page.status_code == 200  # no redirect to /login
 
 
 class TestLoginPage:
-    async def test_login_page_renders(self, client: httpx.AsyncClient):
-        response = await client.get("/login")
-        assert response.status_code == 200
-        assert "Sign in" in response.text
 
     async def test_pages_no_longer_redirect_to_login_without_session(
         self, client: httpx.AsyncClient
@@ -157,7 +152,7 @@ class TestLoginFlow:
         assert len(rows) == 1
 
     async def test_login_rejects_wrong_password(self, client: httpx.AsyncClient):
-        await client.get("/login")  # issue pre-session CSRF cookie
+        await client.get("/api/auth/me")  # issue pre-session CSRF cookie
         response = await client.post(
             "/api/auth/login",
             json={"username": "operator", "password": "wrong-password"},
@@ -174,7 +169,7 @@ class TestLoginFlow:
         assert response.cookies.get("csrf_token")
 
     async def test_login_without_csrf_is_403(self, client: httpx.AsyncClient):
-        await client.get("/login")  # cookie set, but no header sent
+        await client.get("/api/auth/me")  # cookie set, but no header sent
         response = await client.post(
             "/api/auth/login",
             json={"username": "operator", "password": "test-password-123"},
@@ -182,7 +177,7 @@ class TestLoginFlow:
         assert response.status_code == 403
 
     async def test_login_unknown_username_same_status(self, client: httpx.AsyncClient):
-        await client.get("/login")
+        await client.get("/api/auth/me")
         response = await client.post(
             "/api/auth/login",
             json={"username": "who-dis", "password": "whatever-thing"},

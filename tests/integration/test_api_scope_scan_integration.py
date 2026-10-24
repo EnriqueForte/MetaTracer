@@ -195,34 +195,3 @@ async def test_scope_ids_empty_is_422(client) -> None:
         },
     )
     assert response.status_code == 422
-
-
-async def test_wizard_shell_supports_multi_scope(client) -> None:
-    """TASK-21 (v2.4): the wizard ships the multi-select wired to scope_ids."""
-    response = await client.get("/")
-    assert response.status_code == 200
-    html = response.text
-    # The saved-scope multi-selector renders checkboxes over /api/scopes.
-    assert "selectedScopeIds" in html
-    assert "scope_ids" in html
-    # The manual fallback (v1.x wire contract) stays present.
-    assert "scope_domains" in html
-    # The scope is never inferred: the empty-scope guard message is in the shell.
-    assert "the scope is never inferred from the target" in html
-
-
-async def test_wizard_manual_scope_field_does_not_block_saved_scopes(client) -> None:
-    """TASK-22 (v3.0 Eje A, bug UX): picking a saved scope must not force the
-    manual domain input. Browser-native ``required`` would block the submit
-    before Alpine's own validation (which accepts saved scopes), so the
-    manual input must NOT carry the ``required`` attribute anymore."""
-    response = await client.get("/")
-    assert response.status_code == 200
-    html = response.text
-    # The visible manual input no longer forces a value when saved scopes
-    # are the chosen source.
-    assert 'id="scope" type="text" x-model="scopeDomains"' in html.replace("\n", "")
-    # Neither the visible input nor the <details> fallback carries `required`.
-    assert 'x-model="scopeDomains" required' not in html
-    # The unique-id refactor: the manual fallback input is not a duplicate id.
-    assert html.count('id="scope"') == 1

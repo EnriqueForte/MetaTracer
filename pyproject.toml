@@ -60,10 +60,8 @@ metatracer = "metatracer.cli.main:app"
 where = ["src"]
 
 # Versioned prompt artifacts loaded via importlib.resources (TASK-05).
-# Web UI templates and static assets loaded relative to the module (TASK-06).
 [tool.setuptools.package-data]
 "metatracer.agents.prompts" = ["*.md"]
-"metatracer.api" = ["templates/*.html", "static/*"]
 # Packaged Alembic migrations (TASK-23): shipped so the runtime can run them
 # programmatically on PostgreSQL backends.
 "metatracer.db.migrations" = ["*.mako", "*.py"]

@@ -157,25 +157,7 @@ async def test_list_runs_empty(client) -> None:
     }
 
 
-async def test_history_page_renders(client) -> None:
-    response = await client.get("/runs")
-    assert response.status_code == 200
-    assert "Local history" in response.text
 
-
-async def test_index_page_renders(client) -> None:
-    response = await client.get("/")
-    assert response.status_code == 200
-    assert "text/html" in response.headers["content-type"]
-    assert "MetaTracer" in response.text
-    # The blocking scope modal is part of the wizard.
-    assert "Confirm authorized scope" in response.text
-
-
-async def test_run_page_shell_renders(client) -> None:
-    response = await client.get("/runs/00000000-0000-0000-0000-000000000000")
-    assert response.status_code == 200
-    assert "text/html" in response.headers["content-type"]
 
 
 async def test_happy_path_scan_findings_export_and_stream(

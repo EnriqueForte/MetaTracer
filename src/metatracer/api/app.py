@@ -8,9 +8,8 @@ unless ``METATRACER_ALLOW_UNAUTHENTICATED_BIND`` is set.
 
 The lifespan wires the shared stack once — engine, schema, session factory,
 ProgressBus and the single ScanOrchestratorService — stores it on
-``app.state`` and disposes it on shutdown. Templates and static assets load
-from paths relative to this module so the installed package works from any
-working directory (see ``[tool.setuptools.package-data]``).
+``app.state`` and disposes it on shutdown. This app is API-only: Web V2
+(Next.js) owns every browser surface since T11.
 """
 
 import asyncio
@@ -21,8 +20,6 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException
 
 from metatracer import __version__
@@ -30,7 +27,6 @@ from metatracer.agents.knowledge import KnowledgeRetriever
 from metatracer.agents.pipeline import AgentPipeline
 from metatracer.api import auth as auth_api
 from metatracer.api import compare, feedback, knowledge, notifications, runs, scopes, stats, users
-from metatracer.api.pages import router as pages_router
 from metatracer.api.security_headers import apply_security_headers
 from metatracer.api.webhooks import WebhookDispatcher
 from metatracer.api.webhooks import register_routes as register_webhook_routes
@@ -51,10 +47,6 @@ from metatracer.services.orchestrator import ScanOrchestratorService
 from metatracer.services.progress import ProgressBus
 from metatracer.services.retention import prune_expired_runs
 from metatracer.services.watch import DeltaReporter
-
-_PACKAGE_DIR = Path(__file__).parent
-TEMPLATES_DIR = _PACKAGE_DIR / "templates"
-STATIC_DIR = _PACKAGE_DIR / "static"
 
 # Paths that are exempt from the API-edge rate limit (they are either
 # liveness probes consumed by the Docker HEALTHCHECK or bounded, short-lived
@@ -184,7 +176,6 @@ def create_app(
         await app.state.orchestrator.recover_interrupted_runs()
         register_webhook_routes(app, app.state.session_factory)
         app.state.reports_dir = reports_dir
-        app.state.templates = Jinja2Templates(directory=TEMPLATES_DIR)
         # v2.3 performance slice: API-edge rate limit + body-size cap. Shared
         # with the fastapi routes created below; HEALTH and STATIC are exempt
         # (see _is_rate_limit_exempt).
@@ -306,6 +297,5 @@ def create_app(
     app.include_router(
         users.invitations_router, dependencies=data_deps + action_deps + operator_deps
     )
-    app.include_router(pages_router)  # pages gate themselves (redirect to /login)
-    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+    # Web V2 (Next.js) serves every browser surface; this app is API-only now.
     return app

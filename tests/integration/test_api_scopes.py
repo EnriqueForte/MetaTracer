@@ -113,12 +113,3 @@ async def test_delete_and_404(client) -> None:
     assert (await client.delete(f"/api/scopes/{created['id']}")).status_code == 204
     assert (await client.get(f"/api/scopes/{created['id']}")).status_code == 404
     assert (await client.delete(f"/api/scopes/{created['id']}")).status_code == 404
-
-
-async def test_scopes_page_renders_and_api_mounted(client) -> None:
-    page = await client.get("/scopes")
-    assert page.status_code == 200
-    assert "text/html" in page.headers["content-type"]
-    assert "Scopes" in page.text
-    response = await client.post("/api/scopes", json=SCOPE_BODY)
-    assert response.status_code == 201

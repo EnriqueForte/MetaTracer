@@ -193,7 +193,7 @@ async def test_viewer_and_missing_csrf_cannot_triage(tmp_path: Path) -> None:
             )
             await db.commit()
         async with await _client(app) as client:
-            await client.get("/login")
+            await client.get("/api/auth/me")
             csrf = client.cookies.get("csrf_token", "")
             login = await client.post(
                 "/api/auth/login",
@@ -217,7 +217,7 @@ async def test_viewer_and_missing_csrf_cannot_triage(tmp_path: Path) -> None:
             assert ok.json()["triaged_by"] == operator.id
 
         async with await _client(app) as viewer:
-            await viewer.get("/login")
+            await viewer.get("/api/auth/me")
             csrf = viewer.cookies.get("csrf_token", "")
             login = await viewer.post(
                 "/api/auth/login",

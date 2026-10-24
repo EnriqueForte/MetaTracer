@@ -125,8 +125,9 @@ async def auth_app(tmp_path: Path) -> AsyncIterator[FastAPI]:
 
 
 async def _login(client: httpx.AsyncClient, username: str, password: str) -> str:
-    page = await client.get("/login")
-    assert page.status_code == 200
+    page = await client.get("/api/auth/me")
+    # Signed out answers 401, but the pre-session CSRF token is issued.
+    assert page.status_code in (200, 401)
     csrf = client.cookies.get("csrf_token", "")
     response = await client.post(
         "/api/auth/login",

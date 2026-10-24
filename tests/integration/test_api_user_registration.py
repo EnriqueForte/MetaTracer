@@ -68,8 +68,9 @@ async def _login(
 ) -> dict:
     """Login flow as the UI does it: GET /login first (issues the throwaway
     pre-session CSRF cookie), then POST credentials with the header."""
-    page = await client.get("/login")
-    assert page.status_code == 200
+    page = await client.get("/api/auth/me")
+    # Signed out answers 401, but the pre-session CSRF token is issued.
+    assert page.status_code in (200, 401)
     csrf = client.cookies.get("csrf_token", "")
     response = await client.post(
         "/api/auth/login",
@@ -134,7 +135,7 @@ class TestSetupFlow:
                 assert (await client.get("/api/users")).status_code == 401
 
                 # Wrong token -> 401.
-                await client.get("/login")  # issue pre-session CSRF cookie
+                await client.get("/api/auth/me")  # issue pre-session CSRF cookie
                 csrf = client.cookies.get("csrf_token", "")
                 bad = await client.post(
                     "/api/auth/setup",
@@ -181,7 +182,7 @@ class TestSetupFlow:
 
     async def test_setup_404_when_provisioned_from_env(self, client: httpx.AsyncClient):
         await _login(client)
-        await client.get("/login")
+        await client.get("/api/auth/me")
         csrf = client.cookies.get("csrf_token", "")
         response = await client.post(
             "/api/auth/setup",
@@ -250,7 +251,7 @@ class TestSetupFlow:
             async with httpx.AsyncClient(
                 transport=httpx.ASGITransport(app=app), base_url="http://testserver"
             ) as client:
-                await client.get("/login")
+                await client.get("/api/auth/me")
                 csrf = client.cookies.get("csrf_token", "")
                 response = await client.post(
                     "/api/auth/setup",
@@ -289,7 +290,7 @@ class TestSetupFlow:
             async with httpx.AsyncClient(
                 transport=httpx.ASGITransport(app=app), base_url="http://testserver"
             ) as client:
-                await client.get("/login")
+                await client.get("/api/auth/me")
                 response = await client.post(
                     "/api/auth/setup",
                     json={
@@ -310,7 +311,7 @@ class TestSetupFlow:
             async with httpx.AsyncClient(
                 transport=httpx.ASGITransport(app=app), base_url="http://testserver"
             ) as client:
-                await client.get("/login")
+                await client.get("/api/auth/me")
                 csrf = client.cookies.get("csrf_token", "")
                 response = await client.post(
                     "/api/auth/setup",
@@ -346,7 +347,7 @@ class TestRegisterFlow:
             base_url="http://testserver",
         )
         async with fresh:
-            await fresh.get("/login")
+            await fresh.get("/api/auth/me")
             csrf = fresh.cookies.get("csrf_token", "")
             response = await fresh.post(
                 "/api/auth/register",
@@ -376,7 +377,7 @@ class TestRegisterFlow:
                 base_url="http://testserver",
             )
             async with fresh:
-                await fresh.get("/login")
+                await fresh.get("/api/auth/me")
                 csrf = fresh.cookies.get("csrf_token", "")
                 return await fresh.post(
                     "/api/auth/register",
@@ -406,7 +407,7 @@ class TestRegisterFlow:
             base_url="http://testserver",
         )
         async with fresh:
-            await fresh.get("/login")
+            await fresh.get("/api/auth/me")
             csrf = fresh.cookies.get("csrf_token", "")
             response = await fresh.post(
                 "/api/auth/register",
@@ -437,7 +438,7 @@ class TestRegisterFlow:
             base_url="http://testserver",
         )
         async with fresh:
-            await fresh.get("/login")
+            await fresh.get("/api/auth/me")
             csrf = fresh.cookies.get("csrf_token", "")
             response = await fresh.post(
                 "/api/auth/register",
@@ -458,7 +459,7 @@ class TestRegisterFlow:
             base_url="http://testserver",
         )
         async with fresh:
-            await fresh.get("/login")
+            await fresh.get("/api/auth/me")
             csrf = fresh.cookies.get("csrf_token", "")
             response = await fresh.post(
                 "/api/auth/register",
@@ -479,7 +480,7 @@ class TestRegisterFlow:
             base_url="http://testserver",
         )
         async with fresh:
-            await fresh.get("/login")
+            await fresh.get("/api/auth/me")
             csrf = fresh.cookies.get("csrf_token", "")
             response = await fresh.post(
                 "/api/auth/register",
@@ -522,7 +523,7 @@ class TestRegisterFlow:
             base_url="http://testserver",
         )
         async with fresh:
-            await fresh.get("/login")  # cookie set, header omitted
+            await fresh.get("/api/auth/me")  # cookie set, header omitted
             response = await fresh.post(
                 "/api/auth/register",
                 json={"code": invitation["code"], "username": "noc", "password": "invited-pass-1"},
@@ -537,7 +538,7 @@ class TestRegisterFlow:
             base_url="http://testserver",
         )
         async with fresh:
-            await fresh.get("/login")
+            await fresh.get("/api/auth/me")
             response = await fresh.post(
                 "/api/auth/register",
                 json={"code": invitation["code"], "username": "badc", "password": "invited-pass-1"},
@@ -553,7 +554,7 @@ class TestRegisterFlow:
             base_url="http://testserver",
         )
         async with fresh:
-            await fresh.get("/login")
+            await fresh.get("/api/auth/me")
             csrf = fresh.cookies.get("csrf_token", "")
             response = await fresh.post(
                 "/api/auth/register",
@@ -831,9 +832,6 @@ class TestAuthDisabledKillSwitch:
                         json={"code": "x", "username": "y", "password": "invited-pass-1"},
                     )
                 ).status_code == 404
-                # Pages are not redirected either (v0.5.0).
-                page = await client.get("/", follow_redirects=False)
-                assert page.status_code == 200
 
     async def test_auth_disabled_pristine_install_never_dangles_invitations(
         self, tmp_path: Path

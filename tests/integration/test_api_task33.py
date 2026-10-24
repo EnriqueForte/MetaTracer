@@ -75,8 +75,9 @@ async def test_ten_failed_logins_block_a_later_correct_password(tmp_path: Path) 
         async with app.router.lifespan_context(app):
             transport = httpx.ASGITransport(app=app)
             async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-                page = await client.get("/login")
-                assert page.status_code == 200
+                page = await client.get("/api/auth/me")
+                # Signed out answers 401, but the pre-session CSRF token is issued.
+                assert page.status_code in (200, 401)
                 csrf = client.cookies.get("csrf_token", "")
                 for _ in range(10):
                     failed = await client.post(
@@ -106,7 +107,7 @@ async def test_concurrent_setup_creates_one_operator(tmp_path: Path) -> None:
         assert isinstance(token, str)
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-            await client.get("/login")
+            await client.get("/api/auth/me")
             csrf = client.cookies.get("csrf_token", "")
 
             async def post(name: str) -> httpx.Response:

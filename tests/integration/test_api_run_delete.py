@@ -78,8 +78,9 @@ async def test_viewer_cannot_delete(tmp_path: Path) -> None:
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=application), base_url="http://testserver"
         ) as viewer:
-            page = await viewer.get("/login")
-            assert page.status_code == 200
+            page = await viewer.get("/api/auth/me")
+            # Signed out answers 401 but still issues the pre-session CSRF token.
+            assert page.status_code in (200, 401)
             csrf = viewer.cookies.get("csrf_token", "")
             logged = await viewer.post(
                 "/api/auth/login",

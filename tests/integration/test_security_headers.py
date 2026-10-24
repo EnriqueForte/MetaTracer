@@ -47,23 +47,28 @@ def _assert_baseline(response: httpx.Response) -> None:
 
 
 async def test_pages_do_not_load_third_party_scripts(client: httpx.AsyncClient) -> None:
-    home = await client.get("/")
-    login = await client.get("/login")
-    for response in (home, login):
-        assert response.status_code == 200
+    """T11: FastAPI serves no HTML, so the CDN check applies to its API bodies.
+
+    The no-third-party rule now lives in the Next.js app (vendored assets, no
+    CDN); what this asserts is that the API never injects a remote script into
+    a JSON response either.
+    """
+    health = await client.get("/api/health")
+    me = await client.get("/api/auth/me")
+    for response in (health, me):
+        assert response.status_code in (200, 401)
         assert "cdn.tailwindcss.com" not in response.text
         assert "cdn.jsdelivr.net" not in response.text
-        assert "/static/tailwind.css" in response.text
-        assert "/static/alpine-csp-3.17.4.min.js" in response.text
 
 
 async def test_health_and_html_carry_security_headers(client: httpx.AsyncClient) -> None:
+    """T11: HTML moved to Next; the API still applies the security headers."""
     health = await client.get("/api/health")
-    page = await client.get("/")
+    me = await client.get("/api/auth/me")
     assert health.status_code == 200
-    assert page.status_code == 200
+    assert me.status_code in (200, 401)
     _assert_baseline(health)
-    _assert_baseline(page)
+    _assert_baseline(me)
 
 
 async def test_error_json_carries_security_headers(client: httpx.AsyncClient) -> None:
