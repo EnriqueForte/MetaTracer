@@ -48,16 +48,16 @@ describe("AppShell coexistence", () => {
       </AppShell>,
     );
     expect(
-      await screen.findByText("Signing out also ends the session used by the classic UI."),
+      await screen.findByText("Signing out ends this session on every surface."),
     ).toBeInTheDocument();
     expect(screen.getByText("Security Intelligence")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("API reachable");
-    expect(screen.getByRole("link", { name: "Classic UI" })).toHaveAttribute("href", "/");
+    expect(screen.queryByRole("link", { name: "Classic UI" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Reconnaissance" })).not.toHaveAttribute("aria-current");
   });
 
-  it("keeps the classic link when auth is off and does not offer sign out", async () => {
+  it("hides the sign out control when auth is off (T11: no classic UI link)", async () => {
     stubMedia();
     vi.stubGlobal(
       "fetch",
@@ -74,9 +74,9 @@ describe("AppShell coexistence", () => {
         <p>page</p>
       </AppShell>,
     );
-    expect(await screen.findByRole("link", { name: "Classic UI" })).toHaveAttribute("href", "/");
+    expect(screen.queryByRole("link", { name: "Classic UI" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Sign out" })).not.toBeInTheDocument();
-    expect(screen.queryByText("Signing out also ends the session used by the classic UI.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Signing out ends this session on every surface.")).not.toBeInTheDocument();
   });
 
   it("marks History while a run is open", async () => {

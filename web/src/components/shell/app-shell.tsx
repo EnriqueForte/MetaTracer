@@ -356,7 +356,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     <span> · {session.role}</span>
                   </p>
                   <p className="mt-session-note">
-                    Signing out also ends the session used by the classic UI.
+                    Signing out ends this session on every surface.
                   </p>
                   <Button variant="ghost" className="py-1" onClick={() => void signOut()}>
                     Sign out
@@ -381,9 +381,6 @@ export function AppShell({ children }: { children: ReactNode }) {
               an exploitation test.
             </p>
             <p className="flex flex-wrap gap-3 text-xs text-mt-muted">
-              <a href="/" className="underline">
-                Classic UI
-              </a>
               <button type="button" className="underline" onClick={() => setHelpOpen(true)}>
                 Keyboard shortcuts (?)
               </button>
