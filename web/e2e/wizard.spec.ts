@@ -1,7 +1,8 @@
 import { expect, test } from "@playwright/test";
 
 test("scope modal stays closed until the checkbox is checked", async ({ page }) => {
-  await page.goto("/v2");
+  // T11: Web V2 serves from the origin root, so there is no /v2 prefix.
+  await page.goto("/");
   await page.getByRole("button", { name: "Start scan" }).click();
   await expect(page.getByText("Enter at least one target.")).toBeVisible();
 

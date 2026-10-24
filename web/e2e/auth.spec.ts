@@ -4,7 +4,7 @@ import { expect, test, type APIRequestContext } from "@playwright/test";
  * Certifies MIN-01 (V2 CSRF) and T3 (viewer role gating) end-to-end with real
  * auth. Runs ONLY under playwright.auth.config.ts (project chromium-auth),
  * which starts FastAPI with METATRACER_AUTH_ENABLED=true and Next on :3000
- * under basePath /v2.
+ * from the origin root (T11 removed the /v2 basePath).
  */
 
 const PASSWORD = process.env.METATRACER_AUTH_PASSWORD ?? "test-password-123";
@@ -27,10 +27,10 @@ async function apiLogin(request: APIRequestContext, username: string, password: 
 }
 
 test("login boots a session and mutations carry the CSRF token (MIN-01)", async ({ page }) => {
-  // baseURL already ends in /v2, but page.goto("<relative>") would resolve
+  // Web V2 serves from the root: an absolute path is already correct.
   // against the HOST (http://127.0.0.1:3000/login), not the base path. Use
-  // the full path so the request lands under the /v2 base path.
-  await page.goto("/v2/login");
+  
+  await page.goto("/login");
 
   await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
 
@@ -70,14 +70,14 @@ test("viewer cannot open admin controls nor mutate (T3)", async ({ browser }) =>
 
   // 2. Sign in as the viewer in a fresh page.
   const viewerPage = await browser.newPage();
-  await viewerPage.goto("/v2/login");
+  await viewerPage.goto("/login");
   await viewerPage.getByLabel("Username").fill("viewer-t3");
   await viewerPage.getByLabel("Password").fill("viewer-password-123");
   await viewerPage.getByRole("button", { name: "Sign in" }).click();
   await expect(viewerPage.getByText(/Signed in as|Sign out/)).toBeVisible({ timeout: 10_000 });
 
   // 3. The Users admin screen must be gated: no tabs, no create buttons.
-  await viewerPage.goto("/v2/users");
+  await viewerPage.goto("/users");
   await expect(viewerPage.getByText("Operator role required")).toBeVisible();
   await expect(viewerPage.getByRole("tab", { name: "Users" })).toHaveCount(0);
   await expect(viewerPage.getByRole("button", { name: "Create" })).toHaveCount(0);
