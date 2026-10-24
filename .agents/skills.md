@@ -209,9 +209,9 @@ extractores. Recomendable para `test-engineer` al generar fixtures (ver §3.1).
 
 ---
 
-### 2.5 `detector-patterns` — TASK-02 · Prioridad alta · Pendiente
+### 2.5 `detector-patterns` — TASK-02 · Prioridad alta · **Creado**
 
-**Ubicación prevista:** `.cursor/skills/detector-patterns/SKILL.md`
+**Ubicación:** `.cursor/skills/detector-patterns/SKILL.md`
 
 **Se activa cuando:** se escriben o ajustan detectores o el `FindingConsolidator`.
 
@@ -248,9 +248,9 @@ casos negativos de cada detector.
 
 ---
 
-### 2.6 `risk-rubric` — TASK-03 (+ prompts de TASK-05) · Prioridad alta · Pendiente
+### 2.6 `risk-rubric` — TASK-03 (+ prompts de TASK-05) · Prioridad alta · **Creado**
 
-**Ubicación prevista:** `.cursor/skills/risk-rubric/SKILL.md`
+**Ubicación:** `.cursor/skills/risk-rubric/SKILL.md`
 
 **Se activa cuando:** se implementa el clasificador heurístico, las plantillas de
 impacto/remediación, o los prompts y validadores del agente.
@@ -323,9 +323,9 @@ mocks del grafo.
 
 ---
 
-### 2.8 `report-engine` — TASK-04 · Prioridad media · Pendiente
+### 2.8 `report-engine` — TASK-04 · Prioridad media · **Creado**
 
-**Ubicación prevista:** `.cursor/skills/report-engine/SKILL.md`
+**Ubicación:** `.cursor/skills/report-engine/SKILL.md`
 
 **Se activa cuando:** se trabaja en `reports/` o en la exportación.
 
@@ -482,9 +482,9 @@ Alineado con las fases de [tasks/README.md](../.aicontext/tasks/README.md).
 | Slice | Tasks | Skills a crear | Estado |
 | :--- | :--- | :--- | :--- |
 | 1 | TASK-00 | `metatracer-safety-rules`, `metatracer-data-contracts`, `metatracer-supply-chain` | Creadas |
-| 2 | TASK-01, TASK-02 | `metadata-extraction`, `detector-patterns` | Pendientes |
-| 3 | TASK-03, TASK-05 | `risk-rubric`, `langgraph-agent-patterns` | Pendientes |
-| 4 | TASK-04, TASK-06 | `report-engine`, `metatracer-ui` | `metatracer-ui` **creada** (TASK-26); `report-engine` pendiente |
+| 2 | TASK-01, TASK-02 | `metadata-extraction`, `detector-patterns` | `detector-patterns` **creada**; `metadata-extraction` pendiente |
+| 3 | TASK-03, TASK-05 | `risk-rubric`, `langgraph-agent-patterns` | `risk-rubric` **creada**; `langgraph-agent-patterns` pendiente |
+| 4 | TASK-04, TASK-06 | `report-engine`, `metatracer-ui` | Ambas **creadas** (`report-engine` en T5, `metatracer-ui` en TASK-26) |
 | 5 | TASK-07 | `metatracer-testing` | Pendiente |
 | 6 | TASK-08 | (reusa `metatracer-ui`, `report-engine`, guard de TASK-05) | v1.1 cerrada; sin skill nueva |
 | 7 | TASK-09 | (reusa y actualiza el diseño de `metadata-extraction` / `detector-patterns`) | v1.2 cerrada; skill de extracción sigue pendiente de materializar |
