@@ -10,6 +10,7 @@ import { errorMessage, getJson, hasArray, sendJson } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
 import type { InvitationListResponse, UserListResponse, UserResponse } from "@/lib/api/types";
 import { queryKeys } from "@/lib/query/keys";
+import { useActor } from "@/lib/session";
 
 type Account = UserResponse;
 
@@ -25,6 +26,7 @@ const inviteSchema = z.object({
 });
 
 export function UsersView() {
+  const actor = useActor();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<"users" | "invitations">("users");
   const [username, setUsername] = useState("");
@@ -40,6 +42,8 @@ export function UsersView() {
   const users = useQuery({
     queryKey: queryKeys.users,
     queryFn: () => getJson<UserListResponse>("/api/users", hasArray("users")),
+    // Never fetch as viewer: parity with Webhooks/Knowledge (T3).
+    enabled: actor === "operator",
   });
   const forbidden = users.error instanceof ApiError && users.error.status === 403;
   const invites = useQuery({
@@ -128,6 +132,17 @@ export function UsersView() {
   const busy = createUser.isPending || createInvite.isPending;
   const accountRows = users.data?.users ?? [];
   const inviteRows = invites.data?.invitations ?? [];
+
+  if (actor !== "operator") {
+    // Parity with Webhooks/Knowledge: a viewer landing here by URL sees the
+    // read-only state, never admin controls the API would reject (T3).
+    return (
+      <div className="flex min-w-0 flex-col gap-3">
+        <h1 className="mt-title">Users & invitations</h1>
+        <p role="alert" className="text-sm text-mt-warning">Operator role required</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-w-0 flex-col gap-6">

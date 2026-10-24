@@ -10,12 +10,35 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe("UsersView role gating (T3)", () => {
+  it("shows only the operator-required state for a viewer, with no admin controls", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/api/auth/me")) {
+          return new Response(JSON.stringify({ authenticated: true, username: "visitor", role: "viewer", csrf_token: "t" }), { status: 200 });
+        }
+        return new Response(JSON.stringify({ users: [] }), { status: 200 });
+      }),
+    );
+    render(<UsersView />);
+    expect(await screen.findByText("Operator role required")).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Users" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Create" })).not.toBeInTheDocument();
+  });
+});
+
 describe("UsersView invitations", () => {
   it("shows an invitation code once as text", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
+        // Session bootstrap: an operator so the admin surface renders (T3).
+        if (url.includes("/api/auth/me")) {
+          return new Response(JSON.stringify({ authenticated: true, username: "op", role: "operator", csrf_token: "t" }), { status: 200 });
+        }
         if (url.includes("/api/invitations") && init?.method === "POST") {
           return new Response(JSON.stringify({ code: "ONCE-CODE" }), { status: 201 });
         }

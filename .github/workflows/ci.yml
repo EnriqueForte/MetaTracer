@@ -144,7 +144,7 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Auth e2e (real API, auth ON)
         working-directory: web
-        run: npx playwright test e2e/auth.spec.ts --project=chromium-auth
+        run: npx playwright test --config=playwright.auth.config.ts
         env:
           CI: "true"
           METATRACER_AUTH_ENABLED: "true"
