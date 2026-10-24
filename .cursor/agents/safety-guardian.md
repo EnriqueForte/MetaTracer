@@ -74,7 +74,8 @@ o al LLM sin pasar por el control?"**.
 ## Barridos de texto que siempre haces
 
 `httpx.`, `AsyncClient`, `requests.`, `urlopen`, `follow_redirects`, `verify=False`,
-`ALLOW_LOOPBACK`, `insecure`, `|safe`, `x-html`, `eval(`, `exec(`, `pickle`, `subprocess`,
+`ALLOW_LOOPBACK`, `insecure`, `dangerouslySetInnerHTML`, `innerHTML`, `|safe`, `x-html`,
+`eval(`, `exec(`, `pickle`, `subprocess`,
 `os.system`, `open(` dentro de `detectors/`, `# noqa`, `pytest.mark.skip`, `0.0.0.0`,
 `pip install`, `@latest`, `logger.info(f"`, `logger.error(f"`, `logger.warning(f"`.
 

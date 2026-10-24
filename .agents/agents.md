@@ -129,7 +129,7 @@ diseño detallado de cada una está en [skills.md](skills.md).
 | 6 | `risk-rubric` | Rúbrica de severidad, techos heurísticos (GPS máx `high`, software máx `low`, email máx `medium`), anclaje anti-alucinación, plantillas de impacto/remediación | TASK-03 (+ prompts de TASK-05) | Alta | Creado |
 | 7 | `langgraph-agent-patterns` | Grafo LangGraph (nodos, estado, topología), ContextOptimizer, structured output, routing modelo fuerte/barato, fallback con tenacity, evidence guard | TASK-05 | Alta | Creado |
 | 8 | `report-engine` | Ficha de finding en inglés, orden Critical→Info, exportadores Markdown/JSON/HTML, compliance notice, run vacío | TASK-04, TASK-08 | Media | Creado |
-| 9 | `metatracer-ui` | Design system propio (tokens `.mt-*`), sidebar, layout por breakpoint, estados de TASK-20, Alpine CSP y Tailwind compilado en `/static`, prohibición de CDN, paridad CLI/UI | TASK-06, TASK-20, TASK-26 | Media | Creado |
+| 9 | `metatracer-ui` | Stack real de la Web UI (Next 16 + React 19 + Tailwind 4 + TanStack Query), tokens `.mt-*`, renderizado seguro sin `dangerouslySetInnerHTML`, `safeUrl`, CSP del shell y de la API, paridad CLI/UI | TASK-06, TASK-20, TASK-26, T11 | Media | Creado |
 | 10 | `metatracer-testing` | Fixtures sintéticos (Pillow/pypdf/reportlab), servidor mock, bypass loopback solo-test, marcas pytest, cobertura ≥85%, Docker multi-stage | TASK-07 (+ tests de cada slice) | Media | Creado |
 
 **Regla de adopción:** crear cada skill al abrir su slice, no antes. Los skills 1-3 ya existen
@@ -190,7 +190,7 @@ documenta en el código (regla 4 de [tasks/README.md](../.aicontext/tasks/README
 | 9 | Denial of wallet | Runs con findings absurdos | 1 finding por llamada, tope ~1.500 tokens, priorización por tipo y recorte logueado | llm-agent-engineer | Spec |
 | 10 | Escritura fuera de `reports/` | Slug del reporte derivado del target | Slug saneado a `[a-z0-9-]`, nombre según la nomenclatura de TASK-04, escritura confinada al directorio de salida | pipeline / ui | Spec + Endurecimiento |
 | 11 | Ruptura del bloque de evidencia | Snippet con backticks o saltos de línea | Cercar el bloque de código de forma segura sin alterar los bytes de la evidencia; en la UI, escapar | pipeline / ui | Endurecimiento |
-| 12 | XSS en la Web UI | Snippets y URLs del target renderizados | Autoescape de Jinja2 siempre activo; nunca `\|safe` ni `x-html` sobre datos del target | ui-engineer | Endurecimiento |
+| 12 | XSS en la Web UI | Snippets y URLs del target renderizados | Prohibido `dangerouslySetInnerHTML` y markdown-a-HTML: todo dato va como nodo de texto; URLs solo por `safeUrl()` (React escapa por defecto) | v2-ui-engineer | Endurecimiento |
 | 13 | Log injection | Valores de metadata con CRLF | Formato fijado en la skill `metatracer-safety-rules`: nunca interpolar crudo un valor del target; sustituir `\r`/`\n` y truncar a ~150 chars; contexto como campo estructurado | pipeline (dueño del formato), revisado por safety-guardian | Endurecimiento |
 | 14 | Datos personales (GPS, emails, nombres) | Es el producto, pero también un riesgo | Ciclo de vida fijado en la skill `metatracer-data-contracts`: minimización en origen, `value` siempre texto, DB y reportes en `.gitignore` y fuera de la imagen, sin envío a terceros, snippet (no campo completo) al LLM | pipeline (persistencia), revisado por safety-guardian | Spec |
 | 15 | Cadena de suministro | Dependencias nuevas, imagen Docker, assets de CDN | Lista cerrada en TASK-00 sincronizada con `pyproject.toml`; dev nunca importado desde `src/`; sin instalar código en runtime; imagen no-root sin compiladores; CDN con versión fija. Documentado en la skill `metatracer-supply-chain` | pipeline (deps) / test (imagen) / ui (CDN), con veto de `safety-guardian` | Spec + Endurecimiento |
@@ -277,9 +277,9 @@ Quién escribe dónde, para que dos agentes no se pisen y para saber a quién re
 | `src/metatracer/detectors/` | pipeline-engineer | — |
 | `src/metatracer/reports/` | pipeline-engineer | ui-engineer (consumidor) |
 | `src/metatracer/agents/` | llm-agent-engineer | safety-guardian |
-| `src/metatracer/services/`, `api/`, `cli/`, templates, `api/static/` | ui-engineer | safety-guardian |
-| `.aicontext/ui/` (contratos de diseño) | ui-architect | ui-engineer (consumidor) |
-| `web/` (Web V2) | v2-ui-engineer | safety-guardian si hay CSP, scope o dependencia |
+| `src/metatracer/services/`, `api/`, `cli/` | ui-engineer | safety-guardian (API) |
+| `.aicontext/ui/` (contratos de diseño) | ui-architect | v2-ui-engineer (consumidor) |
+| `web/` (la Web UI: Next.js) | v2-ui-engineer | safety-guardian si hay CSP, scope o dependencia |
 | `tests/`, fixtures | test-engineer | safety-guardian (bypass loopback) |
 | `pyproject.toml` | pipeline-engineer | safety-guardian (lista cerrada de dependencias) |
 | `Dockerfile`, `docker-compose.yml`, `.dockerignore` | test-engineer | safety-guardian (superficie de la imagen) |

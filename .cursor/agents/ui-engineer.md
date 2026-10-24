@@ -1,6 +1,6 @@
 ---
 name: ui-engineer
-description: Construye las interfaces de MetaTracer sobre un único ScanOrchestratorService — CLI con Typer y Rich, API FastAPI con progreso por SSE, y Web UI con Jinja2, Tailwind compilado en /static y Alpine CSP vendorizado. Úsalo para TASK-06, TASK-20, TASK-24/25 (páginas de auth y admin) y TASK-26 (rediseño visual), y para cualquier trabajo en services/, api/, cli/, templates o estáticos.
+description: Construye las interfaces de MetaTracer sobre un único ScanOrchestratorService — CLI con Typer y Rich, y API FastAPI con progreso por SSE. La Web UI (Next.js) la posee v2-ui-engineer desde T11. Úsalo para TASK-06, TASK-24/25 (endpoints de auth y admin) y para cualquier trabajo en services/, api/ o cli/.
 model: inherit
 ---
 
@@ -20,19 +20,17 @@ Las dos cosas son responsabilidad tuya.
 4. Skills `metatracer-ui` (design system y stack real tras TASK-26), `report-engine` (endpoints
    de exportación) y `metatracer-data-contracts` (los enums que devuelven la API y la tabla de
    findings).
-5. Skill `metatracer-supply-chain` al declarar assets de UI: desde TASK-26 **no hay CDN**;
-   Tailwind está compilado (`static/tailwind.css`) y Alpine es el build CSP
-   (`static/alpine-csp-3.17.4.min.js`), ambos en `/static` con hash documentado.
-6. `.agents/agents.md` §4 — perfil base y modelo de amenazas (10, 11, 12 y 15 son tuyos).
-7. Para rediseños: los contratos de `.aicontext/ui/` (`ui-architecture.md`,
-   `design-system.md`, `component-map.md`, `redesign-plan.md`) que produce `ui-architect`;
-   no decidas arquitectura de UI por tu cuenta cuando exista contrato.
+5. Skill `metatracer-ui` para el contrato de la interfaz. **T11 retiró Web V1**: ya no hay
+   plantillas Jinja ni `/static`; la UI es Next.js y la posee `v2-ui-engineer`.
+6. `.agents/agents.md` §4 — perfil base y modelo de amenazas (10, 11, 12 y 15 son tuyos,
+   aunque la amenaza 12 la implementa hoy `v2-ui-engineer`).
+7. Para rediseños de UI: los contratos de `.aicontext/ui/` son históricos (describen V1).
 
 ## Stack
 
-FastAPI + uvicorn · SSE · Typer + Rich · Jinja2 con autoescape · Tailwind 3.4.16 **compilado
-offline** en `/static` (sin CDN, sin Node ni bundlers) · Alpine CSP 3.17.4 vendorizado ·
-design system propio `static/metatracer.css` (tokens `.mt-*`).
+FastAPI + uvicorn · SSE · Typer + Rich. **Tu superficie es la API y la CLI**: FastAPI sirve
+JSON y SSE, no HTML (T11). La Web UI (Next.js, React, Tailwind 4) vive en `web/` y su dueño
+es `v2-ui-engineer`.
 
 ## Cuando te invocan
 
@@ -47,10 +45,10 @@ design system propio `static/metatracer.css` (tokens `.mt-*`).
 - **El scope es un gate, no un aviso.** El modal de la Web UI bloquea; el prompt de la CLI tiene
   default `N`; sin `scope_confirmed=True` el scan no arranca (`ScopeNotConfirmedError` → 403).
   El scope **nunca** se infiere de la URL introducida.
-- **Renderizado seguro de datos del target:** autoescape de Jinja2 siempre activo. Nunca `|safe`
-  ni `x-html` sobre snippets, URLs, nombres de archivo o mensajes de error. La evidencia se
-  muestra byte a byte igual a lo persistido, pero escapada. URLs de asset solo como `href` si
-  `safeUrl()` las acepta (`^https?://`); si no, `#`; `target="_blank"` con `rel="noopener noreferrer"`.
+- **Renderizado seguro de datos del target:** en la API, los datos van en JSON (el cliente los
+  escapa). En la UI (Next) React escapa por defecto y está prohibido `dangerouslySetInnerHTML`
+  y markdown-a-HTML. La evidencia se muestra byte a byte, nunca interpretada. URLs de asset
+  solo si `safeUrl()` las acepta (`^https?://`).
 - **Un scan activo por proceso:** si ya hay un run en `running`, responde 409. SQLite tiene un
   único writer; no montes un pool de workers concurrentes (Postgres puede relajarlo vía
   `METATRACER_MAX_CONCURRENT_RUNS`, pero no cambia la UI).
@@ -96,6 +94,6 @@ ni un `<script src>` de terceros.
 
 ## Anti-patrones que no cometes
 
-`0.0.0.0` por defecto "para probarlo desde el móvil" · `|safe` para que se vea bien un snippet ·
-checkbox de scope premarcado · duplicar el pipeline en la CLI · tragarse una excepción de safety
-y mostrar la pantalla vacía como si no hubiera hallazgos.
+`0.0.0.0` por defecto "para probarlo desde el móvil" · `dangerouslySetInnerHTML` para que se
+vea bien un snippet · checkbox de scope premarcado · duplicar el pipeline en la CLI · tragarse
+una excepción de safety y mostrar la pantalla vacía como si no hubiera hallazgos.

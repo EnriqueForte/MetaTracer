@@ -12,6 +12,7 @@ No duplican las tasks; las tasks dicen *qué* construir, estos archivos dicen *p
 | [0013](0013-auth-required-public-bind.md) | Auth obligatoria en bind público, con escape explícito y ruidoso |
 | [0014](0014-webhook-hmac-signature.md) | Webhooks firmados con HMAC; secreto en claro, nunca devuelto por la API |
 | [0015](0015-csrf-bootstrap-via-me.md) | `/api/auth/me` entrega el token CSRF a V2 (cuerpo 200 / cabecera 401) |
+| [0016](0016-web-v2-replaces-v1.md) | Web V2 sustituye a Web V1: Next en la raíz, FastAPI API-only |
 
 La numeración es secuencial. Los ADR 0009–0011 siguen el número de task que cerró la decisión; los 0012–0014 nacen del hardening post-auditoría (TASK-27) y comparten esa fuente; el 0015 registra la corrección MIN-01, sin task propia. No hay ADRs 0000–0008: las decisiones del MVP viven en las tasks y en [requisitos técnicos](../features/07-technical-requirements.md).
 

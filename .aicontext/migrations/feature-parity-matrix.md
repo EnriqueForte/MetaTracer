@@ -1,6 +1,10 @@
 # Matriz de paridad Web V1 → Web V2
 
-Recorrida el 2026-09-29; **Setup cerrado el 2026-10-24 (T9)**. Todas las filas de pantalla V1 están en `verified`. CLI, pipeline y lo no implementado en V1 siguen en `out_of_scope`. Ninguna fila está en `missing`. El detalle está en [phase-14-parity.md](../architecture/phase-14-parity.md).
+Recorrida el 2026-09-29; **Setup cerrado el 2026-10-24 (T9)**; **corte ejecutado el
+2026-10-24 (T11, [ADR-0016](../decisions/0016-web-v2-replaces-v1.md))**. Todas las filas de
+pantalla V1 están en `verified` y **la tabla se considera `migrated`**: Web V1 ya no existe en
+el producto. CLI, pipeline y lo no implementado en V1 siguen en `out_of_scope`. El detalle está
+en [phase-14-parity.md](../architecture/phase-14-parity.md).
 
 Leyenda de estado: `not_started` | `in_progress` | `verified` | `out_of_scope` | `missing` (regresión: bloquea el corte).
 
