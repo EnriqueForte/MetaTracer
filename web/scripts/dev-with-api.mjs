@@ -7,7 +7,18 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = path.resolve(webRoot, "..");
 
-/** Venv interpreter for `metatracer serve`. Never falls back to a system Python. */
+/**
+ * Python interpreter for `metatracer serve`.
+ *
+ * Resolution order:
+ *   1. METATRACER_PYTHON (explicit override, used by CI and by unusual setups).
+ *   2. The project venv (.venv/bin/python or .venv\Scripts\python.exe).
+ *   3. The interpreter running this Node process's sibling `python` on PATH.
+ *
+ * Step 3 matters in CI: `pip install '.[dev]'` installs into the runner's
+ * system Python and there is no .venv, so returning null there made the auth
+ * e2e webServer exit before it could listen (T13).
+ */
 export function pythonExecutable(root, platform = process.platform, env = process.env) {
   const override = env.METATRACER_PYTHON;
   if (typeof override === "string" && override.trim()) return override.trim();
@@ -15,7 +26,9 @@ export function pythonExecutable(root, platform = process.platform, env = proces
     platform === "win32"
       ? path.join(root, ".venv", "Scripts", "python.exe")
       : path.join(root, ".venv", "bin", "python");
-  return existsSync(candidate) ? candidate : null;
+  if (existsSync(candidate)) return candidate;
+  // CI / system install: `metatracer` is importable from the system Python.
+  return platform === "win32" ? "python" : "python3";
 }
 
 /** Resolves when something accepts TCP connections. Retries until timeout. */
@@ -50,18 +63,10 @@ export function waitForPort(port, { host = "127.0.0.1", timeoutMs = 30_000, inte
 
 async function start() {
   const python = pythonExecutable(repoRoot);
-  if (!python) {
-    process.stderr.write(
-      "No virtualenv Python found. From the repo root run:\n" +
-        "  python -m venv .venv\n" +
-        "  .venv\\Scripts\\python.exe -m pip install -e \".[dev]\"\n",
-    );
-    process.exit(1);
-  }
 
   const nextBin = path.join(webRoot, "node_modules", "next", "dist", "bin", "next");
   process.stdout.write(
-    "MetaTracer\n  API  http://127.0.0.1:8000\n  App  http://127.0.0.1:3000/v2\n",
+    "MetaTracer\n  API  http://127.0.0.1:8000\n  App  http://127.0.0.1:3000\n",
   );
 
   const children = [

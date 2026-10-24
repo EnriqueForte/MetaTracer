@@ -15,13 +15,19 @@ describe("dev-with-api python lookup", () => {
     );
   });
 
-  it("finds the Windows venv interpreter and ignores a missing one", () => {
+  it("finds the Windows venv interpreter and falls back to system python", () => {
     const root = mkdtempSync(path.join(tmpdir(), "mt-dev-"));
-    assert.equal(pythonExecutable(root, "win32", {}), null);
+    // No .venv -> the system interpreter (CI installs into the runner's Python).
+    assert.equal(pythonExecutable(root, "win32", {}), "python");
     const bin = path.join(root, ".venv", "Scripts", "python.exe");
     mkdirSync(path.dirname(bin), { recursive: true });
     writeFileSync(bin, "");
     assert.equal(pythonExecutable(root, "win32", {}), bin);
+  });
+
+  it("falls back to python3 on POSIX when the venv is absent", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "mt-dev-"));
+    assert.equal(pythonExecutable(root, "linux", {}), "python3");
   });
 
   it("finds the POSIX venv interpreter", () => {

@@ -27,15 +27,6 @@ const DEFAULT_PASSWORD = "test-password-123";
 const PASSWORD = process.env.METATRACER_AUTH_PASSWORD ?? DEFAULT_PASSWORD;
 
 const python = pythonExecutable(repoRoot);
-if (!python) {
-  process.stderr.write(
-    `No virtualenv Python found; install the project first:\n` +
-      `  python -m venv .venv\n  ${
-        process.platform === "win32" ? ".venv\\Scripts\\python.exe" : ".venv/bin/python"
-      } -m pip install -e ".[dev]"\n`,
-  );
-  process.exit(1);
-}
 
 const dbFile = path.join(repoRoot, "data", DB_FILENAME);
 if (existsSync(dbFile)) rmSync(dbFile, { force: true });
