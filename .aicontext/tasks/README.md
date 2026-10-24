@@ -165,9 +165,9 @@ Alineado con [Timeline y roadmap](../features/10-timeline-and-roadmap.md).
 | 20 | v3.0 | `TASK-22` | Watch/headless (Eje A): `metatracer watch` con deltas deterministas y `new_findings` en webhook — **cerrada 2026-09-16** |
 | 21 | v3.0 | `TASK-23` | Eje B: PostgreSQL + asyncpg + Alembic + pgvector + concurrencia acotada — **cerrada 2026-09-17** |
 | 22 | v3.0 | `TASK-24` | Eje C: auth básica 1 usuario (cookie + CSRF + roles) — **cerrada 2026-09-18** |
-| 23 | v3.1 | `TASK-25` | Multi-usuario: first-run setup + panel admin + invitaciones + registro en Sign In — **planificada 2026-09-19** |
-| 24 | v3.1 | `TASK-26` | Rediseño visual de la Web UI — **aplicado 2026-09-21**; cabeceras HTTP y assets de UI servidos desde `/static` |
-| 25 | v3.2 | `TASK-27` → `TASK-35` | Hardening post-[auditoría 2026-10-03](../audit-2026-10-03.md): P0 seguridad, recovery/abort, integridad del agente, retención, authz del API, higiene de core/backend, precisión de detectores y mejoras UI/UX de la Web V2 — **planificada 2026-10-03**. Orden sugerido: 27 → 28 → 31 → 29 → 30 → 34 → 32 → 33; TASK-35 en paralelo (35.1–35.3 sin dependencias de backend) |
+| 23 | v3.1 | `TASK-25` | Multi-usuario: first-run setup + panel admin + invitaciones + registro en Sign In — **cerrada 2026-09-21** |
+| 24 | v3.1 | `TASK-26` | Rediseño visual de la Web UI — **cerrada 2026-09-21**; cabeceras HTTP y assets de UI servidos desde `/static` |
+| 25 | v3.2 | `TASK-27` → `TASK-35` | Hardening post-[auditoría 2026-10-03](../audit-2026-10-03.md): P0 seguridad, recovery/abort, integridad del agente, retención, authz del API, higiene de core/backend, precisión de detectores y mejoras UI/UX de la Web V2 — **cerrada 2026-10-05**. Orden ejecutado: 27 → 28 → 31 → 29 → 30 → 34 → 32 → 33; TASK-35 en paralelo (35.1–35.3 sin dependencias de backend) |
 
 Si hay que recortar, proteger los [criterios de éxito](../features/09-success-criteria.md) antes que pulido de UI.
 

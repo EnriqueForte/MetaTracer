@@ -3,12 +3,12 @@
 **Proyecto:** MetaTracer — AI-powered sensitive metadata discovery for Bug Bounty & Red Team
 **PRD:** [índice](../.aicontext/PRD.md) · **Backlog:** [tasks](../.aicontext/tasks/README.md)
 **Documento hermano:** [skills.md](skills.md) (define las skills; este define los agentes)
-**Versión:** 1.5
+**Versión:** 1.6
 **Estado:** Operativo — 2 rules, 3 skills transversales + `metatracer-ui` materializada y los **8 subagentes** (incluye `ui-architect` y `v2-ui-engineer`); backlog `TASK-00` → `TASK-35` (v1.0 → v3.2, cerradas 2026-10-05; suite 787 passed, cobertura 91.30%). El retoque de Web V2 está planificado en `.aicontext/architecture/v2-ui-refresh.md` y no es una task del backlog Jinja.
 **Fecha:** 23 de octubre de 2026 (actualización T2)
 
 Este documento define qué capacidades (rules, skills) y qué agentes (subagentes) necesita el
-desarrollo de MetaTracer, derivados del análisis del PRD y del backlog `TASK-00` → `TASK-26`.
+desarrollo de MetaTracer, derivados del análisis del PRD y del backlog `TASK-00` → `TASK-35`.
 
 MetaTracer es una herramienta de seguridad ofensiva **autorizada**: escanea assets públicos de
 targets que no controlamos, guarda datos personales (GPS, emails) y pasa texto escrito por el
@@ -50,7 +50,7 @@ Toda la configuración se navega desde aquí, aunque no toda pueda vivir en la m
 | Este archivo | `.agents/agents.md` | Capas, perfil base, modelo de amenazas, agentes, flujo |
 | Diseño de skills | [`.agents/skills.md`](skills.md) | Catálogo de las 10 skills y matriz skill × agente |
 | PRD y features | [`.aicontext/`](../.aicontext/PRD.md) | Especificación de producto |
-| Backlog de tasks | [`.aicontext/tasks/`](../.aicontext/tasks/README.md) | Contratos de implementación `TASK-00` → `TASK-26` |
+| Backlog de tasks | [`.aicontext/tasks/`](../.aicontext/tasks/README.md) | Contratos de implementación `TASK-00` → `TASK-35` |
 
 ### Por qué no está todo en `.agents/`
 

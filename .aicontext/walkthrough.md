@@ -2,7 +2,7 @@
 
 **Proyecto:** MetaTracer  
 **Audiencia:** entrevista técnica o demo del MVP  
-**Estado del producto:** v1.0–v1.2, v2.0, v2.1+, v2.2, v2.3 y v2.4 cerrados. **v3.0 cerrada** (watch/headless, PostgreSQL+pgvector, auth básica). **v3.1 cerrada** (multi-usuario + rediseño de la Web UI). **v3.2 cerrada** (hardening post-auditoría 2026-10-03, TASK-27 → TASK-35). Suite vérificada: **787 passed, 6 skipped** · cobertura **91.30%** (≥85% DoD) · ruff limpio.
+**Estado del producto:** v1.0–v1.2, v2.0, v2.1+, v2.2, v2.3 y v2.4 cerrados. **v3.0 cerrada** (watch/headless, PostgreSQL+pgvector, auth básica). **v3.1 cerrada** (multi-usuario + rediseño de la Web UI). **v3.2 cerrada** (hardening post-auditoría 2026-10-03, TASK-27 → TASK-35). Suite verificada: **787 passed, 6 skipped** · cobertura **91.30%** (≥85% DoD) · ruff limpio.
 
 Este recorrido no abre `src/`. Las tasks son la fuente de verdad; aquí solo el *por qué*.
 
