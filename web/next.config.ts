@@ -40,7 +40,8 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  basePath: "/v2",
+  // T11: Web V2 is the product frontend and serves from the origin root, so
+  // the /v2 basePath is gone. The API stays under /api (same origin).
   // Standalone output for the Docker image (web/Dockerfile): a self-contained
   // server.js that needs no node_modules tree at runtime. Harmless in dev.
   output: "standalone",

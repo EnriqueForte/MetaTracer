@@ -110,12 +110,18 @@ class TestLoginPage:
         assert response.status_code == 200
         assert "Sign in" in response.text
 
-    async def test_pages_redirect_to_login_without_session(
+    async def test_pages_no_longer_redirect_to_login_without_session(
         self, client: httpx.AsyncClient
     ):
+        """T11: the HTML-page redirect died with Web V1.
+
+        There is no server-rendered page to bounce; Web V2 (Next.js) handles
+        the signed-out redirect. The API keeps answering 401.
+        """
         response = await client.get("/", follow_redirects=False)
-        assert response.status_code == 307
-        assert response.headers["location"] == "/login"
+        assert response.status_code != 307
+        runs = await client.get("/api/runs")
+        assert runs.status_code == 401
 
     async def test_data_api_401_without_session(self, client: httpx.AsyncClient):
         for path in ("/api/runs", "/api/scopes", "/api/stats", "/api/notifications"):

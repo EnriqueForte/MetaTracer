@@ -20,7 +20,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException
@@ -72,15 +72,6 @@ _RATE_LIMIT_EXEMPT_PREFIXES: tuple[str, ...] = (
     "/api/health",
     "/api/ready",
     "/static/",
-)
-
-# TASK-24: paths reachable without a session when auth is enabled. /login is
-# the login page itself; /api/auth/* is the pre-auth surface (login posts
-# credentials, me/logout self-diagnose); /api/health stays stateless.
-# TASK-25: /register and /setup are the invitation-redeem and first-run-setup
-# pages — they gate themselves (404 when auth is off / setup unavailable).
-_PAGE_AUTH_EXEMPT: frozenset[str] = frozenset(
-    {"/login", "/register", "/setup", "/api/health"}
 )
 
 _RETENTION_INTERVAL_SECONDS = 24 * 3600
@@ -252,26 +243,6 @@ def create_app(
                 declared = reject_bad_content_length(request.headers.get("content-length"))
                 enforce_body_limit(declared, max_body)
                 cap_request_body(request, max_body)
-            # TASK-24 (v3.0, Eje C): HTML pages are browser surfaces, not API
-            # consumers — an unauthenticated page hit redirects to /login
-            # instead of answering 401 JSON. Auth-disabled deployments skip
-            # this entirely. /login itself is the login page and stays open.
-            path = request.url.path
-            settings: Settings | None = getattr(request.app.state, "settings", None)
-            if (
-                settings is not None
-                and settings.auth_enabled
-                and path not in _PAGE_AUTH_EXEMPT
-                and not path.startswith("/static/")
-                and not path.startswith("/api/")
-                and request.method in ("GET", "HEAD")
-            ):
-                try:
-                    await auth_api._resolve_session(request)
-                except auth_api._InvalidSession:
-                    return apply_security_headers(
-                        RedirectResponse("/login", status_code=307), request
-                    )
             response = await call_next(request)
             return apply_security_headers(response, request)
         except Exception as exc:

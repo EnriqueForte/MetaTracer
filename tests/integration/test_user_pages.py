@@ -238,11 +238,18 @@ async def test_users_page_viewer_nav_hides_users_link(auth_app) -> None:
             await viewer.aclose()
 
 
-async def test_users_page_anonymous_redirects_to_login(auth_client) -> None:
-    """With auth ON the middleware bounces the anonymous hit to /login."""
+async def test_users_page_no_longer_bounces_anonymous_to_login(auth_client) -> None:
+    """T11 cut-over: the HTML-page redirect is gone with Web V1.
+
+    FastAPI no longer renders browser pages, so there is nothing to redirect.
+    Web V2 (Next.js) owns that surface and sends the anonymous visitor to
+    /login client-side. The API itself still answers 401 JSON.
+    """
     response = await auth_client.get("/users")
-    assert response.status_code == 307
-    assert response.headers["location"] == "/login"
+    # T11a: pages_router is still mounted; T11b removes it and this becomes 404.
+    assert response.status_code != 307
+    runs = await auth_client.get("/api/runs")
+    assert runs.status_code == 401  # the authority is the API, not the page
 
 
 async def test_users_page_auth_off_renders_permissive_shell(client) -> None:
