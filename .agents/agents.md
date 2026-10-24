@@ -4,8 +4,8 @@
 **PRD:** [índice](../.aicontext/PRD.md) · **Backlog:** [tasks](../.aicontext/tasks/README.md)
 **Documento hermano:** [skills.md](skills.md) (define las skills; este define los agentes)
 **Versión:** 1.6
-**Estado:** Operativo — 2 rules, **7 skills materializadas** (3 transversales + `metatracer-ui` + `detector-patterns`, `risk-rubric`, `report-engine`) y los **8 subagentes** (incluye `ui-architect` y `v2-ui-engineer`); backlog `TASK-00` → `TASK-35` (v1.0 → v3.2, cerradas 2026-10-05; suite 787 passed, cobertura 91.30%). El retoque de Web V2 está planificado en `.aicontext/architecture/v2-ui-refresh.md` y no es una task del backlog Jinja.
-**Fecha:** 24 de octubre de 2026 (T5: skills de módulo)
+**Estado:** Operativo — 2 rules, **10 skills materializadas** (catálogo completo: 3 transversales + `metatracer-ui` + `detector-patterns`, `risk-rubric`, `report-engine`, `metadata-extraction`, `langgraph-agent-patterns`, `metatracer-testing`) y los **8 subagentes** (incluye `ui-architect` y `v2-ui-engineer`); backlog `TASK-00` → `TASK-35` (v1.0 → v3.2, cerradas 2026-10-05; suite 787 passed, cobertura 91.30%). El retoque de Web V2 está planificado en `.aicontext/architecture/v2-ui-refresh.md` y no es una task del backlog Jinja.
+**Fecha:** 24 de octubre de 2026 (T5b: catálogo de skills completo)
 
 Este documento define qué capacidades (rules, skills) y qué agentes (subagentes) necesita el
 desarrollo de MetaTracer, derivados del análisis del PRD y del backlog `TASK-00` → `TASK-35`.
@@ -37,6 +37,9 @@ Toda la configuración se navega desde aquí, aunque no toda pueda vivir en la m
 | Skill — detector patterns | `.cursor/skills/detector-patterns/SKILL.md` | [ver](../.cursor/skills/detector-patterns/SKILL.md) |
 | Skill — risk rubric | `.cursor/skills/risk-rubric/SKILL.md` | [ver](../.cursor/skills/risk-rubric/SKILL.md) |
 | Skill — report engine | `.cursor/skills/report-engine/SKILL.md` | [ver](../.cursor/skills/report-engine/SKILL.md) |
+| Skill — metadata extraction | `.cursor/skills/metadata-extraction/SKILL.md` | [ver](../.cursor/skills/metadata-extraction/SKILL.md) |
+| Skill — langgraph agent patterns | `.cursor/skills/langgraph-agent-patterns/SKILL.md` | [ver](../.cursor/skills/langgraph-agent-patterns/SKILL.md) |
+| Skill — testing | `.cursor/skills/metatracer-testing/SKILL.md` | [ver](../.cursor/skills/metatracer-testing/SKILL.md) |
 | Subagente — safety-guardian | `.cursor/agents/safety-guardian.md` | [ver](../.cursor/agents/safety-guardian.md) |
 | Subagente — pipeline-engineer | `.cursor/agents/pipeline-engineer.md` | [ver](../.cursor/agents/pipeline-engineer.md) |
 | Subagente — llm-agent-engineer | `.cursor/agents/llm-agent-engineer.md` | [ver](../.cursor/agents/llm-agent-engineer.md) |
@@ -121,13 +124,13 @@ diseño detallado de cada una está en [skills.md](skills.md).
 | 1 | `metatracer-safety-rules` | ScopeValidator (normalización, matching, wildcard), NetworkSafetyGuard (rangos bloqueados, anti-SSRF), wrapper `safe_httpx_request` (redirects, timeouts, rate limit), confirmación de scope, logging seguro | TASK-00, transversal | Crítica | Creado |
 | 2 | `metatracer-data-contracts` | Enums, ciclo de vida de un finding (detector → heurístico → agente → reporte), modelos SQLModel, dedup, repositorios, ciclo de vida del dato personal | Transversal | Crítica | Creado |
 | 3 | `metatracer-supply-chain` | Lista cerrada de dependencias de TASK-00, separación runtime/dev, superficie de la imagen Docker, secretos, assets de CDN con versión fija | TASK-00, TASK-07, transversal | Crítica | Creado |
-| 4 | `metadata-extraction` | EXIF/IPTC/XMP/PDF InfoDict, HTML/headers/JS (TASK-09), magic bytes, streaming con límites, sanitización de valores, dedup por hash | TASK-01, TASK-09 | Alta | Pendiente |
+| 4 | `metadata-extraction` | EXIF/IPTC/XMP/PDF InfoDict, HTML/headers/JS (TASK-09), magic bytes, streaming con límites, sanitización de valores, dedup por hash | TASK-01, TASK-09 | Alta | Creado |
 | 5 | `detector-patterns` | Las 5 regex/patrones (GPS, email, internal_path, software_version, debug_comment), niveles de confidence, anti-ruido, FindingConsolidator | TASK-02 | Alta | Creado |
 | 6 | `risk-rubric` | Rúbrica de severidad, techos heurísticos (GPS máx `high`, software máx `low`, email máx `medium`), anclaje anti-alucinación, plantillas de impacto/remediación | TASK-03 (+ prompts de TASK-05) | Alta | Creado |
-| 7 | `langgraph-agent-patterns` | Grafo LangGraph (nodos, estado, topología), ContextOptimizer, structured output, routing modelo fuerte/barato, fallback con tenacity, evidence guard | TASK-05 | Alta | Pendiente |
+| 7 | `langgraph-agent-patterns` | Grafo LangGraph (nodos, estado, topología), ContextOptimizer, structured output, routing modelo fuerte/barato, fallback con tenacity, evidence guard | TASK-05 | Alta | Creado |
 | 8 | `report-engine` | Ficha de finding en inglés, orden Critical→Info, exportadores Markdown/JSON/HTML, compliance notice, run vacío | TASK-04, TASK-08 | Media | Creado |
 | 9 | `metatracer-ui` | Design system propio (tokens `.mt-*`), sidebar, layout por breakpoint, estados de TASK-20, Alpine CSP y Tailwind compilado en `/static`, prohibición de CDN, paridad CLI/UI | TASK-06, TASK-20, TASK-26 | Media | Creado |
-| 10 | `metatracer-testing` | Fixtures sintéticos (Pillow/pypdf/reportlab), servidor mock, bypass loopback solo-test, marcas pytest, cobertura ≥85%, Docker multi-stage | TASK-07 (+ tests de cada slice) | Media | Pendiente |
+| 10 | `metatracer-testing` | Fixtures sintéticos (Pillow/pypdf/reportlab), servidor mock, bypass loopback solo-test, marcas pytest, cobertura ≥85%, Docker multi-stage | TASK-07 (+ tests de cada slice) | Media | Creado |
 
 **Regla de adopción:** crear cada skill al abrir su slice, no antes. Los skills 1-3 ya existen
 (transversales) y `metatracer-ui` (skill 9) se materializó con el cierre de TASK-26.
