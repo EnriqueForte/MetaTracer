@@ -84,6 +84,28 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+  audit:
+    name: Dependency audit (pip-audit, advisory)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.11'
+      # Advisory, not a gate. MetaTracer parses hostile files (PDF, EXIF, XMP),
+      # so CVEs in pillow/pypdf are exactly our attack surface and should be
+      # visible on every push. It does not fail the build because a CVE
+      # published overnight would block unrelated work; bumping the pinned
+      # version is a dependency change and needs the closed-list review
+      # (threat 15). Audits requirements.lock: the exact set the image ships.
+      - name: Install pip-audit
+        run: pip install pip-audit
+      - name: Audit runtime dependencies
+        run: pip-audit -r requirements.lock --progress-spinner off --format columns
+        continue-on-error: true
+
   web:
     name: Web V2 (Vitest + Playwright)
     runs-on: ubuntu-latest

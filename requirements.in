@@ -5,6 +5,11 @@
 pydantic>=2.7
 pydantic-settings>=2.3
 sqlmodel>=0.0.18
+# SQLAlchemy's asyncio bridge needs greenlet at import time; sqlmodel only
+# declares plain SQLAlchemy. Must match [project.dependencies] exactly, or a
+# lock regeneration drops greenlet and CI fails with
+# "SQLAlchemy asyncio module requires greenlet" (T15).
+sqlalchemy[asyncio]>=2.0.0
 aiosqlite>=0.20
 asyncpg>=0.29.0
 alembic>=1.13.0
