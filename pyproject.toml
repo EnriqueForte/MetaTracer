@@ -36,8 +36,12 @@ dependencies = [
     "httpx>=0.27.0,<1",
     "langsmith>=0.3.45,<0.12",
     "openai>=1.0,<3",
-    "pillow>=10.3.0",
-    "pypdf>=4.2.0",
+    # Security floor (2026-10-25): pip-audit reported 51 CVEs across 5 packages,
+    # concentrated in the two libraries that parse hostile target files.
+    # pillow 12.3.0 -> 13.0.0 and pypdf 6.19.0 -> 6.21.2 are the fixed floors.
+    # Pillow 13 drops ExifTags.IFD.Makernote, which this project never used.
+    "pillow>=13.0.0",
+    "pypdf>=6.21.2",
     "typer>=0.12.0",
     "rich>=13.7.0",
     "fastapi>=0.111.0",
