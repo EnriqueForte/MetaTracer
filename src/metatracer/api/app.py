@@ -28,6 +28,7 @@ from metatracer.agents.pipeline import AgentPipeline
 from metatracer.api import auth as auth_api
 from metatracer.api import (
     compare,
+    connectors,
     feedback,
     investigations,
     knowledge,
@@ -301,6 +302,7 @@ def create_app(
     app.include_router(workspace.router, dependencies=data_deps)
     app.include_router(scopes.router, dependencies=data_deps + action_deps)
     app.include_router(investigations.router, dependencies=data_deps + action_deps)
+    app.include_router(connectors.router, dependencies=data_deps + action_deps)
     app.include_router(stats.router, dependencies=data_deps)
     app.include_router(compare.router, dependencies=data_deps)
     app.include_router(notifications.router, dependencies=data_deps + action_deps)

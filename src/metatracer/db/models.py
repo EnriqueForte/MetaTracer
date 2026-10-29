@@ -579,3 +579,16 @@ class InvitationCode(SQLModel, table=True):
     used_by: str | None = Field(default=None, foreign_key="user.id")
     created_at: datetime = Field(default_factory=_utc_now, sa_type=DateTime(timezone=True))
 
+
+class ConnectorSetting(SQLModel, table=True):
+    """Whether an external connector may send data. Default off.
+
+    Enabling RDAP does not add the domain to any scan scope. A disabled
+    connector must not open a socket.
+    """
+
+    __tablename__ = "connector_setting"
+
+    connector_id: str = Field(primary_key=True)
+    enabled: bool = False
+

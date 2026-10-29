@@ -476,6 +476,125 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/connectors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Connectors */
+        get: operations["list_connectors_api_connectors_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/connectors/rdap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Rdap */
+        put: operations["set_rdap_api_connectors_rdap_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/connectors/wayback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Wayback */
+        put: operations["set_wayback_api_connectors_wayback_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/connectors/commoncrawl": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Commoncrawl */
+        put: operations["set_commoncrawl_api_connectors_commoncrawl_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/connectors/rdap/lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rdap Lookup */
+        post: operations["rdap_lookup_api_connectors_rdap_lookup_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/connectors/wayback/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Wayback Search */
+        post: operations["wayback_search_api_connectors_wayback_search_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/connectors/commoncrawl/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Commoncrawl Search */
+        post: operations["commoncrawl_search_api_connectors_commoncrawl_search_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/stats": {
         parameters: {
             query?: never;
@@ -1036,6 +1155,31 @@ export interface components {
             /** Run Id */
             run_id: string;
         };
+        /** CommonCrawlHitResponse */
+        CommonCrawlHitResponse: {
+            /** Capture Date */
+            capture_date: string;
+            /** Original Url */
+            original_url: string;
+            /** Status Code */
+            status_code: string;
+            /** Mime Type */
+            mime_type: string;
+        };
+        /** CommonCrawlSearchResponse */
+        CommonCrawlSearchResponse: {
+            /** Domain */
+            domain: string;
+            /** Status */
+            status: string;
+            /** Detail */
+            detail: string | null;
+            /** Warc Fetched */
+            warc_fetched: boolean;
+            /** Hits */
+            hits: components["schemas"]["CommonCrawlHitResponse"][];
+            provenance: components["schemas"]["ProvenanceResponse"];
+        };
         /**
          * ComparedFindingResponse
          * @description One finding of a comparison. ``finding_id`` belongs to run ``b`` except for ``resolved``.
@@ -1077,6 +1221,33 @@ export interface components {
          * @enum {string}
          */
         Confidence: "high" | "medium" | "low";
+        /** ConnectorCard */
+        ConnectorCard: {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /** Kind */
+            kind: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Sends */
+            sends: string[];
+            /** Egress Hosts */
+            egress_hosts: string[];
+            /** Notice */
+            notice: string;
+        };
+        /** ConnectorListResponse */
+        ConnectorListResponse: {
+            /** Connectors */
+            connectors: components["schemas"]["ConnectorCard"][];
+        };
+        /** ConnectorToggle */
+        ConnectorToggle: {
+            /** Enabled */
+            enabled: boolean;
+        };
         /**
          * CorrelationGroupResponse
          * @description One shared value. ``notice`` is the product sentence: not an identity.
@@ -1624,6 +1795,38 @@ export interface components {
              */
             created_at: string;
         };
+        /** ProvenanceResponse */
+        ProvenanceResponse: {
+            /** Connector Id */
+            connector_id: string;
+            /** Source Url */
+            source_url: string;
+            /** Retrieved At */
+            retrieved_at: string;
+        };
+        /** RdapLookupRequest */
+        RdapLookupRequest: {
+            /** Domain */
+            domain: string;
+        };
+        /** RdapLookupResponse */
+        RdapLookupResponse: {
+            /** Domain */
+            domain: string;
+            /** Status */
+            status: string;
+            /** Detail */
+            detail: string | null;
+            /** Registrar */
+            registrar: string | null;
+            /** Statuses */
+            statuses: string[];
+            /** Nameservers */
+            nameservers: string[];
+            /** Events */
+            events: string[][];
+            provenance: components["schemas"]["ProvenanceResponse"];
+        };
         /**
          * ReasoningDepth
          * @enum {string}
@@ -2093,6 +2296,31 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** WaybackCaptureResponse */
+        WaybackCaptureResponse: {
+            /** Capture Date */
+            capture_date: string;
+            /** Original Url */
+            original_url: string;
+            /** Status Code */
+            status_code: string;
+            /** Mime Type */
+            mime_type: string;
+        };
+        /** WaybackSearchResponse */
+        WaybackSearchResponse: {
+            /** Domain */
+            domain: string;
+            /** Status */
+            status: string;
+            /** Detail */
+            detail: string | null;
+            /** Replay Fetched */
+            replay_fetched: boolean;
+            /** Captures */
+            captures: components["schemas"]["WaybackCaptureResponse"][];
+            provenance: components["schemas"]["ProvenanceResponse"];
         };
         /**
          * WebhookCreate
@@ -3031,6 +3259,224 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_connectors_api_connectors_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectorListResponse"];
+                };
+            };
+        };
+    };
+    set_rdap_api_connectors_rdap_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConnectorToggle"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectorCard"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_wayback_api_connectors_wayback_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConnectorToggle"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectorCard"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_commoncrawl_api_connectors_commoncrawl_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConnectorToggle"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectorCard"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rdap_lookup_api_connectors_rdap_lookup_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RdapLookupRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RdapLookupResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    wayback_search_api_connectors_wayback_search_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RdapLookupRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WaybackSearchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    commoncrawl_search_api_connectors_commoncrawl_search_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RdapLookupRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommonCrawlSearchResponse"];
+                };
             };
             /** @description Validation Error */
             422: {

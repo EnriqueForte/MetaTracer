@@ -1546,6 +1546,273 @@
         }
       }
     },
+    "/api/connectors": {
+      "get": {
+        "tags": [
+          "connectors"
+        ],
+        "summary": "List Connectors",
+        "operationId": "list_connectors_api_connectors_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectorListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/connectors/rdap": {
+      "put": {
+        "tags": [
+          "connectors"
+        ],
+        "summary": "Set Rdap",
+        "operationId": "set_rdap_api_connectors_rdap_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectorToggle"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectorCard"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/connectors/wayback": {
+      "put": {
+        "tags": [
+          "connectors"
+        ],
+        "summary": "Set Wayback",
+        "operationId": "set_wayback_api_connectors_wayback_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectorToggle"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectorCard"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/connectors/commoncrawl": {
+      "put": {
+        "tags": [
+          "connectors"
+        ],
+        "summary": "Set Commoncrawl",
+        "operationId": "set_commoncrawl_api_connectors_commoncrawl_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectorToggle"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectorCard"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/connectors/rdap/lookup": {
+      "post": {
+        "tags": [
+          "connectors"
+        ],
+        "summary": "Rdap Lookup",
+        "operationId": "rdap_lookup_api_connectors_rdap_lookup_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RdapLookupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RdapLookupResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/connectors/wayback/search": {
+      "post": {
+        "tags": [
+          "connectors"
+        ],
+        "summary": "Wayback Search",
+        "operationId": "wayback_search_api_connectors_wayback_search_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RdapLookupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WaybackSearchResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/connectors/commoncrawl/search": {
+      "post": {
+        "tags": [
+          "connectors"
+        ],
+        "summary": "Commoncrawl Search",
+        "operationId": "commoncrawl_search_api_connectors_commoncrawl_search_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RdapLookupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommonCrawlSearchResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/stats": {
       "get": {
         "tags": [
@@ -2739,6 +3006,81 @@
         ],
         "title": "AttachRunRequest"
       },
+      "CommonCrawlHitResponse": {
+        "properties": {
+          "capture_date": {
+            "type": "string",
+            "title": "Capture Date"
+          },
+          "original_url": {
+            "type": "string",
+            "title": "Original Url"
+          },
+          "status_code": {
+            "type": "string",
+            "title": "Status Code"
+          },
+          "mime_type": {
+            "type": "string",
+            "title": "Mime Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "capture_date",
+          "original_url",
+          "status_code",
+          "mime_type"
+        ],
+        "title": "CommonCrawlHitResponse"
+      },
+      "CommonCrawlSearchResponse": {
+        "properties": {
+          "domain": {
+            "type": "string",
+            "title": "Domain"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "warc_fetched": {
+            "type": "boolean",
+            "title": "Warc Fetched"
+          },
+          "hits": {
+            "items": {
+              "$ref": "#/components/schemas/CommonCrawlHitResponse"
+            },
+            "type": "array",
+            "title": "Hits"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/ProvenanceResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "domain",
+          "status",
+          "detail",
+          "warc_fetched",
+          "hits",
+          "provenance"
+        ],
+        "title": "CommonCrawlSearchResponse"
+      },
       "ComparedFindingResponse": {
         "properties": {
           "finding_id": {
@@ -2849,6 +3191,85 @@
           "low"
         ],
         "title": "Confidence"
+      },
+      "ConnectorCard": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "sends": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sends"
+          },
+          "egress_hosts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Egress Hosts"
+          },
+          "notice": {
+            "type": "string",
+            "title": "Notice"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "kind",
+          "enabled",
+          "sends",
+          "egress_hosts",
+          "notice"
+        ],
+        "title": "ConnectorCard"
+      },
+      "ConnectorListResponse": {
+        "properties": {
+          "connectors": {
+            "items": {
+              "$ref": "#/components/schemas/ConnectorCard"
+            },
+            "type": "array",
+            "title": "Connectors"
+          }
+        },
+        "type": "object",
+        "required": [
+          "connectors"
+        ],
+        "title": "ConnectorListResponse"
+      },
+      "ConnectorToggle": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "title": "ConnectorToggle"
       },
       "CorrelationGroupResponse": {
         "properties": {
@@ -4108,6 +4529,118 @@
         "title": "NotificationResponse",
         "description": "One terminal-run notification (TASK-12, v2.0).\n\n``kind`` reuses the ``run.status`` enum (``completed`` | ``failed``) and\ntravels lowercase per the data contract; ``error_message`` is present only\nfor ``failed`` (the orchestrator already sanitized it)."
       },
+      "ProvenanceResponse": {
+        "properties": {
+          "connector_id": {
+            "type": "string",
+            "title": "Connector Id"
+          },
+          "source_url": {
+            "type": "string",
+            "title": "Source Url"
+          },
+          "retrieved_at": {
+            "type": "string",
+            "title": "Retrieved At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "connector_id",
+          "source_url",
+          "retrieved_at"
+        ],
+        "title": "ProvenanceResponse"
+      },
+      "RdapLookupRequest": {
+        "properties": {
+          "domain": {
+            "type": "string",
+            "maxLength": 253,
+            "minLength": 1,
+            "title": "Domain"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "domain"
+        ],
+        "title": "RdapLookupRequest"
+      },
+      "RdapLookupResponse": {
+        "properties": {
+          "domain": {
+            "type": "string",
+            "title": "Domain"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "registrar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registrar"
+          },
+          "statuses": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Statuses"
+          },
+          "nameservers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Nameservers"
+          },
+          "events": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Events"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/ProvenanceResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "domain",
+          "status",
+          "detail",
+          "registrar",
+          "statuses",
+          "nameservers",
+          "events",
+          "provenance"
+        ],
+        "title": "RdapLookupResponse"
+      },
       "ReasoningDepth": {
         "type": "string",
         "enum": [
@@ -5172,6 +5705,81 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WaybackCaptureResponse": {
+        "properties": {
+          "capture_date": {
+            "type": "string",
+            "title": "Capture Date"
+          },
+          "original_url": {
+            "type": "string",
+            "title": "Original Url"
+          },
+          "status_code": {
+            "type": "string",
+            "title": "Status Code"
+          },
+          "mime_type": {
+            "type": "string",
+            "title": "Mime Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "capture_date",
+          "original_url",
+          "status_code",
+          "mime_type"
+        ],
+        "title": "WaybackCaptureResponse"
+      },
+      "WaybackSearchResponse": {
+        "properties": {
+          "domain": {
+            "type": "string",
+            "title": "Domain"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "replay_fetched": {
+            "type": "boolean",
+            "title": "Replay Fetched"
+          },
+          "captures": {
+            "items": {
+              "$ref": "#/components/schemas/WaybackCaptureResponse"
+            },
+            "type": "array",
+            "title": "Captures"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/ProvenanceResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "domain",
+          "status",
+          "detail",
+          "replay_fetched",
+          "captures",
+          "provenance"
+        ],
+        "title": "WaybackSearchResponse"
       },
       "WebhookCreate": {
         "properties": {
