@@ -1,12 +1,25 @@
 """Depth-1 discovery of public documents on in-scope pages (TASK-01 subtask 1.1.2).
 
 This is a superficial crawl of a single page — not a web-scale bot: the entry
-page plus direct document links (``<a href>``, ``<img src>``) and, since
-TASK-09, in-scope ``<script src>`` ending in ``.js``. No recursion, no
-authentication, no robots.txt machinery (documented MVP simplification:
-one-page crawl, conservative rate limit inherited from the HTTP gateway).
-Off-scope hosts and non-HTTP schemes are discarded before they are ever
-requested.
+page plus the document references on it. Since TASK-09 that includes in-scope
+``<script src>`` ending in ``.js``. No recursion and no authentication.
+``robots.txt`` is not read here: ingestion consults it before a URL is
+requested, and a ``Disallow`` never widens scope. Off-scope hosts and
+non-HTTP schemes are discarded before they are ever requested.
+
+References collected, all in-scope and sharing one cap:
+
+- ``<a href>`` and ``<img src>`` (original contract);
+- ``srcset`` on ``<img>`` and ``<source>`` — one URL per attribute, the
+  candidate with the highest declared density or width, so a responsive image
+  is not downloaded three times;
+- ``<meta property="og:image">`` and ``<meta name="twitter:image">``.
+
+A URL whose path ends in a known document or script extension is queued
+directly. A URL with no such extension (``/download?id=7``, a CDN path) is
+returned in ``probe_urls``: ingestion issues a HEAD and only GETs when the
+declared type can be a document. ``robots.txt`` is applied by ingestion,
+not by this crawler.
 
 The fetched HTML is returned to the caller so ingestion can persist the page
 as an asset without a second GET.
@@ -14,7 +27,7 @@ as an asset without a second GET.
 
 import asyncio
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from urllib.parse import urljoin, urlsplit
 
 from bs4 import BeautifulSoup
@@ -33,6 +46,71 @@ from metatracer.extractors.targets import DOCUMENT_EXTENSIONS, SCRIPT_EXTENSIONS
 logger = logging.getLogger("metatracer.extractors.crawler")
 
 
+def reference_kind(url: str) -> str | None:
+    """How a URL found outside HTML (a sitemap ``loc``) should be queued.
+
+    Same classification as an HTML reference: document, script, page, probe,
+    or ``None`` when the path is never fetched.
+    """
+    return _reference_kind(urlsplit(url).path or "/")
+
+
+def _reference_kind(path: str) -> str | None:
+    """``document``, ``script``, ``probe``, or ``None`` when the path is never a document.
+
+    Extensionless paths (and paths whose type is only a query string) are
+    ``probe``: ingestion confirms the declared type with HEAD before GET.
+    """
+    lowered = path.lower()
+    if lowered.endswith(DOCUMENT_EXTENSIONS):
+        return "document"
+    if lowered.endswith(SCRIPT_EXTENSIONS):
+        return "script"
+    # HTML links are the next crawl hop, not documents. Depth decides whether
+    # ingestion fetches them; they are never parsed as a PDF or an image.
+    if lowered.endswith((".html", ".htm")):
+        return "page"
+    if lowered.endswith(_NEVER_DOCUMENT_SUFFIXES):
+        return None
+    return "probe"
+
+
+def _srcset_score(descriptor: str) -> float:
+    """Numeric rank of a srcset descriptor. ``2x`` and ``800w`` compare within one attribute."""
+    text = descriptor.strip().lower()
+    if not text:
+        return 1.0
+    try:
+        if text.endswith("x"):
+            return float(text[:-1])
+        if text.endswith("w"):
+            return float(text[:-1])
+    except ValueError:
+        return 1.0
+    return 1.0
+
+
+def _best_srcset(raw: object) -> str | None:
+    """The single URL in a ``srcset`` with the highest declared density or width.
+
+    One attribute yields one download. A responsive image that lists three
+    widths is not three assets.
+    """
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    best_url: str | None = None
+    best_score = -1.0
+    for part in raw.split(","):
+        bits = part.strip().split()
+        if not bits:
+            continue
+        score = _srcset_score(bits[1] if len(bits) > 1 else "")
+        if score > best_score:
+            best_score = score
+            best_url = bits[0]
+    return best_url
+
+
 def _sniff_html(body: bytes) -> bool:
     """True when an empty Content-Type still looks like an HTML document."""
     head = body.lstrip()[:64].lower()
@@ -42,11 +120,42 @@ def _sniff_html(body: bytes) -> bool:
 MAX_HTML_BYTES = 5 * 1024 * 1024  # 5 MB page ceiling (subtask 1.1.2)
 _SKIPPED_SCHEMES = ("javascript:", "data:", "mailto:", "tel:")
 _HTML_CONTENT_TYPES = ("text/html", "application/xhtml+xml")
+# Paths that are never documents. Dropped before a HEAD: an ``.html`` link is
+# another page (not crawled — depth stays 1) and the rest have no extractor.
+_NEVER_DOCUMENT_SUFFIXES = (
+    ".css",
+    ".json",
+    ".xml",
+    ".svg",
+    ".gif",
+    ".ico",
+    ".map",
+    ".woff",
+    ".woff2",
+    ".txt",
+)
+# Social/document meta the crawler treats as a reference, not as page metadata.
+_IMAGE_META = frozenset(
+    {
+        "og:image",
+        "og:image:url",
+        "og:image:secure_url",
+        "twitter:image",
+        "twitter:image:src",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
 class FetchedPage:
-    """One crawled HTML page plus the child URLs discovered on it."""
+    """One crawled HTML page plus the child URLs discovered on it.
+
+    ``discovery_truncated`` is True when the per-page asset cap stopped the
+    link scan before it reached the end of the document. Without this flag a
+    page that yielded exactly ``max_assets`` children is indistinguishable from
+    a page that had more links: the run would report a complete crawl that
+    never looked at the rest of the page.
+    """
 
     source_url: str
     url: str  # final URL after in-scope redirects
@@ -55,10 +164,21 @@ class FetchedPage:
     content_type: str
     document_urls: list[str]
     script_urls: list[str]
+    # In-scope URLs with no document/script extension. Ingestion HEADs these
+    # and GETs only when the declared type can be a supported document.
+    probe_urls: list[str] = field(default_factory=list)
+    # In-scope ``.html`` / ``.htm`` links. Ingestion follows them only while
+    # ``budget.depth`` still allows another hop; they do not consume the
+    # per-page asset cap (that cap is for documents, not for the crawl frontier).
+    page_urls: list[str] = field(default_factory=list)
+    discovery_truncated: bool = False
 
     @property
     def child_urls(self) -> list[str]:
-        """Document then script URLs, already capped and de-duplicated."""
+        """Typed document then script URLs, already capped and de-duplicated.
+
+        Probe URLs are not included: they are not yet known to be documents.
+        """
         return [*self.document_urls, *self.script_urls]
 
 
@@ -164,7 +284,7 @@ class PublicDocCrawler:
                 sanitize_for_log(page_url),
             )
             return None
-        documents, scripts = self._extract_child_urls(
+        documents, scripts, probes, pages, truncated = self._extract_child_urls(
             response.content, response.url, max_assets
         )
         return FetchedPage(
@@ -175,51 +295,72 @@ class PublicDocCrawler:
             content_type=content_type or "text/html",
             document_urls=documents,
             script_urls=scripts,
+            probe_urls=probes,
+            page_urls=pages,
+            discovery_truncated=truncated,
         )
 
     def _extract_child_urls(
         self, html: bytes, final_url: str, max_assets: int
-    ) -> tuple[list[str], list[str]]:
-        """Collect in-scope document and script URLs, sharing one cap."""
+    ) -> tuple[list[str], list[str], list[str], list[str], bool]:
+        """Collect in-scope references, sharing one cap across documents.
+
+        Returns ``(documents, scripts, probes, pages, truncated)``. ``pages``
+        are HTML links and do not consume the asset cap. ``truncated`` is True
+        when a document reference was abandoned because the cap was full.
+        """
         soup = BeautifulSoup(html, "html.parser")
         documents: list[str] = []
         scripts: list[str] = []
+        probes: list[str] = []
+        pages: list[str] = []
         seen: set[str] = set()
+        state = {"truncated": False}
+        buckets = {"document": documents, "script": scripts, "probe": probes, "page": pages}
 
-        def _consider(raw: object, extensions: tuple[str, ...], bucket: list[str]) -> None:
-            if len(documents) + len(scripts) >= max_assets:
-                return
+        def _full() -> bool:
+            return len(documents) + len(scripts) + len(probes) >= max_assets
+
+        def _consider(raw: object) -> None:
             if not raw or not isinstance(raw, str):
                 return
             candidate = raw.strip()
             if not candidate or candidate.lower().startswith(_SKIPPED_SCHEMES):
                 return
             absolute = urljoin(final_url, candidate)
-            scheme = urlsplit(absolute).scheme.lower()
-            if scheme not in ("http", "https"):
+            parsed = urlsplit(absolute)
+            if parsed.scheme.lower() not in ("http", "https"):
                 return
             if not self._scope.is_in_scope(absolute):
                 logger.debug("discarding off-scope link: %s", sanitize_for_log(absolute))
                 return
-            if not urlsplit(absolute).path.lower().endswith(extensions):
+            # Fragments do not identify a different resource.
+            absolute = parsed._replace(fragment="").geturl()
+            kind = _reference_kind(parsed.path)
+            if kind is None or absolute in seen:
                 return
-            if absolute in seen:
+            # HTML links are the crawl frontier, not downloads, so they must
+            # not push a real document out of the asset cap.
+            if kind != "page" and _full():
+                state["truncated"] = True
                 return
             seen.add(absolute)
-            bucket.append(absolute)
+            buckets[kind].append(absolute)
 
-        for tag in soup.find_all(["a", "img"]):
-            if len(documents) + len(scripts) >= max_assets:
-                logger.info("asset discovery cap reached (%d); links dropped", max_assets)
-                break
-            _consider(
-                tag.get("href" if tag.name == "a" else "src"),
-                DOCUMENT_EXTENSIONS,
-                documents,
-            )
+        for tag in soup.find_all("a"):
+            _consider(tag.get("href"))
+        for tag in soup.find_all("img"):
+            _consider(tag.get("src"))
+            _consider(_best_srcset(tag.get("srcset")))
+        for tag in soup.find_all("source"):
+            _consider(tag.get("src"))
+            _consider(_best_srcset(tag.get("srcset")))
+        for tag in soup.find_all("meta"):
+            name = tag.get("property") or tag.get("name") or ""
+            if isinstance(name, str) and name.strip().lower() in _IMAGE_META:
+                _consider(tag.get("content"))
         for tag in soup.find_all("script"):
-            if len(documents) + len(scripts) >= max_assets:
-                logger.info("asset discovery cap reached (%d); links dropped", max_assets)
-                break
-            _consider(tag.get("src"), SCRIPT_EXTENSIONS, scripts)
-        return documents, scripts
+            _consider(tag.get("src"))
+        if state["truncated"]:
+            logger.info("asset discovery cap reached (%d); links dropped", max_assets)
+        return documents, scripts, probes, pages, state["truncated"]

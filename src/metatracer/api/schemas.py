@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from metatracer.db.models import (
     Asset,
     Confidence,
+    DetectorMethod,
     ExtractionStatus,
     FindingType,
     ReasoningDepth,
@@ -65,9 +66,19 @@ class RunStatusResponse(BaseModel):
     started_at: datetime
     completed_at: datetime | None
     asset_issues: list[AssetIssue]
+    # Fase 3. Null when the run is not grouped. The name is a label, not a
+    # permission boundary.
+    investigation_id: str | None = None
+    investigation_name: str | None = None
 
     @classmethod
-    def from_models(cls, run: Run, assets: list[Asset]) -> RunStatusResponse:
+    def from_models(
+        cls,
+        run: Run,
+        assets: list[Asset],
+        *,
+        investigation_name: str | None = None,
+    ) -> RunStatusResponse:
         """Map persisted rows; JSON text columns are decoded defensively."""
         targets = _json_str_list(run.target_input)
         issues = [
@@ -93,6 +104,8 @@ class RunStatusResponse(BaseModel):
             started_at=_as_utc(run.started_at),
             completed_at=_as_utc(run.completed_at) if run.completed_at else None,
             asset_issues=issues,
+            investigation_id=run.investigation_id,
+            investigation_name=investigation_name,
         )
 
 
@@ -119,6 +132,14 @@ class FindingResponse(BaseModel):
     triage_note: str | None = None
     triaged_by: str | None = None
     triaged_at: datetime | None = None
+    # Fase 1: lets the workspace link a finding to the asset it came from and
+    # show which detector produced it. Add-only, so existing clients are fine.
+    asset_id: str = ""
+    detector_method: DetectorMethod = DetectorMethod.rule
+    created_at: datetime | None = None
+    # Fase 3: a prior decision in the same investigation. Null means there is
+    # nothing to suggest. The finding's own triage_status is unchanged.
+    triage_suggestion: TriageSuggestionResponse | None = None
 
     @classmethod
     def from_report(cls, entry: ReportFindingData) -> FindingResponse:
@@ -142,7 +163,24 @@ class FindingResponse(BaseModel):
             triage_note=entry.triage_note or None,
             triaged_by=entry.triaged_by or None,
             triaged_at=entry.triaged_at,
+            asset_id=entry.asset_id,
+            detector_method=entry.detector_method,
+            created_at=entry.created_at,
         )
+
+
+class TriageSuggestionResponse(BaseModel):
+    """A triage decision from another run in the same investigation.
+
+    Display only. Applying it is a separate operator request and does not
+    change severity or evidence.
+    """
+
+    status: TriageStatus
+    from_run_id: str
+    from_finding_id: str
+    note: str | None = None
+    triaged_at: datetime | None = None
 
 
 class TriageRequest(BaseModel):
@@ -253,16 +291,32 @@ class ComparedFindingResponse(BaseModel):
     evidence_snippet: str
     asset_url: str
     triage_status: TriageStatus = TriageStatus.open
+    # Set when the same finding is in both runs and the severity differs.
+    # ``severity`` on this row is the reviewed run. Null means unclassified.
+    previous_severity: Severity | None = None
+    # Set on a reappeared finding: an earlier run of the same investigation.
+    prior_run_id: str | None = None
 
 
 class RunComparisonResponse(BaseModel):
-    """GET /api/compare: findings new / resolved / persistent from ``a`` to ``b``."""
+    """GET /api/compare: how findings moved from the baseline to the reviewed run.
+
+    ``resolved`` means absent from the reviewed run. It is not proof the
+    finding is gone unless ``coverage_recorded_b`` is true and ``limits_hit_b``
+    is empty.
+    """
 
     a: ComparedRun
     b: ComparedRun
     new: list[ComparedFindingResponse]
     resolved: list[ComparedFindingResponse]
     persistent: list[ComparedFindingResponse]
+    reappeared: list[ComparedFindingResponse] = []
+    severity_changed: list[ComparedFindingResponse] = []
+    limits_hit_a: list[str] = []
+    limits_hit_b: list[str] = []
+    coverage_recorded_a: bool = False
+    coverage_recorded_b: bool = False
 
 
 class DashboardStatsResponse(BaseModel):

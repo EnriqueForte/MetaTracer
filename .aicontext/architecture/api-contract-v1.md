@@ -43,7 +43,7 @@ El 409 de “otro scan en curso” depende de `METATRACER_MAX_CONCURRENT_RUNS` (
 | `reasoning_depth` | `brief`, `standard`, `detailed` |
 | `run.status` | `pending`, `running`, `completed`, `failed`, `aborted` |
 | `extraction_status` (asset issue) | `failed`, `skipped` (los `ok` no viajan en `asset_issues`) |
-| `skip_reason` | `unsupported_type`, `too_large`, `out_of_scope`, `duplicate_hash`, `empty_body` |
+| `skip_reason` | `unsupported_type`, `too_large`, `out_of_scope`, `duplicate_hash`, `empty_body`, `robots_disallow` |
 | `user.role` | `operator`, `viewer` |
 | `feedback` vote | `up`, `down` |
 | export `format` | `md`, `json`, `html`, `csv`, `bounty` |
@@ -94,7 +94,7 @@ Respuesta 202: `RunCreatedResponse.run_id`.
 | :--- | :--- | :--- |
 | GET | `/api/runs?status&limit&cursor` | `RunListResponse`: `total`, `runs[]`, `has_more`, `next_cursor` |
 | GET | `/api/runs/{run_id}` | `RunStatusResponse` |
-| GET | `/api/runs/{run_id}/findings?severity&finding_type&confidence&q` | `FindingsResponse` |
+| GET | `/api/runs/{run_id}/findings?severity&finding_type&confidence&q&triage_status` | `FindingsResponse` |
 | GET | `/api/runs/{run_id}/export?format=` | Fichero (`FileResponse`) |
 | GET | `/api/runs/{run_id}/stream` | SSE |
 

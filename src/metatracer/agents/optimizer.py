@@ -38,10 +38,12 @@ _SNIPPET_MARK = "..."
 # Subtask 5.1.4: priority order when the run has more findings than the cap.
 _TYPE_PRIORITY: dict[FindingType, int] = {
     FindingType.gps: 0,
-    FindingType.internal_path: 1,
-    FindingType.debug_comment: 2,
-    FindingType.email: 3,
-    FindingType.software_version: 4,
+    FindingType.cloud_storage: 1,
+    FindingType.internal_path: 2,
+    FindingType.internal_endpoint: 3,
+    FindingType.debug_comment: 4,
+    FindingType.email: 5,
+    FindingType.software_version: 6,
 }
 
 # The closed set of payload keys (subtask 5.1.1). Anything else — finding ids,

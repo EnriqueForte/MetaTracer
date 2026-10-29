@@ -27,16 +27,20 @@ Valores **en minúsculas** en base de datos, JSON, API y Pydantic. La capa de pr
 
 | Contrato | Valores |
 | :--- | :--- |
-| `finding_type` | `gps` \| `email` \| `internal_path` \| `software_version` \| `debug_comment` |
+| `finding_type` | `gps` \| `email` \| `internal_path` \| `software_version` \| `debug_comment` \| `internal_endpoint` \| `cloud_storage` (`internal_endpoint`: IPv4 RFC1918 o hostname `.internal`/`.corp`/`.local`/`.lan`/`*.svc.cluster.local`, techo `medium`. `cloud_storage`: host de S3, GCS, Azure Blob o R2, techo `high`; el producto no pide esa URL. Ninguno es `author_name`) |
 | `severity` | `critical` \| `high` \| `medium` \| `low` \| `info` |
 | `confidence` | `high` \| `medium` \| `low` |
 | `detector_method` | `rule` \| `heuristic` \| `agent` |
 | `reasoning_depth` | `brief` \| `standard` \| `detailed` (default: `standard`) |
 | `run.status` | `pending` \| `running` \| `completed` \| `failed` \| `aborted` |
 | `extraction_status` | `ok` \| `skipped` \| `failed` |
-| `namespace` | `exif` \| `xmp` \| `pdfinfo` \| `iptc` \| `http` \| `html` \| `js` |
+| `skip_reason` | `unsupported_type` \| `too_large` \| `out_of_scope` \| `duplicate_hash` \| `empty_body` \| `robots_disallow` (`robots_disallow` es cortesía de `robots.txt`: la URL no se solicita; no autoriza hosts, no es una decisión de scope y no prueba que el recurso no exista) |
+| `namespace` | `exif` \| `xmp` \| `pdfinfo` \| `iptc` \| `http` \| `html` \| `js` \| `ooxml` \| `odf` (`ooxml`/`odf` son propiedades del paquete, nunca el cuerpo del documento) |
+| límites de crawl (Fase 2) | `max_depth` \| `max_pages` \| `max_assets` \| `max_total_bytes` \| `max_seconds` (se registran en `Run.ingestion_stats.limits_hit`; identificadores estables, no traducir) |
 | `user.role` (TASK-24) | `operator` \| `viewer` |
 | `triage_status` (TASK-35) | `open` \| `confirmed` \| `false_positive` \| `fixed` (default: `open`; solo lo cambia un operador, nunca el agente; independiente de `severity`; `false_positive` queda fuera de exports y conteos salvo inclusión explícita) |
+| `investigation.status` (Fase 3) | `open` \| `closed` (agrupa runs; no aísla clientes: una instalación sigue siendo un solo dominio de confianza. El triaje de otro run del mismo grupo se *sugiere*, nunca se copia solo) |
+| `correlation.kind` (Fase 3) | `email` \| `gps_point` \| `internal_endpoint` \| `software_version` \| `document_id` \| `device_serial` \| `author_string` (dos assets que comparten `value_hash` comparten un valor, no una identidad. `internal_endpoint` está reservado: nada lo escribe hasta que exista ese `finding_type`. `author_string` no es un hallazgo: ADR-0009 sigue en pie) |
 | Idioma de **reportes exportados** | Inglés (plataformas de bug bounty) |
 | Idioma de **documentación** (esta carpeta) | Español |
 | Idioma de **UI/CLI** | Inglés (audiencia internacional / portfolio) |

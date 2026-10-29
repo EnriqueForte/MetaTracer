@@ -13,24 +13,26 @@ Enums en **minúsculas** en DB, JSON, API y Pydantic. La presentación (CLI/UI/M
 
 | Contrato | Valores |
 | :--- | :--- |
-| `finding_type` | `gps` \| `email` \| `internal_path` \| `software_version` \| `debug_comment` |
+| `finding_type` | `gps` \| `email` \| `internal_path` \| `software_version` \| `debug_comment` \| `internal_endpoint` \| `cloud_storage` |
 | `severity` | `critical` \| `high` \| `medium` \| `low` \| `info` |
 | `confidence` | `high` \| `medium` \| `low` |
 | `detector_method` | `rule` \| `heuristic` \| `agent` |
 | `reasoning_depth` | `brief` \| `standard` \| `detailed` (default `standard`) |
 | `run.status` | `pending` \| `running` \| `completed` \| `failed` \| `aborted` |
 | `extraction_status` | `ok` \| `skipped` \| `failed` |
-| `skip_reason` | `unsupported_type` \| `too_large` \| `out_of_scope` \| `duplicate_hash` \| `empty_body` |
-| `namespace` | `exif` \| `xmp` \| `pdfinfo` \| `iptc` \| `http` \| `html` \| `js` |
+| `skip_reason` | `unsupported_type` \| `too_large` \| `out_of_scope` \| `duplicate_hash` \| `empty_body` \| `robots_disallow` |
+| `namespace` | `exif` \| `xmp` \| `pdfinfo` \| `iptc` \| `http` \| `html` \| `js` \| `ooxml` \| `odf` |
 | `feedback.vote` | `up` \| `down` (TASK-13, v2.1+) |
 | `user.role` | `operator` \| `viewer` (TASK-24, v3.0 Eje C) |
 | `triage_status` | `open` \| `confirmed` \| `false_positive` \| `fixed` (TASK-35; default `open`; solo operador) |
+| `investigation.status` | `open` \| `closed` (Fase 3; agrupa runs, no aísla) |
+| `correlation.kind` | `email` \| `gps_point` \| `internal_endpoint` \| `software_version` \| `document_id` \| `device_serial` \| `author_string` |
 
 ## Modelos (SQLModel)
 
 - **`Run`**: `target_input` y `allowed_scope` como Text (JSON serializado); `scope_confirmed` bool default `False`; contadores `total_assets`/`total_findings`; `executive_summary` Optional Text (párrafo del nodo de summary de TASK-05; el reporte lo prefiere al texto heurístico).
 - **`Asset`**: `file_hash_sha256` indexado; índice compuesto `(run_id, file_hash_sha256)`; `skip_reason` del enum de arriba.
-- **`RawMetadataItem`**: `id` int autoincrement (única excepción a UUID); `namespace` ∈ `exif`/`xmp`/`pdfinfo`/`iptc`/`http`/`html`/`js`; `value` siempre texto sanitizado, **nunca bytes**; truncar >2 KB con marca `[truncated]`.
+- **`RawMetadataItem`**: `id` int autoincrement (única excepción a UUID); `namespace` ∈ `exif`/`xmp`/`pdfinfo`/`iptc`/`http`/`html`/`js`/`ooxml`/`odf`; `value` siempre texto sanitizado, **nunca bytes**; truncar >2 KB con marca `[truncated]`.
 - **`Finding`**: `severity` **Optional, NULL hasta clasificar**; `severity_justification`, `impact_analysis`, `remediation_advice`, `reproduction_steps`, `title` y `agent_model_used` todos Optional. `title` solo lo escribe una evaluación de agente real (no el fallback); el reporte cae a la plantilla por tipo si es NULL.
 - **`AgentLog`**: tokens, `model_name`, `latency_ms`, `raw_response` (salida estructurada; no guardar el prompt completo si contiene secretos).
 - **`FindingFeedback`** (TASK-13, v2.1+): `vote` (`up`/`down`), `severity_before`/`severity_after` (la After **distinta** y en la dirección del vote), `reason` Optional Text truncado a ~150 chars (**nunca** viaja al LLM), `created_at`. Un `finding_id` admite **un solo** feedback activo (upsert); no se exporta a reportes ni al dashboard.

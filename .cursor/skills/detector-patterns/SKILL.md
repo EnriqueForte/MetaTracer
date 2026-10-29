@@ -66,6 +66,20 @@ Los detectores leen solo `RawMetadataItem` y emiten `FindingDraft` con
 - `_PERSON_KEYS` (`dc:creator`) es una persona, no un producto: no emitir.
 - Nada de findings `info` "por si acaso".
 
+## Internal endpoint (`network.py`)
+
+- IPv4 RFC1918 (`10/8`, `172.16/12`, `192.168/16`) y hostnames `.internal`,
+  `.corp`, `.local`, `.lan`, `*.svc.cluster.local`.
+- Snippet = la dirección, no el párrafo. `8.8.8.8`, loopback y `localhost`
+  no salen. Techo heurístico `medium`.
+
+## Cloud storage (`network.py`)
+
+- Hosts `s3.amazonaws.com` (y regional), `storage.googleapis.com`,
+  `*.blob.core.windows.net`, `*.r2.cloudflarestorage.com`.
+- El query string se descarta (puede llevar una firma). **No se pide la URL.**
+  Techo heurístico `high`.
+
 ## Debug comment (`debug.py` + `patterns.py`)
 
 - Patrones **compartidos** con el clasificador en `detectors/patterns.py`

@@ -12,6 +12,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse, Response, StreamingResponse
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from metatracer.api.auth import CurrentUser, get_current_user
 from metatracer.api.schemas import (
@@ -23,6 +24,7 @@ from metatracer.api.schemas import (
     RunStatusResponse,
     TriageRequest,
     TriageResponse,
+    TriageSuggestionResponse,
     _encode_cursor,
 )
 from metatracer.core.exceptions import (
@@ -35,9 +37,15 @@ from metatracer.core.exceptions import (
     ScopeNotFoundError,
 )
 from metatracer.db.models import Confidence, FindingType, RunStatus, Severity, TriageStatus
-from metatracer.db.repositories import AssetRepository, FindingRepository, RunRepository
+from metatracer.db.repositories import (
+    AssetRepository,
+    FindingRepository,
+    InvestigationRepository,
+    RunRepository,
+)
 from metatracer.reports.builder import ReportBuilder
 from metatracer.reports.filters import filter_findings
+from metatracer.services.investigation import suggestions_for
 from metatracer.services.orchestrator import (
     TOTAL_STEPS,
     ExportFormat,
@@ -132,6 +140,13 @@ async def create_run(payload: ScanRequest, request: Request) -> RunCreatedRespon
     return RunCreatedResponse(run_id=run_id)
 
 
+async def _investigation_name(session: AsyncSession, investigation_id: str | None) -> str | None:
+    if not investigation_id:
+        return None
+    row = await InvestigationRepository(session).get(investigation_id)
+    return row.name if row is not None else None
+
+
 @router.get("/{run_id}")
 async def get_run(run_id: str, request: Request) -> RunStatusResponse:
     """Status, counters, timestamps and the failed/skipped asset issues."""
@@ -141,7 +156,10 @@ async def get_run(run_id: str, request: Request) -> RunStatusResponse:
         if run is None:
             raise HTTPException(status_code=404, detail="run not found")
         assets = await AssetRepository(session).list_by_run(run_id)
-    return RunStatusResponse.from_models(run, assets)
+        investigation_name = await _investigation_name(session, run.investigation_id)
+    return RunStatusResponse.from_models(
+        run, assets, investigation_name=investigation_name
+    )
 
 
 @router.delete("/{run_id}", status_code=204)
@@ -185,7 +203,10 @@ async def abort_run(run_id: str, request: Request) -> RunStatusResponse:
         if run is None:
             raise HTTPException(status_code=404, detail="run not found")
         assets = await AssetRepository(session).list_by_run(run_id)
-    return RunStatusResponse.from_models(run, assets)
+        investigation_name = await _investigation_name(session, run.investigation_id)
+    return RunStatusResponse.from_models(
+        run, assets, investigation_name=investigation_name
+    )
 
 
 @router.get("/{run_id}/stream")
@@ -285,6 +306,35 @@ async def list_findings(
         triage=triage_status,
     )
     findings = [FindingResponse.from_report(entry) for entry in filtered]
+    async with request.app.state.session_factory() as session:
+        run = await RunRepository(session).get(run_id)
+        if run is not None and run.investigation_id:
+            suggested = await suggestions_for(
+                session,
+                run,
+                [
+                    (item.id, item.asset_final_url, item.finding_type.value, item.evidence_snippet)
+                    for item in findings
+                ],
+            )
+            findings = [
+                item.model_copy(
+                    update={
+                        "triage_suggestion": (
+                            TriageSuggestionResponse(
+                                status=suggested[item.id].status,
+                                from_run_id=suggested[item.id].from_run_id,
+                                from_finding_id=suggested[item.id].from_finding_id,
+                                note=suggested[item.id].note,
+                                triaged_at=suggested[item.id].triaged_at,
+                            )
+                            if item.id in suggested
+                            else None
+                        )
+                    }
+                )
+                for item in findings
+            ]
     return FindingsResponse(run_id=run_id, total=len(findings), findings=findings)
 
 

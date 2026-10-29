@@ -216,6 +216,10 @@ class HeuristicRiskClassifier:
                 return self._software_severity(snippet)
             case FindingType.debug_comment:
                 return self._debug_severity(snippet)
+            case FindingType.internal_endpoint:
+                return Severity.medium
+            case FindingType.cloud_storage:
+                return Severity.high
         return Severity.info  # pragma: no cover - the enum is closed
 
     @staticmethod

@@ -226,6 +226,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/runs/{run_id}/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Assets
+         * @description Inventory of the run's assets, oldest first, with field/finding counts.
+         */
+        get: operations["list_assets_api_runs__run_id__assets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/runs/{run_id}/assets/{asset_id}/metadata": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Asset Metadata
+         * @description Every stored field of one asset, in insertion order.
+         */
+        get: operations["list_asset_metadata_api_runs__run_id__assets__asset_id__metadata_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/runs/{run_id}/metadata": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Run Metadata
+         * @description Cross-asset field search for the whole run (the metadata explorer).
+         */
+        get: operations["list_run_metadata_api_runs__run_id__metadata_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/runs/{run_id}/correlations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Correlations
+         * @description Shared values that touch this run. A shared value is not a shared identity.
+         */
+        get: operations["list_correlations_api_runs__run_id__correlations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/runs/{run_id}/coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Coverage
+         * @description Counters of what the run stored, with the honest limits caveat.
+         */
+        get: operations["get_coverage_api_runs__run_id__coverage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/scopes": {
         parameters: {
             query?: never;
@@ -306,6 +406,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/investigations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Investigations */
+        get: operations["list_investigations_api_investigations_get"];
+        put?: never;
+        /** Create */
+        post: operations["create_api_investigations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/investigations/{investigation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Investigation */
+        get: operations["get_investigation_api_investigations__investigation_id__get"];
+        /** Update Investigation */
+        put: operations["update_investigation_api_investigations__investigation_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/investigations/{investigation_id}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Attach */
+        post: operations["attach_api_investigations__investigation_id__runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/investigations/{investigation_id}/runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Detach */
+        delete: operations["detach_api_investigations__investigation_id__runs__run_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/stats": {
         parameters: {
             query?: never;
@@ -335,7 +505,7 @@ export interface paths {
         };
         /**
          * Compare
-         * @description Findings new in ``b``, resolved since ``a`` and present in both.
+         * @description How findings moved from the baseline ``a`` to the reviewed run ``b``.
          */
         get: operations["compare_api_compare_get"];
         put?: never;
@@ -562,7 +732,18 @@ export interface paths {
         };
         /**
          * Me Endpoint
-         * @description Diagnostic: who is the caller (never exposes hashes or tokens).
+         * @description Who is the caller (never exposes hashes or tokens), plus the CSRF token.
+         *
+         *     This is the V2 bootstrap: the browser reads ``csrf_token`` from this
+         *     response (200 when signed in, 401 when signed out) and echoes it back in
+         *     ``X-CSRF-Token`` on mutations (MIN-01/V1+V2 parity). The server keeps the
+         *     double-submit invariant: mutation headers are compared against the cookie
+         *     with :func:`hmac.compare_digest`; exposing the same value in the body does
+         *     not weaken that (an attacker cannot read the response body cross-origin).
+         *
+         *     Takes over the pre-session cookie mint that the API middleware used to do
+         *     for this path, so the response never carries two different Set-Cookie
+         *     values for ``csrf_token``.
          */
         get: operations["me_endpoint_api_auth_me_get"];
         put?: never;
@@ -801,6 +982,61 @@ export interface components {
             error_message: string | null;
         };
         /**
+         * AssetListResponse
+         * @description ``total`` is the run-wide count; ``has_more``/``next_cursor`` page it.
+         */
+        AssetListResponse: {
+            /** Run Id */
+            run_id: string;
+            /** Total */
+            total: number;
+            /** Assets */
+            assets: components["schemas"]["AssetResponse"][];
+            /**
+             * Has More
+             * @default false
+             */
+            has_more: boolean;
+            /** Next Cursor */
+            next_cursor?: string | null;
+        };
+        /**
+         * AssetResponse
+         * @description One asset row of the inventory: no bytes, no metadata values.
+         */
+        AssetResponse: {
+            /** Id */
+            id: string;
+            /** Source Url */
+            source_url: string;
+            /** Final Url */
+            final_url: string;
+            /** Content Type */
+            content_type: string;
+            /** File Hash Sha256 */
+            file_hash_sha256: string;
+            /** File Size Bytes */
+            file_size_bytes: number;
+            extraction_status: components["schemas"]["ExtractionStatus"];
+            skip_reason: components["schemas"]["SkipReason"] | null;
+            /** Error Message */
+            error_message: string | null;
+            /**
+             * Discovered At
+             * Format: date-time
+             */
+            discovered_at: string;
+            /** Metadata Fields */
+            metadata_fields: number;
+            /** Findings */
+            findings: number;
+        };
+        /** AttachRunRequest */
+        AttachRunRequest: {
+            /** Run Id */
+            run_id: string;
+        };
+        /**
          * ComparedFindingResponse
          * @description One finding of a comparison. ``finding_id`` belongs to run ``b`` except for ``resolved``.
          */
@@ -817,6 +1053,9 @@ export interface components {
             asset_url: string;
             /** @default open */
             triage_status: components["schemas"]["TriageStatus"];
+            previous_severity?: components["schemas"]["Severity"] | null;
+            /** Prior Run Id */
+            prior_run_id?: string | null;
         };
         /** ComparedRun */
         ComparedRun: {
@@ -838,6 +1077,160 @@ export interface components {
          * @enum {string}
          */
         Confidence: "high" | "medium" | "low";
+        /**
+         * CorrelationGroupResponse
+         * @description One shared value. ``notice`` is the product sentence: not an identity.
+         */
+        CorrelationGroupResponse: {
+            kind: components["schemas"]["CorrelationKind"];
+            /** Value Norm */
+            value_norm: string;
+            /** Occurrences */
+            occurrences: number;
+            /** First Seen Run Id */
+            first_seen_run_id: string;
+            /** Notice */
+            notice: string;
+            /** Members */
+            members: components["schemas"]["CorrelationMemberResponse"][];
+            /** Members Truncated */
+            members_truncated: boolean;
+        };
+        /**
+         * CorrelationKind
+         * @description What a shared value is. Not a finding type and not an identity.
+         *
+         *     ``internal_endpoint`` is written by the internal-endpoint detector.
+         *     ``author_string`` groups an author field (ADR-0009): it is not a finding.
+         * @enum {string}
+         */
+        CorrelationKind: "email" | "gps_point" | "internal_endpoint" | "software_version" | "document_id" | "device_serial" | "author_string";
+        /** CorrelationListResponse */
+        CorrelationListResponse: {
+            /** Run Id */
+            run_id: string;
+            /** Total */
+            total: number;
+            /** Groups */
+            groups: components["schemas"]["CorrelationGroupResponse"][];
+        };
+        /** CorrelationMemberResponse */
+        CorrelationMemberResponse: {
+            /** Asset Id */
+            asset_id: string;
+            /** Asset Url */
+            asset_url: string;
+            /** Run Id */
+            run_id: string;
+            /** Namespace */
+            namespace: string;
+            /** Key */
+            key: string;
+        };
+        /**
+         * CoverageResponse
+         * @description What the run collected, split by extraction status.
+         *
+         *     ``counters_recorded`` is ``false`` until the crawl budget is persisted
+         *     (Fase 2): the UI must say "not recorded" rather than show a zero that looks
+         *     like "nothing was found".
+         */
+        CoverageResponse: {
+            /** Run Id */
+            run_id: string;
+            /** Status */
+            status: string;
+            /** Total Assets */
+            total_assets: number;
+            /** Ok */
+            ok: number;
+            /** Skipped */
+            skipped: number;
+            /** Failed */
+            failed: number;
+            /** Bytes Downloaded */
+            bytes_downloaded: number;
+            /** Metadata Fields */
+            metadata_fields: number;
+            /** Findings */
+            findings: number;
+            /** By Skip Reason */
+            by_skip_reason: {
+                [key: string]: number;
+            };
+            /** By Namespace */
+            by_namespace: {
+                [key: string]: number;
+            };
+            /** Counters Recorded */
+            counters_recorded: boolean;
+            /** Limits Hit */
+            limits_hit: string[];
+            /** Budget */
+            budget: {
+                [key: string]: number;
+            };
+            /** Pages Crawled */
+            pages_crawled: number;
+            /** Assets Queued */
+            assets_queued: number;
+            /** Elapsed Seconds */
+            elapsed_seconds: number;
+            /** Robots Checked */
+            robots_checked?: boolean | null;
+            /** Robots Omitted */
+            robots_omitted?: number | null;
+            /** Sitemaps Ignored */
+            sitemaps_ignored?: number | null;
+            /** Sitemaps Truncated */
+            sitemaps_truncated?: boolean | null;
+        };
+        /**
+         * CrawlBudget
+         * @description The operator's crawl limits for one run; validated on construction.
+         *
+         *     Defaults reproduce the historical behaviour exactly for the caps that
+         *     existed (one page, 50 assets) so an unconfigured run is not silently
+         *     wider than before. The new limits default to values that a normal
+         *     one-page audit never reaches.
+         */
+        CrawlBudget: {
+            /**
+             * Depth
+             * @default 1
+             */
+            depth: number;
+            /**
+             * Max Pages
+             * @default 1
+             */
+            max_pages: number;
+            /**
+             * Max Assets
+             * @default 50
+             */
+            max_assets: number;
+            /**
+             * Max Total Bytes
+             * @default 209715200
+             */
+            max_total_bytes: number;
+            /**
+             * Max Seconds
+             * @default 900
+             */
+            max_seconds: number;
+            /**
+             * Max Concurrency
+             * @default 3
+             */
+            max_concurrency: number;
+            /**
+             * Honor Robots
+             * @default true
+             */
+            honor_robots: boolean;
+        };
         /**
          * DashboardStatsResponse
          * @description GET /api/stats: one aggregated snapshot of the local data (TASK-11).
@@ -876,6 +1269,11 @@ export interface components {
              */
             trends: components["schemas"]["SeverityTrendPoint"][];
         };
+        /**
+         * DetectorMethod
+         * @enum {string}
+         */
+        DetectorMethod: "rule" | "heuristic" | "agent";
         /**
          * ExtractionStatus
          * @enum {string}
@@ -960,12 +1358,22 @@ export interface components {
             triaged_by?: string | null;
             /** Triaged At */
             triaged_at?: string | null;
+            /**
+             * Asset Id
+             * @default
+             */
+            asset_id: string;
+            /** @default rule */
+            detector_method: components["schemas"]["DetectorMethod"];
+            /** Created At */
+            created_at?: string | null;
+            triage_suggestion?: components["schemas"]["TriageSuggestionResponse"] | null;
         };
         /**
          * FindingType
          * @enum {string}
          */
-        FindingType: "gps" | "email" | "internal_path" | "software_version" | "debug_comment";
+        FindingType: "gps" | "email" | "internal_path" | "software_version" | "debug_comment" | "internal_endpoint" | "cloud_storage";
         /**
          * FindingsResponse
          * @description GET /api/runs/{run_id}/findings: the report-ordered list.
@@ -990,6 +1398,72 @@ export interface components {
         ImportResponse: {
             /** Imported */
             imported: number;
+        };
+        /** InvestigationCreate */
+        InvestigationCreate: {
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+        };
+        /** InvestigationListResponse */
+        InvestigationListResponse: {
+            /** Total */
+            total: number;
+            /** Investigations */
+            investigations: components["schemas"]["InvestigationResponse"][];
+        };
+        /** InvestigationResponse */
+        InvestigationResponse: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string | null;
+            status: components["schemas"]["InvestigationStatus"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Run Count */
+            run_count: number;
+            /** Runs */
+            runs?: components["schemas"]["InvestigationRunResponse"][];
+        };
+        /** InvestigationRunResponse */
+        InvestigationRunResponse: {
+            /** Run Id */
+            run_id: string;
+            /** Run Ref */
+            run_ref: string | null;
+            /** Status */
+            status: string;
+            /** Target */
+            target: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+        };
+        /**
+         * InvestigationStatus
+         * @description Lifecycle of an investigation (Fase 3).
+         *
+         *     Grouping only. Every authenticated user of the install can see every
+         *     investigation; closing one does not hide its runs.
+         * @enum {string}
+         */
+        InvestigationStatus: "open" | "closed";
+        /** InvestigationUpdate */
+        InvestigationUpdate: {
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            status: components["schemas"]["InvestigationStatus"];
         };
         /**
          * InvitationCreate
@@ -1077,6 +1551,42 @@ export interface components {
             password: string;
         };
         /**
+         * MetadataItemResponse
+         * @description One stored field. ``truncated`` reflects the extractor's marker.
+         */
+        MetadataItemResponse: {
+            /** Id */
+            id: number;
+            /** Asset Id */
+            asset_id: string;
+            /** Asset Url */
+            asset_url: string;
+            /** Namespace */
+            namespace: string;
+            /** Key */
+            key: string;
+            /** Value */
+            value: string;
+            /** Truncated */
+            truncated: boolean;
+        };
+        /** MetadataListResponse */
+        MetadataListResponse: {
+            /** Run Id */
+            run_id: string;
+            /** Total */
+            total: number;
+            /** Items */
+            items: components["schemas"]["MetadataItemResponse"][];
+            /**
+             * Has More
+             * @default false
+             */
+            has_more: boolean;
+            /** Next Cursor */
+            next_cursor?: string | null;
+        };
+        /**
          * NotificationListResponse
          * @description GET /api/notifications: the in-memory queue, newest first.
          */
@@ -1133,7 +1643,11 @@ export interface components {
         };
         /**
          * RunComparisonResponse
-         * @description GET /api/compare: findings new / resolved / persistent from ``a`` to ``b``.
+         * @description GET /api/compare: how findings moved from the baseline to the reviewed run.
+         *
+         *     ``resolved`` means absent from the reviewed run. It is not proof the
+         *     finding is gone unless ``coverage_recorded_b`` is true and ``limits_hit_b``
+         *     is empty.
          */
         RunComparisonResponse: {
             a: components["schemas"]["ComparedRun"];
@@ -1144,6 +1658,36 @@ export interface components {
             resolved: components["schemas"]["ComparedFindingResponse"][];
             /** Persistent */
             persistent: components["schemas"]["ComparedFindingResponse"][];
+            /**
+             * Reappeared
+             * @default []
+             */
+            reappeared: components["schemas"]["ComparedFindingResponse"][];
+            /**
+             * Severity Changed
+             * @default []
+             */
+            severity_changed: components["schemas"]["ComparedFindingResponse"][];
+            /**
+             * Limits Hit A
+             * @default []
+             */
+            limits_hit_a: string[];
+            /**
+             * Limits Hit B
+             * @default []
+             */
+            limits_hit_b: string[];
+            /**
+             * Coverage Recorded A
+             * @default false
+             */
+            coverage_recorded_a: boolean;
+            /**
+             * Coverage Recorded B
+             * @default false
+             */
+            coverage_recorded_b: boolean;
         };
         /**
          * RunCreatedResponse
@@ -1236,6 +1780,10 @@ export interface components {
             completed_at: string | null;
             /** Asset Issues */
             asset_issues: components["schemas"]["AssetIssue"][];
+            /** Investigation Id */
+            investigation_id?: string | null;
+            /** Investigation Name */
+            investigation_name?: string | null;
         };
         /**
          * ScanRequest
@@ -1270,6 +1818,7 @@ export interface components {
              * @default false
              */
             watch: boolean;
+            budget?: components["schemas"]["CrawlBudget"] | null;
         };
         /**
          * ScopeCreate
@@ -1422,7 +1971,7 @@ export interface components {
          * SkipReason
          * @enum {string}
          */
-        SkipReason: "unsupported_type" | "too_large" | "out_of_scope" | "duplicate_hash" | "empty_body";
+        SkipReason: "unsupported_type" | "too_large" | "out_of_scope" | "duplicate_hash" | "empty_body" | "robots_disallow";
         /**
          * TriageRequest
          * @description PUT /api/runs/{run_id}/findings/{finding_id}/triage body (TASK-35).
@@ -1459,6 +2008,24 @@ export interface components {
          * @enum {string}
          */
         TriageStatus: "open" | "confirmed" | "false_positive" | "fixed";
+        /**
+         * TriageSuggestionResponse
+         * @description A triage decision from another run in the same investigation.
+         *
+         *     Display only. Applying it is a separate operator request and does not
+         *     change severity or evidence.
+         */
+        TriageSuggestionResponse: {
+            status: components["schemas"]["TriageStatus"];
+            /** From Run Id */
+            from_run_id: string;
+            /** From Finding Id */
+            from_finding_id: string;
+            /** Note */
+            note?: string | null;
+            /** Triaged At */
+            triaged_at?: string | null;
+        };
         /**
          * UserCreate
          * @description POST /api/users body.
@@ -1937,6 +2504,193 @@ export interface operations {
             };
         };
     };
+    list_assets_api_runs__run_id__assets_get: {
+        parameters: {
+            query?: {
+                /** @description Filter by extraction status */
+                status?: components["schemas"]["ExtractionStatus"] | null;
+                /** @description Content-type prefix, e.g. 'image/' or 'application/pdf' */
+                content_type?: string | null;
+                /** @description URL substring, case-insensitive */
+                q?: string | null;
+                /** @description Page size */
+                limit?: number;
+                /** @description Opaque keyset anchor */
+                cursor?: string | null;
+            };
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_asset_metadata_api_runs__run_id__assets__asset_id__metadata_get: {
+        parameters: {
+            query?: {
+                /** @description Exact namespace */
+                namespace?: string | null;
+                /** @description Exact field key */
+                key?: string | null;
+                /** @description Substring of the value or the key */
+                q?: string | null;
+                limit?: number;
+                /** @description Opaque keyset anchor */
+                cursor?: string | null;
+            };
+            header?: never;
+            path: {
+                run_id: string;
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetadataListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_run_metadata_api_runs__run_id__metadata_get: {
+        parameters: {
+            query?: {
+                /** @description Exact namespace */
+                namespace?: string | null;
+                /** @description Exact field key */
+                key?: string | null;
+                /** @description Substring of the value or the key */
+                q?: string | null;
+                limit?: number;
+                /** @description Opaque keyset anchor */
+                cursor?: string | null;
+            };
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetadataListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_correlations_api_runs__run_id__correlations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorrelationListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_coverage_api_runs__run_id__coverage_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoverageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_scopes_api_scopes_get: {
         parameters: {
             query?: never;
@@ -2101,6 +2855,190 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScopeImportResponse"];
+                };
+            };
+        };
+    };
+    list_investigations_api_investigations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestigationListResponse"];
+                };
+            };
+        };
+    };
+    create_api_investigations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvestigationCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestigationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_investigation_api_investigations__investigation_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                investigation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestigationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_investigation_api_investigations__investigation_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                investigation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvestigationUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestigationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    attach_api_investigations__investigation_id__runs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                investigation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttachRunRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestigationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    detach_api_investigations__investigation_id__runs__run_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                investigation_id: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

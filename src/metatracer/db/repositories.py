@@ -1,11 +1,13 @@
 """CRUD repositories: persistence only — no business logic in this layer."""
 
+import hashlib
 import json
 from collections import Counter
 from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import delete, func, or_, text
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -14,8 +16,10 @@ from metatracer.core.safety.scope import normalize_host
 from metatracer.db.models import (
     AgentLog,
     Asset,
+    ExtractionStatus,
     Finding,
     FindingFeedback,
+    Investigation,
     RawMetadataItem,
     Run,
     RunStatus,
@@ -28,7 +32,15 @@ from metatracer.db.models import (
 
 # Canonical orderings for dashboard breakdowns (mirrors the report ordering).
 _SEVERITY_ORDER = ["critical", "high", "medium", "low", "info"]
-_FINDING_TYPE_ORDER = ["gps", "email", "internal_path", "software_version", "debug_comment"]
+_FINDING_TYPE_ORDER = [
+    "gps",
+    "email",
+    "internal_path",
+    "software_version",
+    "debug_comment",
+    "internal_endpoint",
+    "cloud_storage",
+]
 
 
 class RunRepository:
@@ -224,6 +236,59 @@ class AssetRepository:
         result = await self._session.exec(select(Asset).where(Asset.run_id == run_id))
         return list(result.all())
 
+    async def page_by_run(
+        self,
+        run_id: str,
+        *,
+        status: ExtractionStatus | None = None,
+        content_type_prefix: str | None = None,
+        q: str | None = None,
+        limit: int = 50,
+        cursor: str | None = None,
+    ) -> list[Asset]:
+        """One page of a run's assets, oldest first (stable keyset).
+
+        Ordering is ``(discovered_at, id)``: ``discovered_at`` alone repeats
+        when several assets land in the same ingestion pass, so the id is the
+        tie-breaker that makes the key total. ``cursor`` is the opaque anchor
+        emitted by the API (``<discovered_at_iso>_<asset_id>``), the same shape
+        the run history uses.
+
+        ``status`` and ``content_type_prefix`` filter server-side because a run
+        can legitimately hold hundreds of assets; ``q`` is a case-insensitive
+        substring match on the URL, kept simple on purpose (no FTS here — the
+        metadata explorer is where value search belongs).
+        """
+        statement = (
+            select(Asset)
+            .where(Asset.run_id == run_id)
+            .order_by(Asset.discovered_at.asc(), Asset.id.asc())  # type: ignore[arg-type]
+        )
+        if status is not None:
+            statement = statement.where(Asset.extraction_status == status)
+        if content_type_prefix:
+            statement = statement.where(
+                Asset.content_type.startswith(content_type_prefix)  # type: ignore[attr-defined]
+            )
+        if q:
+            statement = statement.where(Asset.source_url.ilike(f"%{q}%"))
+        if cursor is not None:
+            discovered_at, asset_id = _split_asset_cursor(cursor)
+            statement = statement.where(
+                (Asset.discovered_at > discovered_at)
+                | ((Asset.discovered_at == discovered_at) & (Asset.id > asset_id))
+            )
+        # +1 probe: the caller learns whether a next page exists without a count.
+        result = await self._session.exec(statement.limit(limit + 1))
+        return list(result.all())
+
+    async def count_by_run(self, run_id: str) -> int:
+        """Total assets of a run (the "N of M" label, not the page size)."""
+        result = await self._session.exec(
+            select(func.count()).select_from(Asset).where(Asset.run_id == run_id)
+        )
+        return int(result.one())
+
 
 class RawMetadataRepository:
     def __init__(self, session: AsyncSession) -> None:
@@ -266,6 +331,97 @@ class RawMetadataRepository:
         )
         return list(result.all())
 
+    async def page_by_run(
+        self,
+        run_id: str,
+        *,
+        asset_id: str | None = None,
+        namespace: str | None = None,
+        key: str | None = None,
+        q: str | None = None,
+        limit: int = 100,
+        cursor: str | None = None,
+    ) -> list[RawMetadataItem]:
+        """One page of a run's raw metadata, ordered by insertion (``id``).
+
+        ``id`` is the autoincrement primary key, so ordering by it is both
+        stable and insertion-ordered: the cursor is the plain integer of the
+        last row (keyset, no offset). ``asset_id`` narrows to one asset; the
+        rest are exploration filters. ``q`` matches the value OR the key,
+        case-insensitively — the analyst looking for "author" should find
+        ``pdfinfo:Author`` and ``dc:creator: Jane`` alike.
+        """
+        statement = (
+            select(RawMetadataItem)
+            .join(Asset, RawMetadataItem.asset_id == Asset.id)
+            .where(Asset.run_id == run_id)
+        )
+        if asset_id is not None:
+            statement = statement.where(RawMetadataItem.asset_id == asset_id)
+        if namespace:
+            statement = statement.where(RawMetadataItem.namespace == namespace)
+        if key:
+            statement = statement.where(RawMetadataItem.key == key)
+        if q:
+            needle = f"%{q}%"
+            statement = statement.where(
+                RawMetadataItem.value.ilike(needle) | RawMetadataItem.key.ilike(needle)
+            )
+        if cursor is not None:
+            statement = statement.where(RawMetadataItem.id > _parse_int_cursor(cursor))
+        statement = statement.order_by(RawMetadataItem.id.asc())  # type: ignore[arg-type]
+        # +1 probe, same contract as the asset page.
+        result = await self._session.exec(statement.limit(limit + 1))
+        return list(result.all())
+
+    async def count_by_run(
+        self,
+        run_id: str,
+        *,
+        asset_id: str | None = None,
+        namespace: str | None = None,
+        q: str | None = None,
+    ) -> int:
+        """Total metadata rows of a run, under the same filters as ``page_by_run``."""
+        statement = (
+            select(func.count())
+            .select_from(RawMetadataItem)
+            .join(Asset, RawMetadataItem.asset_id == Asset.id)
+            .where(Asset.run_id == run_id)
+        )
+        if asset_id is not None:
+            statement = statement.where(RawMetadataItem.asset_id == asset_id)
+        if namespace:
+            statement = statement.where(RawMetadataItem.namespace == namespace)
+        if q:
+            needle = f"%{q}%"
+            statement = statement.where(
+                RawMetadataItem.value.ilike(needle) | RawMetadataItem.key.ilike(needle)
+            )
+        result = await self._session.exec(statement)
+        return int(result.one())
+
+    async def namespace_counts(self, run_id: str) -> list[tuple[str, int]]:
+        """``(namespace, count)`` for the facet chips, most populated first."""
+        result = await self._session.exec(
+            select(RawMetadataItem.namespace, func.count(RawMetadataItem.id))
+            .join(Asset, RawMetadataItem.asset_id == Asset.id)
+            .where(Asset.run_id == run_id)
+            .group_by(RawMetadataItem.namespace)
+            .order_by(func.count(RawMetadataItem.id).desc(), RawMetadataItem.namespace)
+        )
+        return [(str(namespace), int(count)) for namespace, count in result.all()]
+
+    async def counts_by_asset(self, run_id: str) -> dict[str, int]:
+        """``asset_id -> field count`` for one run, in a single query."""
+        result = await self._session.exec(
+            select(RawMetadataItem.asset_id, func.count(RawMetadataItem.id))
+            .join(Asset, RawMetadataItem.asset_id == Asset.id)
+            .where(Asset.run_id == run_id)
+            .group_by(RawMetadataItem.asset_id)
+        )
+        return {str(asset_id): int(count) for asset_id, count in result.all()}
+
 
 class FindingRepository:
     def __init__(self, session: AsyncSession) -> None:
@@ -303,6 +459,24 @@ class FindingRepository:
     async def list_by_run(self, run_id: str) -> list[Finding]:
         result = await self._session.exec(select(Finding).where(Finding.run_id == run_id))
         return list(result.all())
+
+    async def decisive_triage_in_investigation(
+        self, investigation_id: str, exclude_run_id: str
+    ) -> list[tuple[Finding, str]]:
+        """Findings another run in the group already triaged, with the asset URL.
+
+        ``open`` is not a decision, so it is excluded. The caller picks the
+        latest decision per finding identity and does not write anything.
+        """
+        result = await self._session.exec(
+            select(Finding, Asset.final_url)
+            .join(Asset, Asset.id == Finding.asset_id)  # type: ignore[arg-type]
+            .join(Run, Run.id == Finding.run_id)  # type: ignore[arg-type]
+            .where(Run.investigation_id == investigation_id)
+            .where(Finding.run_id != exclude_run_id)
+            .where(Finding.triage_status != TriageStatus.open)
+        )
+        return [(finding, str(url)) for finding, url in result.all()]
 
     async def set_triage(
         self,
@@ -350,6 +524,19 @@ class FindingRepository:
     async def list_by_asset(self, asset_id: str) -> list[Finding]:
         result = await self._session.exec(select(Finding).where(Finding.asset_id == asset_id))
         return list(result.all())
+
+    async def counts_by_asset(self, run_id: str) -> dict[str, int]:
+        """``asset_id -> finding count`` for one run, in a single query.
+
+        The asset inventory shows a findings column; asking per asset would be
+        an N+1 over a run with hundreds of rows.
+        """
+        result = await self._session.exec(
+            select(Finding.asset_id, func.count(Finding.id))
+            .where(Finding.run_id == run_id)
+            .group_by(Finding.asset_id)
+        )
+        return {str(asset_id): int(count) for asset_id, count in result.all()}
 
 
 class AgentLogRepository:
@@ -418,6 +605,58 @@ class ScopeRepository:
     async def list_all(self) -> list[Scope]:
         result = await self._session.exec(
             select(Scope).order_by(Scope.created_at.desc())  # type: ignore[arg-type]
+        )
+        return list(result.all())
+
+
+class InvestigationRepository:
+    """Persistence for investigation groups. No triage decisions live here."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def create(self, investigation: Investigation) -> Investigation:
+        self._session.add(investigation)
+        try:
+            await self._session.commit()
+        except IntegrityError:
+            await self._session.rollback()
+            raise
+        await self._session.refresh(investigation)
+        return investigation
+
+    async def get(self, investigation_id: str) -> Investigation | None:
+        return await self._session.get(Investigation, investigation_id)
+
+    async def get_by_name(self, name: str) -> Investigation | None:
+        result = await self._session.exec(select(Investigation).where(Investigation.name == name))
+        return result.first()
+
+    async def list_recent(self) -> list[Investigation]:
+        result = await self._session.exec(
+            select(Investigation).order_by(Investigation.created_at.desc())  # type: ignore[attr-defined]
+        )
+        return list(result.all())
+
+    async def update(self, investigation: Investigation) -> Investigation:
+        merged = await self._session.merge(investigation)
+        await self._session.commit()
+        await self._session.refresh(merged)
+        return merged
+
+    async def run_counts(self) -> dict[str, int]:
+        result = await self._session.exec(
+            select(Run.investigation_id, func.count())
+            .where(Run.investigation_id.is_not(None))  # type: ignore[union-attr]
+            .group_by(Run.investigation_id)
+        )
+        return {str(investigation_id): int(count) for investigation_id, count in result.all()}
+
+    async def runs_for(self, investigation_id: str) -> list[Run]:
+        result = await self._session.exec(
+            select(Run)
+            .where(Run.investigation_id == investigation_id)
+            .order_by(Run.started_at.desc())  # type: ignore[attr-defined]
         )
         return list(result.all())
 
@@ -594,30 +833,48 @@ class DashboardRepository:
         return counts.most_common(limit)
 
     async def top_evidence(self, limit: int = 10) -> list[dict[str, Any]]:
-        """Frequent evidence snippets, grouped by dedup_signature in SQL."""
+        """Frequent evidence across assets, grouped by type + normalized snippet.
+
+        ``Finding.dedup_signature`` is ``sha256(f"{asset_id}:{type}:{snippet}")``
+        and is unique per ``(asset_id, dedup_signature)``, so grouping by it can
+        only ever return rows with ``occurrences == 1`` — it identifies one
+        asset's finding, not "the same evidence seen in N places". The run
+        independent identity is ``finding_identity`` (type + normalized
+        snippet), so this aggregates on ``lower(trim(snippet))`` + type, which
+        is the SQL equivalent of that normalization.
+
+        ``signature`` is a stable ``sha256(f"{type}:{normalized}")`` for use as a
+        list key; it is not persisted and must never be matched against
+        ``Finding.dedup_signature``.
+        """
+        normalized = func.lower(func.trim(Finding.evidence_snippet))
         rows = (
             await self._session.exec(
                 select(
-                    Finding.dedup_signature,
-                    func.min(Finding.evidence_snippet),
-                    func.min(Finding.finding_type),
+                    normalized,
+                    Finding.finding_type,
                     func.count(Finding.id),
                 )
                 .where(Finding.triage_status != TriageStatus.false_positive)
-                .group_by(Finding.dedup_signature)
-                .order_by(func.count(Finding.id).desc(), func.min(Finding.evidence_snippet))
+                .group_by(normalized, Finding.finding_type)
+                .order_by(func.count(Finding.id).desc(), normalized)
                 .limit(limit)
             )
         ).all()
-        return [
-            {
-                "signature": signature,
-                "evidence_snippet": snippet,
-                "finding_type": str(finding_type),
-                "occurrences": int(occurrences),
-            }
-            for signature, snippet, finding_type, occurrences in rows
-        ]
+        entries: list[dict[str, Any]] = []
+        for snippet, finding_type, occurrences in rows:
+            kind = str(finding_type)
+            entries.append(
+                {
+                    # Same normalization the group key uses, so the label matches
+                    # the aggregation instead of a random row of the group.
+                    "signature": hashlib.sha256(f"{kind}:{snippet}".encode()).hexdigest(),
+                    "evidence_snippet": str(snippet),
+                    "finding_type": kind,
+                    "occurrences": int(occurrences),
+                }
+            )
+        return entries
 
     async def agent_usage(self) -> dict[str, int]:
         """Total LLM usage from agent_log (all zeros when the agents never ran)."""
@@ -786,3 +1043,42 @@ def _split_cursor(cursor: str) -> tuple[datetime, str]:
     if not run_id:
         raise ValueError(f"invalid cursor: {cursor}")
     return started_at, run_id
+
+
+def _split_asset_cursor(cursor: str) -> tuple[datetime, str]:
+    """Parse a ``<discovered_at_iso>_<asset_id>`` keyset anchor.
+
+    Same encoding contract as :func:`_split_cursor`, applied to ``Asset``:
+    ``discovered_at`` normalized to UTC with a ``Z`` suffix, then the asset id
+    after the FIRST underscore. A malformed anchor raises ``ValueError``, which
+    the API maps to 422 (a client cannot legitimately invent one).
+    """
+    try:
+        separator = cursor.index("_")
+        raw_moment = cursor[:separator]
+        asset_id = cursor[separator + 1 :]
+        if raw_moment.endswith("Z"):
+            raw_moment = raw_moment[:-1] + "+00:00"
+        parsed = datetime.fromisoformat(raw_moment)
+        moment = parsed.replace(tzinfo=UTC) if parsed.tzinfo is None else parsed.astimezone(UTC)
+    except ValueError:
+        raise ValueError(f"invalid cursor: {cursor}") from None
+    if not asset_id:
+        raise ValueError(f"invalid cursor: {cursor}")
+    return moment, asset_id
+
+
+def _parse_int_cursor(cursor: str) -> int:
+    """Parse the integer keyset anchor of ``RawMetadataItem.id``.
+
+    Auto-increment ids are dense and monotonic per table, so the cursor is the
+    plain id of the last row of the previous page — cheaper and more stable
+    than an offset.
+    """
+    try:
+        value = int(cursor)
+    except (TypeError, ValueError):
+        raise ValueError(f"invalid cursor: {cursor}") from None
+    if value < 0:
+        raise ValueError(f"invalid cursor: {cursor}")
+    return value

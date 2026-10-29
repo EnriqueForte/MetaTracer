@@ -85,6 +85,28 @@
   --mt-shadow-overlay: 0 16px 40px rgba(0, 0, 0, 0.5);
   --mt-shadow-card: 0 1px 0 rgba(255, 255, 255, 0.03) inset;
 
+  /* Density (U0): the analyst chooses how much fits on screen. Only the row
+     height and the evidence font change; the palette does not. */
+  --mt-row-h-comfortable: 44px;
+  --mt-row-h-compact: 32px;
+  --mt-row-h: var(--mt-row-h-comfortable);
+  --mt-font-evidence: 12px;
+  --mt-font-table: 13px;
+
+  /* Split workspace (U0): a persistent detail pane instead of a modal. */
+  --mt-panel-min: 320px;
+  --mt-panel-default: 420px;
+  --mt-panel-max: 720px;
+  --mt-split-handle: var(--mt-border-strong);
+  --mt-split-handle-active: var(--mt-accent);
+
+  /* Provenance layers (U0): observed vs inferred vs external. Never a
+     severity colour — these label where a value came from. Explicit hex so
+     the WCAG check in theme.test.tsx can verify them. */
+  --mt-layer-observed: #5ed4ec;
+  --mt-layer-inferred: #8ebeff;
+  --mt-layer-external: #f5c15a;
+
   --mt-duration: 160ms;
   --mt-ease: cubic-bezier(0.2, 0, 0, 1);
 }
@@ -134,6 +156,9 @@
   --mt-chart-3: #0f7a4f;
   --mt-chart-4: #a16207;
   --mt-chart-5: #c2410c;
+  --mt-layer-observed: #0e7490;
+  --mt-layer-inferred: #2563eb;
+  --mt-layer-external: #8a5300;
   --mt-shadow-overlay: 0 16px 40px rgba(15, 26, 42, 0.18);
   --mt-shadow-card: 0 1px 2px rgba(15, 26, 42, 0.06);
 }
@@ -183,6 +208,9 @@
     --mt-chart-3: #0f7a4f;
     --mt-chart-4: #a16207;
     --mt-chart-5: #c2410c;
+    --mt-layer-observed: #0e7490;
+    --mt-layer-inferred: #2563eb;
+    --mt-layer-external: #8a5300;
     --mt-shadow-overlay: 0 16px 40px rgba(15, 26, 42, 0.18);
     --mt-shadow-card: 0 1px 2px rgba(15, 26, 42, 0.06);
   }
@@ -238,6 +266,10 @@
   --color-mt-chart-3: var(--mt-chart-3);
   --color-mt-chart-4: var(--mt-chart-4);
   --color-mt-chart-5: var(--mt-chart-5);
+
+  --color-mt-layer-observed: var(--mt-layer-observed);
+  --color-mt-layer-inferred: var(--mt-layer-inferred);
+  --color-mt-layer-external: var(--mt-layer-external);
 
   --radius-lg: var(--mt-radius-lg);
   --shadow-mt-card: var(--mt-shadow-card);
@@ -316,24 +348,7 @@ body {
 
 .mt-skeleton {
   border-radius: var(--mt-radius-md);
-  background: linear-gradient(
-    90deg,
-    var(--mt-elevated) 0%,
-    var(--mt-border) 50%,
-    var(--mt-elevated) 100%
-  );
-  background-size: 200% 100%;
-  animation: mt-skeleton 1.2s var(--mt-ease) infinite;
-}
-
-@keyframes mt-skeleton {
-  0% {
-    background-position: 100% 0;
-  }
-
-  100% {
-    background-position: -100% 0;
-  }
+  background: var(--mt-elevated);
 }
 
 .mt-tech {
@@ -755,7 +770,6 @@ body {
   border-color: var(--mt-accent-hover);
   background: var(--mt-accent);
   box-shadow: 0 0 0 4px var(--mt-accent-soft);
-  animation: mt-pulse 1.6s var(--mt-ease) infinite;
 }
 
 .mt-stage[data-state="active"] .mt-stage-line {
@@ -785,8 +799,6 @@ body {
   height: 8px;
   border-radius: 50%;
   background: var(--mt-accent-hover);
-  /* Plays once each time a stage becomes active (the marker remounts per stage). */
-  animation: mt-asset 1.4s var(--mt-ease) 1 forwards;
 }
 
 .mt-stage-asset[data-stage="ai_analysis"] {
@@ -795,28 +807,6 @@ body {
 
 .mt-stage-asset[data-stage="report_generation"] {
   background: var(--mt-success);
-}
-
-@keyframes mt-asset {
-  0% {
-    left: 14px;
-    opacity: 0;
-  }
-
-  20% {
-    opacity: 1;
-  }
-
-  100% {
-    left: calc(100% - 8px);
-    opacity: 0;
-  }
-}
-
-@keyframes mt-pulse {
-  50% {
-    box-shadow: 0 0 0 7px transparent;
-  }
 }
 
 .mt-command {
@@ -889,8 +879,7 @@ body {
   .mt-spin,
   .mt-skeleton,
   .mt-stage-dot,
-  .mt-stage-asset,
-  .mt-live-sweep > span {
+  .mt-stage-asset {
     animation: none;
   }
 }
@@ -912,23 +901,14 @@ body {
   background: var(--mt-elevated);
 }
 
+/* Real progress: width is the reported step over the pipeline total. No
+   animation — the bar moves only when the server reports a new stage. */
 .mt-live-sweep > span {
   display: block;
-  width: 35%;
   height: 100%;
   border-radius: inherit;
   background: var(--mt-accent);
-  animation: mt-sweep 1.6s var(--mt-ease) infinite;
-}
-
-@keyframes mt-sweep {
-  0% {
-    transform: translateX(-120%);
-  }
-
-  100% {
-    transform: translateX(320%);
-  }
+  transition: width var(--mt-duration) var(--mt-ease);
 }
 
 .mt-live-counts {
@@ -974,5 +954,125 @@ body {
 @keyframes mt-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* ---- Density and workspace primitives (U0) ------------------------------ */
+
+/* The chosen density is an attribute on <html> so every table and the
+   evidence font follow it without re-rendering React. */
+html[data-density="compact"] {
+  --mt-row-h: var(--mt-row-h-compact);
+  --mt-font-evidence: 11px;
+  --mt-font-table: 12px;
+}
+
+.mt-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--mt-font-table);
+  text-align: left;
+}
+
+.mt-table th {
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--mt-muted);
+}
+
+.mt-table td {
+  height: var(--mt-row-h);
+  padding: 6px 10px;
+  vertical-align: middle;
+}
+
+.mt-row {
+  border-bottom: 1px solid var(--mt-border);
+  transition: background-color var(--mt-duration) var(--mt-ease);
+}
+
+.mt-row:hover {
+  background: var(--mt-elevated);
+}
+
+/* Selected row in a workspace table: a left rule plus a tinted background,
+   never colour alone (the row is also aria-selected). */
+.mt-row[aria-selected="true"] {
+  background: var(--mt-accent-soft);
+  box-shadow: inset 2px 0 0 var(--mt-accent);
+}
+
+.mt-evidence {
+  font-size: var(--mt-font-evidence);
+}
+
+/* Persistent detail pane. Below 1024px the caller renders a Sheet instead. */
+.mt-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--mt-panel-width, var(--mt-panel-default));
+  gap: 0;
+  min-height: 0;
+}
+
+.mt-workspace-panel {
+  min-width: 0;
+  border-left: 1px solid var(--mt-border-strong);
+  background: var(--mt-surface);
+  overflow-y: auto;
+}
+
+.mt-split-handle {
+  width: 6px;
+  margin-left: -6px;
+  cursor: col-resize;
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+.mt-split-handle:hover,
+.mt-split-handle:focus-visible {
+  background: var(--mt-split-handle-active);
+  outline: none;
+}
+
+.mt-split-handle:focus-visible {
+  outline: 2px solid var(--mt-focus);
+  outline-offset: 1px;
+}
+
+/* Provenance chip: where a value came from, not how bad it is. */
+.mt-layer-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  border: 1px solid currentcolor;
+  border-radius: var(--mt-radius-sm);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.mt-layer-chip[data-layer="observed"] {
+  color: var(--mt-layer-observed);
+}
+
+.mt-layer-chip[data-layer="inferred"] {
+  color: var(--mt-layer-inferred);
+}
+
+.mt-layer-chip[data-layer="external"] {
+  color: var(--mt-layer-external);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mt-row,
+  .mt-live-sweep > span {
+    transition: none;
   }
 }

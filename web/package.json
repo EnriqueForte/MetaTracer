@@ -11,7 +11,8 @@
     "test": "vitest run && node --test scripts/coexist-proxy.test.mjs scripts/dev-with-api.test.mjs scripts/routing-contract.test.mjs",
     "coexist": "node scripts/coexist-proxy.mjs",
     "test:e2e": "playwright test",
-    "generate:api": "openapi-typescript ../spikes/web-v2-contract/openapi.json -o src/lib/api/generated/schema.d.ts"
+    "generate:api": "openapi-typescript ../spikes/web-v2-contract/openapi.json -o src/lib/api/generated/schema.d.ts",
+    "generate:contract": "cd .. && .venv/Scripts/python.exe spikes/web-v2-contract/export_openapi.py && cd web && npm run generate:api"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "1.1.23",

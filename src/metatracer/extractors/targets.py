@@ -13,8 +13,29 @@ from metatracer.core.exceptions import SecurityViolationError
 from metatracer.core.logging import sanitize_for_log
 from metatracer.core.safety.scope import ScopeValidator
 
+# OOXML and ODF. Legacy OLE (.doc/.xls/.ppt) is not in this list: the
+# extractor only reads ZIP packages.
+OFFICE_EXTENSIONS = (
+    ".docx",
+    ".xlsx",
+    ".pptx",
+    ".docm",
+    ".xlsm",
+    ".pptm",
+    ".odt",
+    ".ods",
+    ".odp",
+)
 # Document extensions the crawler and resolver recognize (subtask 1.1.2).
-DOCUMENT_EXTENSIONS = (".pdf", ".jpg", ".jpeg", ".png", ".tiff", ".tif", ".webp")
+DOCUMENT_EXTENSIONS = (
+    ".pdf",
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".tiff",
+    ".tif",
+    ".webp",
+) + OFFICE_EXTENSIONS
 # First-class JS assets (TASK-09): downloaded like documents, not crawled as pages.
 SCRIPT_EXTENSIONS = (".js",)
 FILE_EXTENSIONS = DOCUMENT_EXTENSIONS + SCRIPT_EXTENSIONS

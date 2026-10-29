@@ -85,6 +85,7 @@ from metatracer.db.engine import create_db_engine, create_session_factory, init_
 from metatracer.db.models import ExtractionStatus, ReasoningDepth, Run, RunStatus
 from metatracer.db.repositories import AssetRepository, RunRepository
 from metatracer.detectors.pipeline import DetectionPipeline
+from metatracer.extractors.budget import CrawlBudget
 from metatracer.extractors.ingest import _EXTRACTION_INCOMPLETE, IngestionPipeline
 from metatracer.reports.bounty import BountyExporter
 from metatracer.reports.builder import DEFAULT_REPORTS_DIR, ReportBuilder
@@ -203,6 +204,11 @@ class ScanRequest(BaseModel):
     # terminal webhook payload. Pipeline stages and safety gates are
     # identical; only the notification gains the delta counter.
     watch: bool = False
+    # Fase 2: explicit crawl limits. Absent (None) keeps the historical
+    # behaviour — one page, the configured asset cap — and is the reason an
+    # existing client keeps working unchanged. The resolved snapshot is
+    # persisted on the Run so the coverage view can say which limit stopped it.
+    budget: CrawlBudget | None = None
 
     @field_validator("targets", "scope_domains")
     @classmethod
@@ -787,10 +793,16 @@ class ScanOrchestratorService:
         edits/deletes of the Scope cannot alter past runs — the Run owns its
         scope snapshot. ``scope_id`` was already normalized into one-element
         ``scope_ids`` by :class:`ScanRequest`.
+
+        Fase 2: the resolved crawl budget is snapshotted onto the Run as the
+        initial ``ingestion_stats`` (counters still zero). Ingestion reads it
+        back, so what the coverage view shows is exactly what the operator
+        authorised — editing a later default never rewrites a past run.
         """
         scope_domains = request.scope_domains or []
         if request.scope_ids is not None:
             scope_domains = await self._resolve_scope_domains_many(request.scope_ids)
+        budget = request.budget or CrawlBudget.from_settings(self._settings)
         async with self._session_factory() as session:
             return await RunRepository(session).create(
                 Run(
@@ -798,6 +810,9 @@ class ScanOrchestratorService:
                     allowed_scope=json.dumps(scope_domains),
                     scope_confirmed=True,
                     reasoning_depth=request.reasoning_depth,
+                    ingestion_stats=json.dumps(
+                        {"budget": budget.describe(), "limits_hit": []}, ensure_ascii=False
+                    ),
                 )
             )
 

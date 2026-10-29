@@ -1,5 +1,10 @@
 # Mapa de componentes — MetaTracer
 
+> **HISTÓRICO — no usar como contrato.** Mapea plantillas Jinja de la Web V1, retirada en
+> T11 (ADR-0016). Las rutas `src/metatracer/api/templates/` y `static/` ya no existen.
+> Mapa vigente: sección "Mapa de componentes reutilizables" de la propuesta de plataforma
+> y los componentes en `web/src/components/`.
+
 Cada plantilla actual → Keep / Refactor / Replace. No hay Replace de página: ninguna se tira ni se fusiona en una ruta nueva. “Refactor” significa markup y CSS, con el contrato Alpine y de red intacto.
 
 Partials nuevos, opcionales, bajo `src/metatracer/api/templates/components/`. Solo si el JS de la página no se parte.

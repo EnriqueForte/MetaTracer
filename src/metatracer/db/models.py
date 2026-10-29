@@ -68,6 +68,9 @@ class SkipReason(StrEnum):
     out_of_scope = "out_of_scope"
     duplicate_hash = "duplicate_hash"
     empty_body = "empty_body"
+    # Courtesy from robots.txt. Not a scope decision and not evidence the URL
+    # is absent: the body was never requested.
+    robots_disallow = "robots_disallow"
 
 
 class FindingType(StrEnum):
@@ -76,6 +79,8 @@ class FindingType(StrEnum):
     internal_path = "internal_path"
     software_version = "software_version"
     debug_comment = "debug_comment"
+    internal_endpoint = "internal_endpoint"
+    cloud_storage = "cloud_storage"
 
 
 class DetectorMethod(StrEnum):
@@ -96,6 +101,33 @@ class Severity(StrEnum):
     medium = "medium"
     low = "low"
     info = "info"
+
+
+class CorrelationKind(StrEnum):
+    """What a shared value is. Not a finding type and not an identity.
+
+    ``internal_endpoint`` is written by the internal-endpoint detector.
+    ``author_string`` groups an author field (ADR-0009): it is not a finding.
+    """
+
+    email = "email"
+    gps_point = "gps_point"
+    internal_endpoint = "internal_endpoint"
+    software_version = "software_version"
+    document_id = "document_id"
+    device_serial = "device_serial"
+    author_string = "author_string"
+
+
+class InvestigationStatus(StrEnum):
+    """Lifecycle of an investigation (Fase 3).
+
+    Grouping only. Every authenticated user of the install can see every
+    investigation; closing one does not hide its runs.
+    """
+
+    open = "open"
+    closed = "closed"
 
 
 class TriageStatus(StrEnum):
@@ -156,6 +188,70 @@ class Run(SQLModel, table=True):
     # NULL when the agents did not run. ReportBuilder prefers it over the
     # heuristic hygiene note (TASK-04, 4.1.2).
     executive_summary: str | None = Field(default=None, sa_type=Text)
+    # Fase 2: JSON snapshot of the crawl budget and what actually happened
+    # (pages, queued assets, bytes, elapsed, limits reached). NULL for runs
+    # recorded before this column existed — the coverage endpoint reports
+    # ``counters_recorded=False`` instead of inventing a number.
+    ingestion_stats: str | None = Field(default=None, sa_type=Text)
+    # Fase 3: nullable on purpose. A run with no investigation is ungrouped;
+    # grouping never hides it from the rest of the install.
+    investigation_id: str | None = Field(default=None, foreign_key="investigation.id", index=True)
+
+
+class Investigation(SQLModel, table=True):
+    """A named group of runs (Fase 3).
+
+    It does not isolate clients. Triage decided on one run is suggested on
+    the same finding in another run of the group, and stays a suggestion
+    until an operator applies it.
+    """
+
+    __tablename__ = "investigation"
+
+    id: str = Field(default_factory=_new_uuid, primary_key=True)
+    name: str = Field(index=True, unique=True)
+    description: str | None = Field(default=None, sa_type=Text)
+    status: InvestigationStatus = Field(default=InvestigationStatus.open)
+    created_at: datetime = Field(default_factory=_utc_now, sa_type=DateTime(timezone=True))
+
+
+class ValueEntity(SQLModel, table=True):
+    """One normalized value seen in metadata. Shared hash, not shared identity.
+
+    ``occurrences`` is the number of distinct assets linked to this value.
+    ``first_seen_run_id`` stays on the run that recorded it first.
+    """
+
+    __tablename__ = "value_entity"
+    __table_args__ = (UniqueConstraint("kind", "value_hash", name="uq_value_entity_kind_hash"),)
+
+    id: str = Field(default_factory=_new_uuid, primary_key=True)
+    kind: CorrelationKind = Field(index=True)
+    value_hash: str = Field(index=True)
+    value_norm: str = Field(sa_type=Text)
+    first_seen_run_id: str = Field(foreign_key="run.id", index=True)
+    occurrences: int = 0
+
+
+class AssetValue(SQLModel, table=True):
+    """Provenance of one value on one asset. Grouping never deletes the field."""
+
+    __tablename__ = "asset_value"
+    __table_args__ = (
+        UniqueConstraint(
+            "asset_id",
+            "entity_id",
+            "namespace",
+            "key",
+            name="uq_asset_value_provenance",
+        ),
+    )
+
+    id: str = Field(default_factory=_new_uuid, primary_key=True)
+    asset_id: str = Field(foreign_key="asset.id", index=True)
+    entity_id: str = Field(foreign_key="value_entity.id", index=True)
+    namespace: str
+    key: str
 
 
 class Asset(SQLModel, table=True):
@@ -179,7 +275,8 @@ class RawMetadataItem(SQLModel, table=True):
     """One metadata key/value extracted from an asset.
 
     ``namespace`` is a plain string by contract (expected values: ``exif``,
-    ``xmp``, ``pdfinfo``, ``iptc``, ``http``, ``html``, ``js``). ``value`` is
+    ``xmp``, ``pdfinfo``, ``iptc``, ``http``, ``html``, ``js``, ``ooxml``,
+    ``odf``). ``value`` is
     always sanitized text, never bytes; extractors truncate it to ~2 KB with a
     truncation marker.
     """

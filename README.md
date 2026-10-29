@@ -22,8 +22,8 @@ keyset-paginated run history). Closed: **v3.0** platform (headless watch with
 deterministic deltas — `metatracer watch`; PostgreSQL+pgvector; basic auth with
 session cookies, CSRF and operator/viewer roles — `METATRACER_AUTH_ENABLED`),
 **v3.1** (multi-user registration with first-run setup, admin panel and one-time
-invitations; **Web UI redesign** — design system `.mt-*`, Tailwind compiled offline and
-Alpine CSP vendored under `/static`, no CDN scripts) and **v3.2** (hardening after the
+invitations; **Web UI redesign** — design system `.mt-*`, Tailwind compiled offline; the
+Alpine build served from `/static` was the V1 asset and is gone since T11) and **v3.2** (hardening after the
 2026-10-03 audit, TASK-27 → TASK-35: `trust_env=False`, auth-required public bind,
 webhook HMAC, CSV formula neutralization, XMP pre-inflate cap, run recovery/abort,
 agent output integrity, GDPR retention, API authz, webhook retries, detector precision,
@@ -32,7 +32,8 @@ Web V2 UX).
 Suite verified on 2026-10-23: **787 passed, 6 skipped** (e2e included, loopback test
 flag); coverage **91.30%** on core/detectors/extractors/reports (DoD ≥85%); `ruff`
 clean. PostgreSQL integration tests skip when no server is reachable (local Docker redir
-not supported).
+not supported). Fast loop re-verified on 2026-10-25: **751 passed, 6 skipped**
+(`pytest -m "not e2e"`).
 
 See `.aicontext/tasks/`. Architecture tour (Spanish): `.aicontext/walkthrough.md`.
 

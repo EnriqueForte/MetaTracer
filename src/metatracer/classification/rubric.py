@@ -42,6 +42,11 @@ HEURISTIC_CEILINGS: dict[FindingType, Severity] = {
     FindingType.internal_path: Severity.high,
     FindingType.software_version: Severity.low,
     FindingType.debug_comment: Severity.critical,
+    # An internal address in a metadata field is a lead, not a proven foothold.
+    FindingType.internal_endpoint: Severity.medium,
+    # The snippet is a storage URL. The product never requests it, so the
+    # ceiling stays high: exposure of the bucket is for the analyst to check.
+    FindingType.cloud_storage: Severity.high,
 }
 
 
@@ -84,6 +89,8 @@ SEVERITY RUBRIC (source of truth, TASK-03):
 
 Heuristic ceilings: gps <= high; software_version <= low; email <= medium;
 internal_path <= high; debug_comment <= critical (only with a secret marker
-in the snippet). When evidence is ambiguous, choose one level lower. Never
-raise severity without text in the snippet that justifies it.
+in the snippet); internal_endpoint <= medium; cloud_storage <= high (the
+snippet is a storage URL and was not requested). When evidence is ambiguous,
+choose one level lower. Never raise severity without text in the snippet
+that justifies it.
 """

@@ -603,6 +603,489 @@
         }
       }
     },
+    "/api/runs/{run_id}/assets": {
+      "get": {
+        "tags": [
+          "workspace"
+        ],
+        "summary": "List Assets",
+        "description": "Inventory of the run's assets, oldest first, with field/finding counts.",
+        "operationId": "list_assets_api_runs__run_id__assets_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ExtractionStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by extraction status",
+              "title": "Status"
+            },
+            "description": "Filter by extraction status"
+          },
+          {
+            "name": "content_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Content-type prefix, e.g. 'image/' or 'application/pdf'",
+              "title": "Content Type"
+            },
+            "description": "Content-type prefix, e.g. 'image/' or 'application/pdf'"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "URL substring, case-insensitive",
+              "title": "Q"
+            },
+            "description": "URL substring, case-insensitive"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "Page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Page size"
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Opaque keyset anchor",
+              "title": "Cursor"
+            },
+            "description": "Opaque keyset anchor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/assets/{asset_id}/metadata": {
+      "get": {
+        "tags": [
+          "workspace"
+        ],
+        "summary": "List Asset Metadata",
+        "description": "Every stored field of one asset, in insertion order.",
+        "operationId": "list_asset_metadata_api_runs__run_id__assets__asset_id__metadata_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "asset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Asset Id"
+            }
+          },
+          {
+            "name": "namespace",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 32
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exact namespace",
+              "title": "Namespace"
+            },
+            "description": "Exact namespace"
+          },
+          {
+            "name": "key",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exact field key",
+              "title": "Key"
+            },
+            "description": "Exact field key"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Substring of the value or the key",
+              "title": "Q"
+            },
+            "description": "Substring of the value or the key"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Opaque keyset anchor",
+              "title": "Cursor"
+            },
+            "description": "Opaque keyset anchor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/metadata": {
+      "get": {
+        "tags": [
+          "workspace"
+        ],
+        "summary": "List Run Metadata",
+        "description": "Cross-asset field search for the whole run (the metadata explorer).",
+        "operationId": "list_run_metadata_api_runs__run_id__metadata_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "namespace",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 32
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exact namespace",
+              "title": "Namespace"
+            },
+            "description": "Exact namespace"
+          },
+          {
+            "name": "key",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exact field key",
+              "title": "Key"
+            },
+            "description": "Exact field key"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Substring of the value or the key",
+              "title": "Q"
+            },
+            "description": "Substring of the value or the key"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Opaque keyset anchor",
+              "title": "Cursor"
+            },
+            "description": "Opaque keyset anchor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/correlations": {
+      "get": {
+        "tags": [
+          "workspace"
+        ],
+        "summary": "List Correlations",
+        "description": "Shared values that touch this run. A shared value is not a shared identity.",
+        "operationId": "list_correlations_api_runs__run_id__correlations_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorrelationListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/coverage": {
+      "get": {
+        "tags": [
+          "workspace"
+        ],
+        "summary": "Get Coverage",
+        "description": "Counters of what the run stored, with the honest limits caveat.",
+        "operationId": "get_coverage_api_runs__run_id__coverage_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoverageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/scopes": {
       "get": {
         "tags": [
@@ -815,6 +1298,254 @@
         }
       }
     },
+    "/api/investigations": {
+      "get": {
+        "tags": [
+          "investigations"
+        ],
+        "summary": "List Investigations",
+        "operationId": "list_investigations_api_investigations_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvestigationListResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "investigations"
+        ],
+        "summary": "Create",
+        "operationId": "create_api_investigations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvestigationCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvestigationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/investigations/{investigation_id}": {
+      "get": {
+        "tags": [
+          "investigations"
+        ],
+        "summary": "Get Investigation",
+        "operationId": "get_investigation_api_investigations__investigation_id__get",
+        "parameters": [
+          {
+            "name": "investigation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Investigation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvestigationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "investigations"
+        ],
+        "summary": "Update Investigation",
+        "operationId": "update_investigation_api_investigations__investigation_id__put",
+        "parameters": [
+          {
+            "name": "investigation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Investigation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvestigationUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvestigationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/investigations/{investigation_id}/runs": {
+      "post": {
+        "tags": [
+          "investigations"
+        ],
+        "summary": "Attach",
+        "operationId": "attach_api_investigations__investigation_id__runs_post",
+        "parameters": [
+          {
+            "name": "investigation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Investigation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachRunRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvestigationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/investigations/{investigation_id}/runs/{run_id}": {
+      "delete": {
+        "tags": [
+          "investigations"
+        ],
+        "summary": "Detach",
+        "operationId": "detach_api_investigations__investigation_id__runs__run_id__delete",
+        "parameters": [
+          {
+            "name": "investigation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Investigation Id"
+            }
+          },
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/stats": {
       "get": {
         "tags": [
@@ -843,7 +1574,7 @@
           "runs"
         ],
         "summary": "Compare",
-        "description": "Findings new in ``b``, resolved since ``a`` and present in both.",
+        "description": "How findings moved from the baseline ``a`` to the reviewed run ``b``.",
         "operationId": "compare_api_compare_get",
         "parameters": [
           {
@@ -1275,7 +2006,7 @@
           "auth"
         ],
         "summary": "Me Endpoint",
-        "description": "Diagnostic: who is the caller (never exposes hashes or tokens).",
+        "description": "Who is the caller (never exposes hashes or tokens), plus the CSRF token.\n\nThis is the V2 bootstrap: the browser reads ``csrf_token`` from this\nresponse (200 when signed in, 401 when signed out) and echoes it back in\n``X-CSRF-Token`` on mutations (MIN-01/V1+V2 parity). The server keeps the\ndouble-submit invariant: mutation headers are compared against the cookie\nwith :func:`hmac.compare_digest`; exposing the same value in the body does\nnot weaken that (an attacker cannot read the response body cross-origin).\n\nTakes over the pre-session cookie mint that the API middleware used to do\nfor this path, so the response never carries two different Set-Cookie\nvalues for ``csrf_token``.",
         "operationId": "me_endpoint_api_auth_me_get",
         "responses": {
           "200": {
@@ -1868,6 +2599,146 @@
         "title": "AssetIssue",
         "description": "One failed/skipped asset, surfaced so a broken asset is never invisible."
       },
+      "AssetListResponse": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "assets": {
+            "items": {
+              "$ref": "#/components/schemas/AssetResponse"
+            },
+            "type": "array",
+            "title": "Assets"
+          },
+          "has_more": {
+            "type": "boolean",
+            "title": "Has More",
+            "default": false
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "total",
+          "assets"
+        ],
+        "title": "AssetListResponse",
+        "description": "``total`` is the run-wide count; ``has_more``/``next_cursor`` page it."
+      },
+      "AssetResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source_url": {
+            "type": "string",
+            "title": "Source Url"
+          },
+          "final_url": {
+            "type": "string",
+            "title": "Final Url"
+          },
+          "content_type": {
+            "type": "string",
+            "title": "Content Type"
+          },
+          "file_hash_sha256": {
+            "type": "string",
+            "title": "File Hash Sha256"
+          },
+          "file_size_bytes": {
+            "type": "integer",
+            "title": "File Size Bytes"
+          },
+          "extraction_status": {
+            "$ref": "#/components/schemas/ExtractionStatus"
+          },
+          "skip_reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SkipReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "discovered_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Discovered At"
+          },
+          "metadata_fields": {
+            "type": "integer",
+            "title": "Metadata Fields"
+          },
+          "findings": {
+            "type": "integer",
+            "title": "Findings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source_url",
+          "final_url",
+          "content_type",
+          "file_hash_sha256",
+          "file_size_bytes",
+          "extraction_status",
+          "skip_reason",
+          "error_message",
+          "discovered_at",
+          "metadata_fields",
+          "findings"
+        ],
+        "title": "AssetResponse",
+        "description": "One asset row of the inventory: no bytes, no metadata values."
+      },
+      "AttachRunRequest": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Run Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "run_id"
+        ],
+        "title": "AttachRunRequest"
+      },
       "ComparedFindingResponse": {
         "properties": {
           "finding_id": {
@@ -1902,6 +2773,27 @@
           "triage_status": {
             "$ref": "#/components/schemas/TriageStatus",
             "default": "open"
+          },
+          "previous_severity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Severity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "prior_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prior Run Id"
           }
         },
         "type": "object",
@@ -1957,6 +2849,317 @@
           "low"
         ],
         "title": "Confidence"
+      },
+      "CorrelationGroupResponse": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/CorrelationKind"
+          },
+          "value_norm": {
+            "type": "string",
+            "title": "Value Norm"
+          },
+          "occurrences": {
+            "type": "integer",
+            "title": "Occurrences"
+          },
+          "first_seen_run_id": {
+            "type": "string",
+            "title": "First Seen Run Id"
+          },
+          "notice": {
+            "type": "string",
+            "title": "Notice"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/CorrelationMemberResponse"
+            },
+            "type": "array",
+            "title": "Members"
+          },
+          "members_truncated": {
+            "type": "boolean",
+            "title": "Members Truncated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "value_norm",
+          "occurrences",
+          "first_seen_run_id",
+          "notice",
+          "members",
+          "members_truncated"
+        ],
+        "title": "CorrelationGroupResponse",
+        "description": "One shared value. ``notice`` is the product sentence: not an identity."
+      },
+      "CorrelationKind": {
+        "type": "string",
+        "enum": [
+          "email",
+          "gps_point",
+          "internal_endpoint",
+          "software_version",
+          "document_id",
+          "device_serial",
+          "author_string"
+        ],
+        "title": "CorrelationKind",
+        "description": "What a shared value is. Not a finding type and not an identity.\n\n``internal_endpoint`` is written by the internal-endpoint detector.\n``author_string`` groups an author field (ADR-0009): it is not a finding."
+      },
+      "CorrelationListResponse": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/CorrelationGroupResponse"
+            },
+            "type": "array",
+            "title": "Groups"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "total",
+          "groups"
+        ],
+        "title": "CorrelationListResponse"
+      },
+      "CorrelationMemberResponse": {
+        "properties": {
+          "asset_id": {
+            "type": "string",
+            "title": "Asset Id"
+          },
+          "asset_url": {
+            "type": "string",
+            "title": "Asset Url"
+          },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "namespace": {
+            "type": "string",
+            "title": "Namespace"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "asset_id",
+          "asset_url",
+          "run_id",
+          "namespace",
+          "key"
+        ],
+        "title": "CorrelationMemberResponse"
+      },
+      "CoverageResponse": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "total_assets": {
+            "type": "integer",
+            "title": "Total Assets"
+          },
+          "ok": {
+            "type": "integer",
+            "title": "Ok"
+          },
+          "skipped": {
+            "type": "integer",
+            "title": "Skipped"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          },
+          "bytes_downloaded": {
+            "type": "integer",
+            "title": "Bytes Downloaded"
+          },
+          "metadata_fields": {
+            "type": "integer",
+            "title": "Metadata Fields"
+          },
+          "findings": {
+            "type": "integer",
+            "title": "Findings"
+          },
+          "by_skip_reason": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "By Skip Reason"
+          },
+          "by_namespace": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "By Namespace"
+          },
+          "counters_recorded": {
+            "type": "boolean",
+            "title": "Counters Recorded"
+          },
+          "limits_hit": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Limits Hit"
+          },
+          "budget": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Budget"
+          },
+          "pages_crawled": {
+            "type": "integer",
+            "title": "Pages Crawled"
+          },
+          "assets_queued": {
+            "type": "integer",
+            "title": "Assets Queued"
+          },
+          "elapsed_seconds": {
+            "type": "number",
+            "title": "Elapsed Seconds"
+          },
+          "robots_checked": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Robots Checked"
+          },
+          "robots_omitted": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Robots Omitted"
+          },
+          "sitemaps_ignored": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sitemaps Ignored"
+          },
+          "sitemaps_truncated": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sitemaps Truncated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "status",
+          "total_assets",
+          "ok",
+          "skipped",
+          "failed",
+          "bytes_downloaded",
+          "metadata_fields",
+          "findings",
+          "by_skip_reason",
+          "by_namespace",
+          "counters_recorded",
+          "limits_hit",
+          "budget",
+          "pages_crawled",
+          "assets_queued",
+          "elapsed_seconds"
+        ],
+        "title": "CoverageResponse",
+        "description": "What the run collected, split by extraction status.\n\n``counters_recorded`` is ``false`` until the crawl budget is persisted\n(Fase 2): the UI must say \"not recorded\" rather than show a zero that looks\nlike \"nothing was found\"."
+      },
+      "CrawlBudget": {
+        "properties": {
+          "depth": {
+            "type": "integer",
+            "title": "Depth",
+            "default": 1
+          },
+          "max_pages": {
+            "type": "integer",
+            "title": "Max Pages",
+            "default": 1
+          },
+          "max_assets": {
+            "type": "integer",
+            "title": "Max Assets",
+            "default": 50
+          },
+          "max_total_bytes": {
+            "type": "integer",
+            "title": "Max Total Bytes",
+            "default": 209715200
+          },
+          "max_seconds": {
+            "type": "integer",
+            "title": "Max Seconds",
+            "default": 900
+          },
+          "max_concurrency": {
+            "type": "integer",
+            "title": "Max Concurrency",
+            "default": 3
+          },
+          "honor_robots": {
+            "type": "boolean",
+            "title": "Honor Robots",
+            "default": true
+          }
+        },
+        "type": "object",
+        "title": "CrawlBudget",
+        "description": "The operator's crawl limits for one run; validated on construction.\n\nDefaults reproduce the historical behaviour exactly for the caps that\nexisted (one page, 50 assets) so an unconfigured run is not silently\nwider than before. The new limits default to values that a normal\none-page audit never reaches."
       },
       "DashboardStatsResponse": {
         "properties": {
@@ -2022,6 +3225,15 @@
         ],
         "title": "DashboardStatsResponse",
         "description": "GET /api/stats: one aggregated snapshot of the local data (TASK-11).\n\nRead-only and agent-agnostic: built entirely from persisted counters, so\nit works with zero runs and with zero agent_log rows."
+      },
+      "DetectorMethod": {
+        "type": "string",
+        "enum": [
+          "rule",
+          "heuristic",
+          "agent"
+        ],
+        "title": "DetectorMethod"
       },
       "ExtractionStatus": {
         "type": "string",
@@ -2224,6 +3436,37 @@
               }
             ],
             "title": "Triaged At"
+          },
+          "asset_id": {
+            "type": "string",
+            "title": "Asset Id",
+            "default": ""
+          },
+          "detector_method": {
+            "$ref": "#/components/schemas/DetectorMethod",
+            "default": "rule"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "triage_suggestion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TriageSuggestionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -2254,7 +3497,9 @@
           "email",
           "internal_path",
           "software_version",
-          "debug_comment"
+          "debug_comment",
+          "internal_endpoint",
+          "cloud_storage"
         ],
         "title": "FindingType"
       },
@@ -2311,6 +3556,187 @@
         ],
         "title": "ImportResponse",
         "description": "Number of rows actually inserted by a portable-KB import (TASK-17)."
+      },
+      "InvestigationCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "InvestigationCreate"
+      },
+      "InvestigationListResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "investigations": {
+            "items": {
+              "$ref": "#/components/schemas/InvestigationResponse"
+            },
+            "type": "array",
+            "title": "Investigations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "investigations"
+        ],
+        "title": "InvestigationListResponse"
+      },
+      "InvestigationResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "status": {
+            "$ref": "#/components/schemas/InvestigationStatus"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "run_count": {
+            "type": "integer",
+            "title": "Run Count"
+          },
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/InvestigationRunResponse"
+            },
+            "type": "array",
+            "title": "Runs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "status",
+          "created_at",
+          "run_count"
+        ],
+        "title": "InvestigationResponse"
+      },
+      "InvestigationRunResponse": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "run_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Ref"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "target": {
+            "type": "string",
+            "title": "Target"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "run_ref",
+          "status",
+          "target",
+          "started_at"
+        ],
+        "title": "InvestigationRunResponse"
+      },
+      "InvestigationStatus": {
+        "type": "string",
+        "enum": [
+          "open",
+          "closed"
+        ],
+        "title": "InvestigationStatus",
+        "description": "Lifecycle of an investigation (Fase 3).\n\nGrouping only. Every authenticated user of the install can see every\ninvestigation; closing one does not hide its runs."
+      },
+      "InvestigationUpdate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "status": {
+            "$ref": "#/components/schemas/InvestigationStatus"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "status"
+        ],
+        "title": "InvestigationUpdate"
       },
       "InvitationCreate": {
         "properties": {
@@ -2518,6 +3944,92 @@
         "title": "LoginRequest",
         "description": "Body of POST /api/auth/login."
       },
+      "MetadataItemResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "asset_id": {
+            "type": "string",
+            "title": "Asset Id"
+          },
+          "asset_url": {
+            "type": "string",
+            "title": "Asset Url"
+          },
+          "namespace": {
+            "type": "string",
+            "title": "Namespace"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "value": {
+            "type": "string",
+            "title": "Value"
+          },
+          "truncated": {
+            "type": "boolean",
+            "title": "Truncated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "asset_id",
+          "asset_url",
+          "namespace",
+          "key",
+          "value",
+          "truncated"
+        ],
+        "title": "MetadataItemResponse",
+        "description": "One stored field. ``truncated`` reflects the extractor's marker."
+      },
+      "MetadataListResponse": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MetadataItemResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "has_more": {
+            "type": "boolean",
+            "title": "Has More",
+            "default": false
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "total",
+          "items"
+        ],
+        "title": "MetadataListResponse"
+      },
       "NotificationListResponse": {
         "properties": {
           "total": {
@@ -2663,6 +4175,48 @@
             },
             "type": "array",
             "title": "Persistent"
+          },
+          "reappeared": {
+            "items": {
+              "$ref": "#/components/schemas/ComparedFindingResponse"
+            },
+            "type": "array",
+            "title": "Reappeared",
+            "default": []
+          },
+          "severity_changed": {
+            "items": {
+              "$ref": "#/components/schemas/ComparedFindingResponse"
+            },
+            "type": "array",
+            "title": "Severity Changed",
+            "default": []
+          },
+          "limits_hit_a": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Limits Hit A",
+            "default": []
+          },
+          "limits_hit_b": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Limits Hit B",
+            "default": []
+          },
+          "coverage_recorded_a": {
+            "type": "boolean",
+            "title": "Coverage Recorded A",
+            "default": false
+          },
+          "coverage_recorded_b": {
+            "type": "boolean",
+            "title": "Coverage Recorded B",
+            "default": false
           }
         },
         "type": "object",
@@ -2674,7 +4228,7 @@
           "persistent"
         ],
         "title": "RunComparisonResponse",
-        "description": "GET /api/compare: findings new / resolved / persistent from ``a`` to ``b``."
+        "description": "GET /api/compare: how findings moved from the baseline to the reviewed run.\n\n``resolved`` means absent from the reviewed run. It is not proof the\nfinding is gone unless ``coverage_recorded_b`` is true and ``limits_hit_b``\nis empty."
       },
       "RunCreatedResponse": {
         "properties": {
@@ -2864,6 +4418,28 @@
             },
             "type": "array",
             "title": "Asset Issues"
+          },
+          "investigation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Investigation Id"
+          },
+          "investigation_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Investigation Name"
           }
         },
         "type": "object",
@@ -2944,6 +4520,16 @@
             "type": "boolean",
             "title": "Watch",
             "default": false
+          },
+          "budget": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CrawlBudget"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -3289,7 +4875,8 @@
           "too_large",
           "out_of_scope",
           "duplicate_hash",
-          "empty_body"
+          "empty_body",
+          "robots_disallow"
         ],
         "title": "SkipReason"
       },
@@ -3399,6 +4986,52 @@
         ],
         "title": "TriageStatus",
         "description": "Operator triage of a finding (TASK-35). Independent of severity.\n\nOnly an operator changes it; the agent never does. ``false_positive``\nhides the finding from exports and dashboard counts by default but keeps\nseverity and evidence untouched (rule 6)."
+      },
+      "TriageSuggestionResponse": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/TriageStatus"
+          },
+          "from_run_id": {
+            "type": "string",
+            "title": "From Run Id"
+          },
+          "from_finding_id": {
+            "type": "string",
+            "title": "From Finding Id"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "triaged_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Triaged At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "from_run_id",
+          "from_finding_id"
+        ],
+        "title": "TriageSuggestionResponse",
+        "description": "A triage decision from another run in the same investigation.\n\nDisplay only. Applying it is a separate operator request and does not\nchange severity or evidence."
       },
       "UserCreate": {
         "properties": {

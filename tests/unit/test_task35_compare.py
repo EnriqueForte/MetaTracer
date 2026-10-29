@@ -16,6 +16,8 @@ from metatracer.db.models import (
     ExtractionStatus,
     Finding,
     FindingType,
+    Investigation,
+    InvestigationStatus,
     Run,
     RunStatus,
     Severity,
@@ -41,6 +43,9 @@ async def seed_run(
     url: str = "https://acme.com/a.pdf",
     severity: Severity | None = Severity.medium,
     created_at: datetime | None = None,
+    started_at: datetime | None = None,
+    investigation_id: str | None = None,
+    ingestion_stats: str | None = None,
 ) -> Run:
     """One run, one asset (fresh id per run, like a real scan) and its findings."""
     async with session_factory() as session:
@@ -50,7 +55,11 @@ async def seed_run(
             scope_confirmed=True,
             status=RunStatus.completed,
             total_findings=len(snippets),
+            investigation_id=investigation_id,
+            ingestion_stats=ingestion_stats,
         )
+        if started_at is not None:
+            run.started_at = started_at
         session.add(run)
         await session.commit()
         await session.refresh(run)
@@ -93,6 +102,73 @@ async def test_compare_splits_new_resolved_and_persistent(session_factory) -> No
     assert [item.finding.evidence_snippet for item in result.resolved] == ["old@acme.com"]
     assert [item.finding.evidence_snippet for item in result.persistent] == ["kept@acme.com"]
     assert result.persistent[0].finding.run_id == b.id
+    assert result.reappeared == []
+    assert result.severity_changed == []
+
+
+async def test_severity_change_is_not_called_persistent(session_factory) -> None:
+    a = await seed_run(session_factory, ["kept@acme.com"], severity=Severity.medium)
+    b = await seed_run(session_factory, ["kept@acme.com"], severity=Severity.high)
+    result = await compare_runs(session_factory, a.id, b.id)
+    assert result.persistent == []
+    assert result.new == []
+    assert [item.finding.evidence_snippet for item in result.severity_changed] == ["kept@acme.com"]
+    assert result.severity_changed[0].previous_severity is Severity.medium
+    assert result.severity_changed[0].finding.severity is Severity.high
+    assert result.severity_changed[0].finding.evidence_snippet == "kept@acme.com"
+
+
+async def test_a_returning_finding_is_reappeared_only_inside_the_investigation(
+    session_factory,
+) -> None:
+    async with session_factory() as session:
+        group = Investigation(name="Acme", status=InvestigationStatus.open)
+        session.add(group)
+        await session.commit()
+        await session.refresh(group)
+        group_id = group.id
+    first = await seed_run(
+        session_factory,
+        ["back@acme.com"],
+        investigation_id=group_id,
+        started_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    baseline = await seed_run(
+        session_factory,
+        ["other@acme.com"],
+        investigation_id=group_id,
+        started_at=datetime(2026, 2, 1, tzinfo=UTC),
+    )
+    reviewed = await seed_run(
+        session_factory,
+        ["back@acme.com"],
+        investigation_id=group_id,
+        started_at=datetime(2026, 3, 1, tzinfo=UTC),
+        ingestion_stats='{"budget": {"depth": 1}, "limits_hit": ["max_pages"]}',
+    )
+    result = await compare_runs(session_factory, baseline.id, reviewed.id)
+    assert [item.finding.evidence_snippet for item in result.reappeared] == ["back@acme.com"]
+    assert result.reappeared[0].prior_run_id == first.id
+    assert result.new == []
+    assert result.limits_hit_b == ["max_pages"]
+    assert result.coverage_recorded_b is True
+    assert result.coverage_recorded_a is False
+
+    # The same gap with no shared investigation stays "new": there is no group
+    # history to say the finding came back.
+    loose_a = await seed_run(
+        session_factory, ["back@acme.com"], started_at=datetime(2026, 1, 1, tzinfo=UTC)
+    )
+    loose_b = await seed_run(
+        session_factory, ["other@acme.com"], started_at=datetime(2026, 2, 1, tzinfo=UTC)
+    )
+    loose_c = await seed_run(
+        session_factory, ["back@acme.com"], started_at=datetime(2026, 3, 1, tzinfo=UTC)
+    )
+    loose = await compare_runs(session_factory, loose_b.id, loose_c.id)
+    assert [item.finding.evidence_snippet for item in loose.new] == ["back@acme.com"]
+    assert loose.reappeared == []
+    assert loose_a.id  # the earlier ungrouped run is not consulted
 
 
 async def test_watch_delta_matches_findings_across_fresh_asset_ids(session_factory) -> None:

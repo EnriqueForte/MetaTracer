@@ -17,7 +17,7 @@ stays ``unsupported_type``. Error pages must not be recycled as HTML assets.
 from enum import StrEnum
 from urllib.parse import urlsplit
 
-from metatracer.extractors.targets import DOCUMENT_EXTENSIONS
+from metatracer.extractors.targets import DOCUMENT_EXTENSIONS, OFFICE_EXTENSIONS
 
 # Leading bytes needed to decide every signature below (RIFF....WEBP is the
 # longest lookahead: 12 bytes).
@@ -34,6 +34,20 @@ _JS_CONTENT_TYPES = frozenset(
 )
 _HTML_PATH_SUFFIXES = (".html", ".htm")
 _JS_PATH_SUFFIXES = (".js",)
+_ZIP_MAGIC = (b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08")
+_OFFICE_CONTENT_TYPES = frozenset(
+    {
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "application/vnd.ms-word.document.macroenabled.12",
+        "application/vnd.ms-excel.sheet.macroenabled.12",
+        "application/vnd.ms-powerpoint.presentation.macroenabled.12",
+        "application/vnd.oasis.opendocument.text",
+        "application/vnd.oasis.opendocument.spreadsheet",
+        "application/vnd.oasis.opendocument.presentation",
+    }
+)
 
 
 class AssetKind(StrEnum):
@@ -43,6 +57,7 @@ class AssetKind(StrEnum):
     image = "image"
     html = "html"
     javascript = "javascript"
+    office = "office"
 
 
 def sniff_asset_kind(header: bytes) -> AssetKind | None:
@@ -64,6 +79,44 @@ def sniff_asset_kind(header: bytes) -> AssetKind | None:
     return None
 
 
+# Declared types for which an extensionless URL is worth a GET. HTML is
+# deliberately absent: a nav link is not a document, and downloading every
+# in-scope page would turn the depth-1 crawl into a site mirror. Empty and
+# ``octet-stream`` stay, because the magic bytes are the real decision.
+_FETCHABLE_DECLARED_TYPES = frozenset(
+    {
+        "application/pdf",
+        "application/octet-stream",
+        "binary/octet-stream",
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/tiff",
+        "image/webp",
+        "application/javascript",
+        "text/javascript",
+        "application/ecmascript",
+        "text/ecmascript",
+    }
+    | _OFFICE_CONTENT_TYPES
+)
+
+
+def worth_fetching(content_type: str | None) -> bool:
+    """True when a HEAD response's type justifies downloading the body.
+
+    ``None`` and an empty type are accepted: the body is classified by magic
+    bytes. ``text/html`` is rejected here so extensionless page links are not
+    fetched as documents.
+    """
+    if content_type is None:
+        return True
+    base = content_type.split(";", 1)[0].strip().lower()
+    if not base:
+        return True
+    return base in _FETCHABLE_DECLARED_TYPES
+
+
 def classify_downloaded_asset(
     header: bytes,
     *,
@@ -80,15 +133,22 @@ def classify_downloaded_asset(
     if magic is not None:
         return magic
     path = urlsplit(url).path.lower()
+    # A ZIP is an office document only when the URL or the declared type says
+    # so. A random archive is not parsed. A .docx that is not a ZIP falls
+    # through to the document-extension rejection below.
+    content = content_type.split(";", 1)[0].strip().lower()
+    if header.startswith(_ZIP_MAGIC) and (
+        path.endswith(OFFICE_EXTENSIONS) or content in _OFFICE_CONTENT_TYPES
+    ):
+        return AssetKind.office
     if path.endswith(DOCUMENT_EXTENSIONS):
         return None
     # A .js URL is never recycled as HTML (error pages with text/html).
     if path.endswith(_JS_PATH_SUFFIXES):
         return AssetKind.javascript if _looks_like_text(header) else None
-    ct = content_type.split(";", 1)[0].strip().lower()
-    if ct in _HTML_CONTENT_TYPES or path.endswith(_HTML_PATH_SUFFIXES):
+    if content in _HTML_CONTENT_TYPES or path.endswith(_HTML_PATH_SUFFIXES):
         return AssetKind.html
-    if ct in _JS_CONTENT_TYPES:
+    if content in _JS_CONTENT_TYPES:
         return AssetKind.javascript if _looks_like_text(header) else None
     return None
 

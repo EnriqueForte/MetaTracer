@@ -55,6 +55,10 @@ export function RunProgress({ runId }: { runId: string }) {
   const [stages, setStages] = useState<StageState[]>(initialStages);
   const [message, setMessage] = useState("");
   const [currentAsset, setCurrentAsset] = useState("");
+  const [step, setStep] = useState<{ current: number; total: number }>({
+    current: 0,
+    total: STAGES.length,
+  });
   const [contractError, setContractError] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleted, setDeleted] = useState(false);
@@ -84,6 +88,7 @@ export function RunProgress({ runId }: { runId: string }) {
       }
       setMessage(tick.message);
       setCurrentAsset(tick.current_asset ?? "");
+      setStep({ current: tick.current_step, total: tick.total_steps });
       setStages((current) => applyProgress(current, tick));
       if (tick.stage === "completed" || tick.stage === "failed" || tick.stage === "aborted") {
         closeStream();
@@ -180,6 +185,15 @@ export function RunProgress({ runId }: { runId: string }) {
               <Button variant="ghost" className="px-2 py-1 text-xs" asChild>
                 <Link href={`/runs/compare?b=${encodeURIComponent(run.run_id)}`}>Compare</Link>
               </Button>
+              <Button variant="secondary" className="px-2 py-1 text-xs" asChild>
+                <Link href={`/runs/${encodeURIComponent(run.run_id)}/assets`}>Assets</Link>
+              </Button>
+              <Button variant="secondary" className="px-2 py-1 text-xs" asChild>
+                <Link href={`/runs/${encodeURIComponent(run.run_id)}/metadata`}>Metadata</Link>
+              </Button>
+              <Button variant="secondary" className="px-2 py-1 text-xs" asChild>
+                <Link href={`/runs/${encodeURIComponent(run.run_id)}/coverage`}>Coverage</Link>
+              </Button>
               <Button variant="ghost" className="px-2 py-1 text-xs" asChild>
                 <Link href="/runs">History</Link>
               </Button>
@@ -222,6 +236,8 @@ export function RunProgress({ runId }: { runId: string }) {
           message={message}
           currentAsset={currentAsset}
           contractError={contractError}
+          currentStep={step.current}
+          totalSteps={step.total}
         />
       ) : null}
 

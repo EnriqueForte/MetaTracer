@@ -71,8 +71,10 @@ crawleado se reutiliza: **sin segundo GET**.
 
 ## Namespaces (contrato cerrado)
 
-`exif`, `xmp`, `pdfinfo`, `iptc`, `http`, `html`, `js`. Añadir uno exige
-actualizar antes `.aicontext/tasks/README.md`.
+`exif`, `xmp`, `pdfinfo`, `iptc`, `http`, `html`, `js`, `ooxml`, `odf`. Añadir uno exige
+actualizar antes `.aicontext/tasks/README.md`. OOXML/ODF (`office.py`) leen solo
+las propiedades del ZIP (`docProps/*.xml`, `meta.xml`), con tope de miembros,
+tamaño declarado y ratio, y nunca el cuerpo del documento.
 
 ## Sanitización (`sanitize.py`)
 

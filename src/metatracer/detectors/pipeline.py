@@ -31,6 +31,7 @@ from metatracer.db.repositories import (
     RunRepository,
 )
 from metatracer.detectors.consolidator import consolidate_drafts
+from metatracer.detectors.correlate import collect_observations
 from metatracer.detectors.registry import DetectorRegistry
 
 logger = logging.getLogger("metatracer.detectors.pipeline")
@@ -59,6 +60,10 @@ class DetectionPipeline:
 
     async def execute(self, run_id: str) -> DetectionSummary:
         """Detect findings on every successfully extracted asset of the run."""
+        # Imported here: services/__init__ loads the orchestrator, which loads
+        # this module. A top-level import would be a cycle.
+        from metatracer.services.correlation import record_observations
+
         set_run_context(run_id)
         async with self._session_factory() as session:
             run = await RunRepository(session).get(run_id)
@@ -80,8 +85,6 @@ class DetectionPipeline:
                 items = await RawMetadataRepository(session).list_by_asset(asset.id)
             drafts = self._registry.detect_all(items)
             findings = consolidate_drafts(run_id, asset.id, drafts)
-            if not findings:
-                continue
             async with self._session_factory() as session:
                 repo = FindingRepository(session)
                 existing = {f.dedup_signature for f in await repo.list_by_asset(asset.id)}
@@ -89,6 +92,10 @@ class DetectionPipeline:
                 if fresh:
                     await repo.create_many(fresh)
                     findings_new += len(fresh)
+                stored = await FindingRepository(session).list_by_asset(asset.id)
+                observations = collect_observations(items, stored)
+                if observations:
+                    await record_observations(session, run_id, asset.id, observations)
 
         findings_total = await self._finalize_run(run_id)
         summary = DetectionSummary(

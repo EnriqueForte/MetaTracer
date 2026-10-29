@@ -99,6 +99,58 @@ describe("Finding triage in Web V2 (TASK-35)", () => {
     expect(await within(triage).findByText("False positive", { selector: "span" })).toBeInTheDocument();
   });
 
+  it("offers another run's triage as a suggestion and applies it only on click", async () => {
+    const puts = stub("operator");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.includes("/api/auth/me")) {
+          return new Response(JSON.stringify({ authenticated: true, username: "ada", role: "operator" }), {
+            status: 200,
+          });
+        }
+        if (url.includes("/triage")) {
+          const body = JSON.parse(String(init?.body));
+          puts.push({ url, body });
+          return new Response(
+            JSON.stringify({
+              finding_id: "real",
+              triage_status: body.status,
+              triage_note: body.note,
+              triaged_by: "u1",
+              triaged_at: "2026-10-05T19:00:00Z",
+              severity: "medium",
+              evidence_snippet: "real@acme.com",
+            }),
+            { status: 200 },
+          );
+        }
+        const suggested = {
+          ...finding("real", "open", "real@acme.com"),
+          triage_suggestion: {
+            status: "confirmed",
+            from_run_id: "run-a",
+            from_finding_id: "prior",
+            note: "checked on the first run",
+            triaged_at: "2026-10-01T00:00:00Z",
+          },
+        };
+        return new Response(JSON.stringify({ findings: [suggested] }), { status: 200 });
+      }),
+    );
+    render(<FindingsPanel runId="run-1" totalAssets={1} />);
+    expect(await screen.findByText("Suggested: Confirmed")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("real@acme.com"));
+    const triage = await screen.findByRole("region", { name: "Triage" });
+    expect(within(triage).getByText(/Suggested from another run/i)).toBeInTheDocument();
+    expect(within(triage).getByText(/does not change severity or evidence/i)).toBeInTheDocument();
+    fireEvent.click(within(triage).getByRole("button", { name: "Apply suggestion" }));
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0].body).toEqual({ status: "confirmed", note: "checked on the first run" });
+    expect(puts[0].body).not.toHaveProperty("severity");
+  });
+
   it("shows the triage status read-only to a viewer", async () => {
     stub("viewer");
     render(<FindingsPanel runId="run-1" totalAssets={1} />);

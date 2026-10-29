@@ -1,5 +1,11 @@
 # Design system — MetaTracer
 
+> **HISTÓRICO — no usar como contrato.** Describe la Web V1 (FastAPI + Jinja2 + Alpine),
+> retirada en T11 (ADR-0016). `src/metatracer/api/static/metatracer.css` y
+> `src/metatracer/api/templates/` ya no existen.
+> Contrato vigente: [`design-system-v2.md`](design-system-v2.md) e implementación en
+> `web/src/app/globals.css`.
+
 Contrato visual para `ui-engineer`. Implementación: custom properties y clases de componente en `src/metatracer/api/static/metatracer.css`. Tailwind 3.4.16 permanece para layout (`flex`, `grid`, `gap`, `min-w-0`, `overflow-x-auto`, `sr-only`, `contents`). No añadir `tailwind.config` en página. No usar `emerald-*` como acento de producto.
 
 Las cadenas de UI de este documento están en inglés. Los comentarios del CSS pueden ir en español.

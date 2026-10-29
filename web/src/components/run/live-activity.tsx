@@ -51,6 +51,9 @@ type Props = {
   message: string;
   currentAsset: string;
   contractError: boolean;
+  /** Step the server just reported, and the pipeline total (SSE event). */
+  currentStep: number;
+  totalSteps: number;
 };
 
 export function LiveActivity({
@@ -62,6 +65,8 @@ export function LiveActivity({
   message,
   currentAsset,
   contractError,
+  currentStep,
+  totalSteps,
 }: Props) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -70,6 +75,7 @@ export function LiveActivity({
   }, []);
 
   const copy = activityCopy(totalAssets, totalFindings, stageLabel);
+  const percent = totalSteps > 0 ? Math.min(100, Math.round((currentStep / totalSteps) * 100)) : 0;
 
   return (
     <section className="mt-live" aria-label="Scan activity" aria-live="polite">
@@ -83,8 +89,17 @@ export function LiveActivity({
           {formatElapsed(startedAt, now)}
         </p>
       </div>
-      <div className="mt-live-sweep" aria-hidden="true">
-        <span />
+      {/* Real progress: the server's step over the pipeline total. */}
+      <div
+        className="mt-live-sweep"
+        role="progressbar"
+        aria-label="Scan progress"
+        aria-valuemin={0}
+        aria-valuemax={totalSteps}
+        aria-valuenow={currentStep}
+        aria-valuetext={`Step ${currentStep} of ${totalSteps}`}
+      >
+        <span style={{ width: `${percent}%` }} />
       </div>
       <p className="text-sm text-mt-muted">{copy.detail}</p>
       <dl className="mt-live-counts">

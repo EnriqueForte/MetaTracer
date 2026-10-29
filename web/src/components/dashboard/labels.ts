@@ -4,6 +4,8 @@ const TYPE_LABELS: Record<string, string> = {
   internal_path: "Internal path",
   software_version: "Software version",
   debug_comment: "Debug comment",
+  internal_endpoint: "Internal endpoint",
+  cloud_storage: "Cloud storage",
 };
 
 const TYPE_FILL: Record<string, string> = {
@@ -12,6 +14,8 @@ const TYPE_FILL: Record<string, string> = {
   internal_path: "bg-mt-chart-3",
   software_version: "bg-mt-chart-4",
   debug_comment: "bg-mt-chart-5",
+  internal_endpoint: "bg-mt-chart-1",
+  cloud_storage: "bg-mt-chart-2",
 };
 
 function typeLabel(type: string): string {

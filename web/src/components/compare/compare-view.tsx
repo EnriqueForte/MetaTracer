@@ -30,6 +30,8 @@ const TYPE_LABEL: Record<string, string> = {
   internal_path: "Internal Path",
   software_version: "Software Version",
   debug_comment: "Debug Comment",
+  internal_endpoint: "Internal Endpoint",
+  cloud_storage: "Cloud Storage",
 };
 
 function readParams(): { a: string; b: string } {
@@ -48,14 +50,24 @@ function writeParams(a: string, b: string) {
   window.history.replaceState(window.history.state, "", `${window.location.pathname}${search ? `?${search}` : ""}`);
 }
 
+const LIMIT_LABEL: Record<string, string> = {
+  max_depth: "crawl depth",
+  max_pages: "page cap",
+  max_assets: "asset cap",
+  max_total_bytes: "byte budget",
+  max_seconds: "time budget",
+};
+
 function Section({
   title,
   items,
   empty,
+  showSeverityChange = false,
 }: {
   title: string;
   items: ComparedFindingResponse[];
   empty: string;
+  showSeverityChange?: boolean;
 }) {
   return (
     <section className="mt-card flex min-w-0 flex-col gap-2 p-4" aria-label={title}>
@@ -82,6 +94,12 @@ function Section({
                 </Link>
               </div>
               <p className="mt-tech text-mt-muted">{truncate(item.asset_url, 100)}</p>
+              {showSeverityChange ? (
+                <p className="text-xs text-mt-muted">
+                  Severity changed from {SEVERITY_LABEL[severityKey(item.previous_severity)]} to{" "}
+                  {SEVERITY_LABEL[severityKey(item.severity)]}. Evidence is unchanged.
+                </p>
+              ) : null}
             </li>
           ))}
         </ul>
@@ -167,9 +185,34 @@ export function CompareView() {
             {comparison.data.a.target} ({formatWhen(comparison.data.a.started_at)}) →{" "}
             {comparison.data.b.target} ({formatWhen(comparison.data.b.started_at)})
           </p>
+          {!comparison.data.coverage_recorded_b ? (
+            <p className="text-sm text-mt-fg">
+              Discovery counters were not recorded for the reviewed run. A finding listed as resolved
+              was absent from that run, which is not proof it is gone.
+            </p>
+          ) : (comparison.data.limits_hit_b ?? []).length > 0 ? (
+            <p className="text-sm text-mt-fg">
+              The reviewed run stopped because a crawl limit was reached (
+              {(comparison.data.limits_hit_b ?? [])
+                .map((limit) => LIMIT_LABEL[limit] ?? limit)
+                .join(", ")}
+              ). A resolved finding may not have been requested.
+            </p>
+          ) : null}
           <Section title="New" items={comparison.data.new} empty="Nothing new in the reviewed run." />
+          <Section
+            title="Reappeared"
+            items={comparison.data.reappeared ?? []}
+            empty="Nothing from an earlier run in this investigation came back."
+          />
+          <Section
+            title="Severity changed"
+            items={comparison.data.severity_changed ?? []}
+            empty="No shared finding changed severity."
+            showSeverityChange
+          />
           <Section title="Resolved" items={comparison.data.resolved} empty="Nothing from the baseline went away." />
-          <Section title="Persistent" items={comparison.data.persistent} empty="No finding appears in both runs." />
+          <Section title="Persistent" items={comparison.data.persistent} empty="No finding appears in both runs with the same severity." />
         </div>
       ) : null}
     </div>

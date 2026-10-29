@@ -1,5 +1,8 @@
 # Plan de rediseño — MetaTracer
 
+> **HISTÓRICO — no usar como contrato.** Plan del rediseño de la Web V1 (Jinja + Alpine),
+> retirada en T11 (ADR-0016). Contrato vigente: [`design-system-v2.md`](design-system-v2.md).
+
 Implementación incremental. Cada fase: implementar → tests de `test-engineer` → revisión de
 `safety-guardian` cuando la fase lo marca → seguir.
 

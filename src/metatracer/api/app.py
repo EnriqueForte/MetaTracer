@@ -26,7 +26,18 @@ from metatracer import __version__
 from metatracer.agents.knowledge import KnowledgeRetriever
 from metatracer.agents.pipeline import AgentPipeline
 from metatracer.api import auth as auth_api
-from metatracer.api import compare, feedback, knowledge, notifications, runs, scopes, stats, users
+from metatracer.api import (
+    compare,
+    feedback,
+    investigations,
+    knowledge,
+    notifications,
+    runs,
+    scopes,
+    stats,
+    users,
+    workspace,
+)
 from metatracer.api.security_headers import apply_security_headers
 from metatracer.api.webhooks import WebhookDispatcher
 from metatracer.api.webhooks import register_routes as register_webhook_routes
@@ -286,7 +297,10 @@ def create_app(
     operator_deps = [Depends(auth_api.require_operator)]
 
     app.include_router(runs.router, dependencies=data_deps + action_deps)
+    # Fase 1 workspace: read-only, so it needs a session but no CSRF/operator.
+    app.include_router(workspace.router, dependencies=data_deps)
     app.include_router(scopes.router, dependencies=data_deps + action_deps)
+    app.include_router(investigations.router, dependencies=data_deps + action_deps)
     app.include_router(stats.router, dependencies=data_deps)
     app.include_router(compare.router, dependencies=data_deps)
     app.include_router(notifications.router, dependencies=data_deps + action_deps)

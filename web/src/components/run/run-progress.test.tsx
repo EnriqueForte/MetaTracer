@@ -106,6 +106,12 @@ describe("RunProgress", () => {
     expect(panel).toHaveTextContent("Downloading");
     expect(panel).toHaveTextContent("Fetching documents");
     expect(panel).not.toHaveTextContent("Crawling");
+    // Progress is the server's step over the pipeline total, not a decorative
+    // sweep: the bar exposes it to assistive tech.
+    const bar = screen.getByRole("progressbar", { name: "Scan progress" });
+    expect(bar).toHaveAttribute("aria-valuenow", "3");
+    expect(bar).toHaveAttribute("aria-valuemax", "7");
+    expect(bar).toHaveAttribute("aria-valuetext", "Step 3 of 7");
   });
 
   it("names classification when the stream reports that step", async () => {

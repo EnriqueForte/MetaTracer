@@ -1,5 +1,9 @@
 # Arquitectura de UI — MetaTracer
 
+> **HISTÓRICO — no usar como contrato.** Describe la Web V1 (Jinja2 + Alpine + `/static`),
+> retirada en T11 (ADR-0016). El frontend vigente es `web/` (Next.js 16 + React 19).
+> Véase [`design-system-v2.md`](design-system-v2.md) y `web/AGENTS.md`.
+
 Contrato para `ui-engineer`. Documentación en español. Identificadores, rutas, enums y cadenas de UI en inglés.
 
 Este rediseño sustituye el planteamiento visual de TASK-26 (borrador 2026-09-19) en lo que el operador ha redefinido abajo. El CDN de scripts ya no forma parte de la UI: Tailwind está compilado y Alpine es el build CSP servido desde `/static`.

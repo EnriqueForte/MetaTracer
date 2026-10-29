@@ -14,6 +14,7 @@ from metatracer.detectors.base import Detector, FindingDraft
 from metatracer.detectors.debug import DebugCommentDetector
 from metatracer.detectors.email import EmailDetector
 from metatracer.detectors.gps import GpsDetector
+from metatracer.detectors.network import CloudStorageDetector, InternalEndpointDetector
 from metatracer.detectors.paths import InternalPathDetector
 from metatracer.detectors.software import SoftwareVersionDetector
 
@@ -31,6 +32,8 @@ class DetectorRegistry:
                 GpsDetector(),
                 EmailDetector(),
                 InternalPathDetector(),
+                InternalEndpointDetector(),
+                CloudStorageDetector(),
                 SoftwareVersionDetector(),
                 DebugCommentDetector(),
             ]

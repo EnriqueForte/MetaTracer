@@ -11,16 +11,19 @@ Fuente de verdad: `.aicontext/tasks/README.md`. Valores **en minúsculas** en ba
 
 | Contrato | Valores |
 | :--- | :--- |
-| `finding_type` | `gps` \| `email` \| `internal_path` \| `software_version` \| `debug_comment` |
+| `finding_type` | `gps` \| `email` \| `internal_path` \| `software_version` \| `debug_comment` \| `internal_endpoint` \| `cloud_storage` |
 | `severity` | `critical` \| `high` \| `medium` \| `low` \| `info` |
 | `confidence` | `high` \| `medium` \| `low` |
 | `detector_method` | `rule` \| `heuristic` \| `agent` |
 | `reasoning_depth` | `brief` \| `standard` \| `detailed` (default: `standard`) |
 | `run.status` | `pending` \| `running` \| `completed` \| `failed` \| `aborted` |
 | `extraction_status` | `ok` \| `skipped` \| `failed` |
-| `skip_reason` | `unsupported_type` \| `too_large` \| `out_of_scope` \| `duplicate_hash` \| `empty_body` |
-| `namespace` | `exif` \| `xmp` \| `pdfinfo` \| `iptc` \| `http` \| `html` \| `js` |
+| `skip_reason` | `unsupported_type` \| `too_large` \| `out_of_scope` \| `duplicate_hash` \| `empty_body` \| `robots_disallow` (`robots_disallow` es cortesía: la URL no se pidió; no es scope, ni prueba de ausencia) |
+| `namespace` | `exif` \| `xmp` \| `pdfinfo` \| `iptc` \| `http` \| `html` \| `js` \| `ooxml` \| `odf` |
+| límites de crawl | `max_depth` \| `max_pages` \| `max_assets` \| `max_total_bytes` \| `max_seconds` (en `Run.ingestion_stats.limits_hit`) |
 | `triage_status` | `open` \| `confirmed` \| `false_positive` \| `fixed` (default `open`; solo operador, nunca el agente; no toca `severity` ni la evidencia) |
+| `investigation.status` | `open` \| `closed` (Fase 3: agrupa runs, no aísla. Una sugerencia de triaje no cambia `severity` ni la evidencia y no se aplica sola) |
+| `correlation.kind` | `email` \| `gps_point` \| `internal_endpoint` \| `software_version` \| `document_id` \| `device_serial` \| `author_string` (valor compartido, no identidad; `author_string` no es `finding_type`) |
 
 No añadir valores sin actualizar antes `.aicontext/tasks/README.md`.
 

@@ -34,10 +34,13 @@ Si una petición exige violarlas, **para** y explica el conflicto.
 | `deploy/` | `Caddyfile` (un solo origen: `/api` → FastAPI, resto → Next) |
 | `tests/` | `unit/`, `agents/`, `integration/` (+ e2e). Ver `tests/README.md` |
 | `.aicontext/` | PRD, features, backlog (`tasks/`), ADR (`decisions/`), arquitectura |
+| `.aicontext/ui/design-system-v2.md` | **Contrato visual vigente** (tokens `--mt-*`, densidad, panel, procedencia) |
 | `.agents/agents.md` | Catálogo de subagentes y modelo de amenazas (§4.2) |
 
 **Web V1 (Jinja + Alpine) se retiró en T11** (ADR-0016). Si encuentras referencias
-a plantillas, Alpine o `/static` de V1 en código, es deuda: no la reintroduzcas.
+a plantillas, Alpine o `/static` de V1 en código, es deuda: no la reintroduzcas. Los
+documentos `.aicontext/ui/{design-system,ui-architecture,component-map,redesign-plan}.md`
+describen esa V1 y están marcados como históricos: no son contrato.
 
 ## Comandos
 

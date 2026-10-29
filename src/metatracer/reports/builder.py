@@ -47,6 +47,7 @@ from metatracer.core.logging import sanitize_for_log
 from metatracer.db.models import (
     Asset,
     Confidence,
+    DetectorMethod,
     Finding,
     FindingType,
     ReasoningDepth,
@@ -95,6 +96,8 @@ _TYPE_LABELS: dict[FindingType, str] = {
     FindingType.internal_path: "Internal Path",
     FindingType.software_version: "Software Version",
     FindingType.debug_comment: "Debug Comment",
+    FindingType.internal_endpoint: "Internal Endpoint",
+    FindingType.cloud_storage: "Cloud Storage",
 }
 
 # One-line card titles (4.2, item 1), suffixed with the asset context.
@@ -104,6 +107,8 @@ _TYPE_TITLES: dict[FindingType, str] = {
     FindingType.internal_path: "Internal Path Disclosure",
     FindingType.software_version: "Software Version Disclosure",
     FindingType.debug_comment: "Debug Comment Disclosure",
+    FindingType.internal_endpoint: "Internal Endpoint Disclosure",
+    FindingType.cloud_storage: "Cloud Storage Reference",
 }
 
 _SLUG_INVALID_RE = re.compile(r"[^a-z0-9.-]+")
@@ -145,6 +150,12 @@ class ReportFindingData:
     triage_note: str = ""
     triaged_by: str = ""
     triaged_at: datetime | None = None
+    # Fase 1: the workspace needs to link a finding back to the asset it came
+    # from, and to show which detector produced it. Both are add-only fields
+    # with defaults so existing constructors (tests, fixtures) keep working.
+    asset_id: str = ""
+    detector_method: DetectorMethod = DetectorMethod.rule
+    created_at: datetime | None = None
 
     @property
     def triage_label(self) -> str:
@@ -303,6 +314,9 @@ def _entry(finding: Finding, asset: Asset) -> ReportFindingData:
         triage_note=finding.triage_note or "",
         triaged_by=finding.triaged_by or "",
         triaged_at=finding.triaged_at,
+        asset_id=asset.id,
+        detector_method=DetectorMethod(finding.detector_method),
+        created_at=_as_utc(finding.created_at),
     )
 
 

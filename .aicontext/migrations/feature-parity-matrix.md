@@ -10,6 +10,12 @@ Leyenda de estado: `not_started` | `in_progress` | `verified` | `out_of_scope` |
 
 “V2 previsto” es el destino en `web/`, no un archivo existente. Las rutas V2 cuelgan de `basePath` `/v2`.
 
+> **Nota posterior al corte (2026-10-25).** Las rutas de la columna V1 (`templates/base.html`,
+> `pages.py`, `static/`) ya **no existen** en el checkout: se retiraron en T11. Y el `basePath`
+> `/v2` desapareció el mismo día (ADR-0016 §3): hoy las rutas V2 son las que aparecen en la
+> tabla, pero servidas desde la raíz del origen. Se conservan como referencia histórica de la
+> migración, no como descripción del producto actual.
+
 ## Producto que el operador ya usa en el navegador
 
 | V1 Feature | V1 Implementation | V2 previsto | API | Seguridad | Test | Estado |

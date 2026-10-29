@@ -231,6 +231,54 @@ _TEMPLATES: dict[tuple[FindingType, Severity], SeverityTemplate] = {
         remediation=("Strip comment/description fields before publication.",),
         reproduction=_INSPECT_STEPS,
     ),
+    (FindingType.internal_endpoint, Severity.medium): SeverityTemplate(
+        justification=(
+            "Metadata field {field_source} contains an internal address "
+            "('{snippet}'). The ceiling is medium: the string is a lead, not a proven foothold."
+        ),
+        impact="Reveals an internal name or address that was embedded in a public file.",
+        remediation=(
+            "Remove internal hostnames and private addresses from published metadata.",
+        ),
+        reproduction=_INSPECT_STEPS,
+    ),
+    (FindingType.internal_endpoint, Severity.low): SeverityTemplate(
+        justification="Internal address '{snippet}' in {field_source}, with limited context.",
+        impact="Minor reconnaissance value from an internal name left in metadata.",
+        remediation=("Remove the internal address from the published field.",),
+        reproduction=_INSPECT_STEPS,
+    ),
+    (FindingType.cloud_storage, Severity.high): SeverityTemplate(
+        justification=(
+            "Metadata field {field_source} names a cloud storage location "
+            "('{snippet}'). This product did not request that URL."
+        ),
+        impact=(
+            "The reference lets an analyst check, separately, whether the location is exposed. "
+            "The string alone does not prove the bucket is public."
+        ),
+        remediation=(
+            "Remove storage URLs from metadata if the location is not meant to be public.",
+            "If it should be private, confirm its access policy outside this scan.",
+        ),
+        reproduction=_INSPECT_STEPS,
+    ),
+    (FindingType.cloud_storage, Severity.medium): SeverityTemplate(
+        justification=(
+            "Cloud storage reference '{snippet}' in {field_source}. The URL was not requested."
+        ),
+        impact="A storage location is named in a public file. Exposure was not checked.",
+        remediation=("Remove the storage URL from the field if it is not meant to be public.",),
+        reproduction=_INSPECT_STEPS,
+    ),
+    (FindingType.cloud_storage, Severity.low): SeverityTemplate(
+        justification=(
+            "Storage reference '{snippet}' in {field_source}, recorded without requesting it."
+        ),
+        impact="Low reconnaissance value from a storage name left in metadata.",
+        remediation=("Strip storage URLs from published metadata.",),
+        reproduction=_INSPECT_STEPS,
+    ),
 }
 
 # Generic info-level templates (subtask 3.2.1 / 3.2.2): empty or unanchored

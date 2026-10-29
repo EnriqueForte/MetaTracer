@@ -27,6 +27,8 @@ function gps(id: string, snippet: string): Finding {
     asset_source_url: "https://acme.com/p.jpg",
     asset_final_url: "https://acme.com/p.jpg",
     asset_content_type: "image/jpeg",
+    asset_id: `asset-${id}`,
+    detector_method: "rule",
     severity_justification: "",
     impact_analysis: "",
     remediation_advice: "",

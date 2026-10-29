@@ -24,6 +24,8 @@ heurístico (TASK-03) o el agente (TASK-05).
 | `email` | `medium` | Un email corporativo es a lo sumo medium. |
 | `internal_path` | `high` | Usuario/UNC sí; `/var/www` sin usuario no. |
 | `software_version` | `low` | Un nombre+versión no prueba explotabilidad. |
+| `internal_endpoint` | `medium` | Dirección interna en metadata; no es un acceso demostrado. |
+| `cloud_storage` | `high` | La URL se registra y no se pide. |
 | `debug_comment` | `critical` | **Solo** con marcador de secreto en el snippet. |
 
 `cap_severity(sev, ceiling)` baja al techo cuando el rank lo supera. El guard

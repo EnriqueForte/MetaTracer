@@ -134,6 +134,50 @@ async def test_script_src_in_scope_is_discovered(fake_public_dns, install_transp
     ]
 
 
+async def test_srcset_keeps_only_the_densest_candidate(fake_public_dns, install_transport) -> None:
+    body = (
+        b'<img src="/fallback.jpg" srcset="/small.jpg 1x, /large.jpg 2x">'
+        b'<picture><source srcset="/narrow.jpg 400w, /wide.jpg 800w"></picture>'
+    )
+    install_transport(_html_handler(body))
+    page = await _crawler().fetch_page(
+        "http://target.com/page", scope_confirmed=True, max_assets=50
+    )
+    assert page is not None
+    assert "http://target.com/large.jpg" in page.document_urls
+    assert "http://target.com/wide.jpg" in page.document_urls
+    assert "http://target.com/small.jpg" not in page.document_urls
+    assert "http://target.com/narrow.jpg" not in page.document_urls
+    # The plain src is still a distinct file and stays.
+    assert "http://target.com/fallback.jpg" in page.document_urls
+
+
+async def test_extensionless_and_social_references(fake_public_dns, install_transport) -> None:
+    body = (
+        b'<a href="/download?id=7">file</a>'
+        b'<a href="/about.html">page</a>'
+        b'<meta property="og:image" content="https://target.com/cover.jpg">'
+        b'<meta property="og:image" content="https://evil.com/secret.jpg">'
+        b'<meta name="twitter:image" content="/cdn/hero">'
+    )
+    install_transport(_html_handler(body))
+    page = await _crawler().fetch_page(
+        "http://target.com/page", scope_confirmed=True, max_assets=50
+    )
+    assert page is not None
+    assert page.document_urls == ["https://target.com/cover.jpg"]
+    assert page.probe_urls == [
+        "http://target.com/download?id=7",
+        "http://target.com/cdn/hero",
+    ]
+    # ``.html`` is the next crawl hop, not a document and not a probe.
+    assert page.page_urls == ["http://target.com/about.html"]
+    assert page.discovery_truncated is False
+    joined = page.document_urls + page.probe_urls
+    assert all("evil.com" not in url for url in joined)
+    assert all(not url.endswith(".html") for url in joined)
+
+
 async def test_discover_stays_document_only(fake_public_dns, install_transport) -> None:
     body = b'<html><body><a href="/doc.pdf">d</a><script src="/app.js"></script></body></html>'
     install_transport(_html_handler(body))

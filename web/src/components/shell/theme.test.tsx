@@ -65,6 +65,29 @@ describe("Light mode (TASK-35)", () => {
       expect(contrast(t[`sev-${level}`], t[`sev-${level}-bg`]), level).toBeGreaterThanOrEqual(4.5);
       expect(contrast(t[`sev-${level}`], t.surface), `${level} on surface`).toBeGreaterThanOrEqual(4.5);
     }
+    // Provenance layers (U0): label text on the panel surface it sits on.
+    for (const layer of ["observed", "inferred", "external"]) {
+      expect(contrast(t[`layer-${layer}`], t.surface), `layer ${layer}`).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(t[`layer-${layer}`], t.elevated), `layer ${layer} on elevated`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("declares no permanently running animation", () => {
+    // The brief forbids decorative, always-on motion. `mt-spin` is allowed
+    // only as a bounded loading indicator and is the single exception.
+    const infinite = [...CSS.matchAll(/animation:\s*([^;]+);/g)]
+      .map((match) => match[1].trim())
+      .filter((value) => value.includes("infinite"));
+    expect(infinite.every((value) => value.includes("mt-spin"))).toBe(true);
+    expect(CSS).not.toContain("@keyframes mt-sweep");
+    expect(CSS).not.toContain("@keyframes mt-pulse");
+    expect(CSS).not.toContain("@keyframes mt-asset");
+    expect(CSS).not.toContain("@keyframes mt-skeleton");
+  });
+
+  it("exposes the density switch through a data attribute, not a rebuild", () => {
+    expect(CSS).toContain('html[data-density="compact"]');
+    expect(CSS).toContain("--mt-row-h-compact");
   });
 
   it("applies the stored choice before paint and defaults to dark", () => {

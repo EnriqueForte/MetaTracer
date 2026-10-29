@@ -80,8 +80,11 @@ async def test_stats_with_seeded_data(app, client) -> None:
 
     evidence = payload["top_evidence"]
     assert len(evidence) == 2
-    by_sig = {entry["signature"]: entry for entry in evidence}
-    assert by_sig["sig-email-1"]["occurrences"] == 2
+    # Aggregation is by type + normalized snippet, not by dedup_signature
+    # (which embeds the asset id and therefore can never repeat).
+    by_snippet = {entry["evidence_snippet"]: entry for entry in evidence}
+    assert by_snippet["a@b.com"]["occurrences"] == 2
+    assert by_snippet["a@b.com"]["finding_type"] == "email"
 
     # Agent usage sums, and raw_response never travels to the API.
     assert payload["agent_usage"]["calls"] == 1

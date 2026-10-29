@@ -8,7 +8,7 @@ class ExtractedField:
     """A single metadata field produced by an extractor.
 
     ``namespace`` uses the contracted values (``exif``, ``xmp``, ``pdfinfo``,
-    ``iptc``, ``http``, ``html``, ``js``); ``value`` is always sanitized text
+    ``iptc``, ``http``, ``html``, ``js``, ``ooxml``, ``odf``); ``value`` is always sanitized text
     — never bytes — already truncated to the ~2 KB ceiling. The ingestion
     pipeline maps these to ``RawMetadataItem`` rows.
     """

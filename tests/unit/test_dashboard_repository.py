@@ -4,6 +4,7 @@ from collections.abc import AsyncIterator
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlmodel import select
 
 from metatracer.core.safety.scope import normalize_host
 from metatracer.db.engine import create_db_engine, create_session_factory, init_db
@@ -104,9 +105,10 @@ async def _seed(session_factory) -> None:
             ),
         ]
         session.add_all(findings)
-        # A second finding with the SAME dedup_signature, but on a DIFFERENT
-        # asset: top_evidence must count it as ONE entry with occurrences=2.
-        # (asset2 belongs to run2, so it also keeps the failed/issue counter.)
+        # The SAME evidence ("a@b.com") on a DIFFERENT asset. dedup_signature is
+        # sha256(f"{asset_id}:{type}:{snippet}"), so a different asset
+        # necessarily yields a different signature — that is exactly why
+        # top_evidence cannot group by it (it would report occurrences == 1).
         session.add(
             Finding(
                 run_id=run2.id,
@@ -114,7 +116,7 @@ async def _seed(session_factory) -> None:
                 finding_type=FindingType.email,
                 field_source="PDF:Creator",
                 evidence_snippet="a@b.com",
-                dedup_signature="sig-email-1",
+                dedup_signature="sig-email-2-different-asset",
                 detector_method=DetectorMethod.rule,
                 confidence=Confidence.high,
                 severity=Severity.medium,
@@ -160,16 +162,51 @@ async def test_top_domains_normalizes_and_counts(
     assert all(normalize_host(domain) == domain for domain in result)
 
 
-async def test_top_evidence_groups_by_dedup_signature(
+async def test_top_evidence_groups_across_assets(
     repo: DashboardRepository, engine: AsyncEngine
 ) -> None:
     await _seed(create_session_factory(engine))
     entries = await repo.top_evidence()
-    assert len(entries) == 2  # two distinct signatures, not three findings
-    by_sig = {entry["signature"]: entry for entry in entries}
-    assert by_sig["sig-email-1"]["occurrences"] == 2
-    assert by_sig["sig-email-1"]["finding_type"] == "email"
-    assert by_sig["sig-gps-1"]["occurrences"] == 1
+    # Two distinct normalizations: "lat 40, lon -3" (gps) and "a@b.com" (email).
+    # The email appears on TWO different assets with two different
+    # dedup_signatures; the repeated-evidence panel must still count 2.
+    assert len(entries) == 2
+    by_snippet = {entry["evidence_snippet"]: entry for entry in entries}
+    assert by_snippet["a@b.com"]["occurrences"] == 2
+    assert by_snippet["a@b.com"]["finding_type"] == "email"
+    assert by_snippet["lat 40, lon -3"]["occurrences"] == 1
+    # The signature is a stable, run-independent label — never a persisted
+    # Finding.dedup_signature (those are per asset).
+    assert by_snippet["a@b.com"]["signature"] not in {"sig-email-1", "sig-email-2-different-asset"}
+
+
+async def test_top_evidence_is_case_and_whitespace_insensitive(
+    repo: DashboardRepository, engine: AsyncEngine
+) -> None:
+    await _seed(create_session_factory(engine))
+    async with create_session_factory(engine)() as session:
+        run = (await session.exec(select(Run).where(Run.target_input == '["http://target.com/a"]'))).one()
+        asset = (
+            await session.exec(select(Asset).where(Asset.source_url == "http://target.com/a.pdf"))
+        ).one()
+        session.add(
+            Finding(
+                run_id=run.id,
+                asset_id=asset.id,
+                finding_type=FindingType.email,
+                field_source="HTML:meta:author",
+                evidence_snippet="  A@B.CoM  ",
+                dedup_signature="sig-email-3-extra",
+                detector_method=DetectorMethod.rule,
+                confidence=Confidence.medium,
+                severity=Severity.low,
+            )
+        )
+        await session.commit()
+    entries = await repo.top_evidence()
+    hits = [entry for entry in entries if entry["evidence_snippet"].strip().lower() == "a@b.com"]
+    assert len(hits) == 1  # one group, not two
+    assert hits[0]["occurrences"] == 3
 
 
 async def test_agent_usage_sums(repo: DashboardRepository, engine: AsyncEngine) -> None:

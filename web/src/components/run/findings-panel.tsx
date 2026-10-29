@@ -158,6 +158,13 @@ export function FindingsPanel({ runId, totalAssets }: { runId: string; totalAsse
             header: "Triage",
             cell: (finding) => {
               const status = triageOf(finding);
+              if (status === "open" && finding.triage_suggestion) {
+                return (
+                  <span className="text-xs text-mt-muted">
+                    Suggested: {TRIAGE_LABEL[finding.triage_suggestion.status]}
+                  </span>
+                );
+              }
               return status === "open" ? (
                 <span className="text-xs text-mt-muted">Open</span>
               ) : (

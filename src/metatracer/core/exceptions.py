@@ -99,6 +99,15 @@ class AmbiguousRunError(MetaTracerError):
         )
 
 
+class InvestigationConflictError(MetaTracerError):
+    """A run cannot be grouped, or an investigation name is already taken.
+
+    The API maps this to HTTP 409. It is not an authorization decision:
+    another investigation in the same install is visible, it just already
+    owns the run or the name.
+    """
+
+
 class ScanAlreadyRunningError(MetaTracerError):
     """The orchestrator is already at its concurrency limit.
 

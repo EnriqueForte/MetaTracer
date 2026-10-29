@@ -85,6 +85,13 @@ export function TriageForm({ runId, finding, canMutate }: { runId: string; findi
           </span>
         ) : null}
       </div>
+      {finding.triage_suggestion ? (
+        <p className="text-sm text-mt-fg">
+          Suggested from another run in this investigation:{" "}
+          {TRIAGE_LABEL[finding.triage_suggestion.status]}. Applying it does not change severity or
+          evidence.
+        </p>
+      ) : null}
       {finding.triage_note ? <p className="text-sm text-mt-fg">{finding.triage_note}</p> : null}
       <p className="text-xs text-mt-muted">
         Triage never changes severity or evidence. False positives are left out of exports and
@@ -114,6 +121,20 @@ export function TriageForm({ runId, finding, canMutate }: { runId: string; findi
             <Button variant="secondary" disabled={save.isPending} onClick={submit}>
               Save triage
             </Button>
+            {finding.triage_suggestion && finding.triage_suggestion.status !== current ? (
+              <Button
+                variant="secondary"
+                disabled={save.isPending}
+                onClick={() =>
+                  save.mutate({
+                    status: finding.triage_suggestion?.status ?? current,
+                    note: finding.triage_suggestion?.note ?? null,
+                  })
+                }
+              >
+                Apply suggestion
+              </Button>
+            ) : null}
             {save.isSuccess ? <span role="status" className="text-xs text-mt-muted">Saved.</span> : null}
           </div>
           <label htmlFor="triage-note" className="text-xs font-semibold text-mt-muted">
