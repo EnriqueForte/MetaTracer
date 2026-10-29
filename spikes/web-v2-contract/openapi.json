@@ -4412,6 +4412,39 @@
           "truncated": {
             "type": "boolean",
             "title": "Truncated"
+          },
+          "value_normalized": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value Normalized"
+          },
+          "normalized_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Normalized Kind"
+          },
+          "timezone_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone Status"
           }
         },
         "type": "object",

@@ -16,3 +16,7 @@ class ExtractedField:
     namespace: str
     key: str
     value: str
+    # Optional reading aid. ``value`` stays the sanitized original.
+    value_normalized: str | None = None
+    normalized_kind: str | None = None
+    timezone_status: str | None = None

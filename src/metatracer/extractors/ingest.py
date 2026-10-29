@@ -67,6 +67,7 @@ from metatracer.extractors.headers import extract_http_headers
 from metatracer.extractors.html import HtmlMetadataExtractor
 from metatracer.extractors.image import ImageMetadataExtractor
 from metatracer.extractors.javascript import JavaScriptMetadataExtractor
+from metatracer.extractors.normalize import apply_normalization
 from metatracer.extractors.office import NotOfficePackage, OfficeMetadataExtractor
 from metatracer.extractors.pdf import PdfMetadataExtractor
 from metatracer.extractors.robots import (
@@ -901,6 +902,7 @@ class IngestionPipeline:
             try:
                 fields = _extract_fields(kind, body, temp_path)
                 fields.extend(extract_http_headers(headers or {}))
+                fields = apply_normalization(fields)
             except NotOfficePackage as exc:
                 await self._update_asset_status(
                     asset.id,
@@ -928,7 +930,15 @@ class IngestionPipeline:
                 )
                 return ExtractionStatus.failed
             items = [
-                RawMetadataItem(asset_id=asset.id, namespace=f.namespace, key=f.key, value=f.value)
+                RawMetadataItem(
+                    asset_id=asset.id,
+                    namespace=f.namespace,
+                    key=f.key,
+                    value=f.value,
+                    value_normalized=f.value_normalized,
+                    normalized_kind=f.normalized_kind,
+                    timezone_status=f.timezone_status,
+                )
                 for f in fields
             ]
             if items:

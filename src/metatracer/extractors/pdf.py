@@ -68,6 +68,22 @@ def parse_pdf_date(raw: str) -> str:
     return moment.isoformat()
 
 
+def pdf_timezone_status(raw: str) -> str | None:
+    """How the PDF date stated its offset, judged on the raw string.
+
+    ``known`` when an offset or ``Z`` was present. ``assumed_utc`` when the
+    date parsed and the offset was omitted. ``invalid`` when it looked like a
+    PDF date and could not be read. Other strings are not dates.
+    """
+    text = raw.strip()
+    if parse_pdf_date(text) == text:
+        return "invalid" if text.startswith("D:") else None
+    match = _PDF_DATE_RE.match(text)
+    if match and match.group(7):
+        return "known"
+    return "assumed_utc"
+
+
 class PdfMetadataExtractor:
     """Extracts pdfinfo + XMP fields from a PDF on disk."""
 
@@ -103,7 +119,14 @@ class PdfMetadataExtractor:
             if not value or not value.strip():
                 continue
             if key in _DATE_KEYS:
+                status = pdf_timezone_status(value)
                 value = parse_pdf_date(value)
+                fields.append(
+                    ExtractedField(
+                        PDFINFO_NAMESPACE, key, value, timezone_status=status
+                    )
+                )
+                continue
             fields.append(ExtractedField(PDFINFO_NAMESPACE, key, value))
         return fields
 

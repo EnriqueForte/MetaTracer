@@ -46,6 +46,14 @@ function toSearch(filters: ExplorerFilters, base: string): string {
   return text ? `?${text}` : "";
 }
 
+function timezoneCopy(status: string | null | undefined): string | null {
+  if (status === "known") return "Timezone stated";
+  if (status === "assumed_utc") return "Timezone not stated; treated as UTC";
+  if (status === "unzoned") return "Timezone not stated";
+  if (status === "invalid") return "Date could not be read";
+  return null;
+}
+
 function Summary({ item }: { item: MetadataItemResponse }) {
   return (
     <div className="flex flex-col gap-3 p-4">
@@ -61,7 +69,17 @@ function Summary({ item }: { item: MetadataItemResponse }) {
         <dt className="text-mt-muted">Asset</dt>
         <dd className="mt-tech break-all">{item.asset_url}</dd>
       </dl>
+      <p className="text-xs font-semibold text-mt-muted">Original</p>
       <RawValue value={item.value} truncated={item.truncated} />
+      {item.value_normalized ? (
+        <>
+          <p className="text-xs font-semibold text-mt-muted">Normalized</p>
+          <RawValue value={item.value_normalized} truncated={false} />
+        </>
+      ) : null}
+      {timezoneCopy(item.timezone_status) ? (
+        <p className="text-xs text-mt-muted">{timezoneCopy(item.timezone_status)}</p>
+      ) : null}
       <p className="text-xs text-mt-muted">
         The asset itself is never stored or served: this is the sanitized value the
         extractor persisted.
@@ -243,6 +261,11 @@ export function MetadataExplorer() {
                       <span className="mt-tech block truncate" title={item.value}>
                         {item.value}
                       </span>
+                      {item.value_normalized ? (
+                        <span className="mt-tech block truncate text-mt-muted" title={item.value_normalized}>
+                          {item.value_normalized}
+                        </span>
+                      ) : null}
                       {item.truncated ? <span className="text-xs text-mt-muted">(truncated)</span> : null}
                     </td>
                     <td className="max-w-[18rem]">

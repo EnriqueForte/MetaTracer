@@ -43,6 +43,8 @@ Valores **en minúsculas** en base de datos, JSON, API y Pydantic. La capa de pr
 | `correlation.kind` (Fase 3) | `email` \| `gps_point` \| `internal_endpoint` \| `software_version` \| `document_id` \| `device_serial` \| `author_string` (dos assets que comparten `value_hash` comparten un valor, no una identidad. `internal_endpoint` lo escribe el detector homónimo. `author_string` no es un hallazgo: ADR-0009 sigue en pie) |
 | `connector.status` (Fase 4) | `disabled` \| `available` \| `degraded` \| `error` (apagado = ninguna petición; `degraded` es un 429 y no tumba un run) |
 | `export.redaction` (Fase 5) | `none` \| `contacts` \| `coordinates` \| `all` (solo el fichero exportado; la base no cambia. API y CLI por defecto `none`. La UI de descarga propone `contacts`) |
+| `normalized_kind` | `decimal_degrees` \| `iso8601_utc` \| `lowercase_trim` (el `value` original no se sobrescribe; NULL si no hay forma normalizada distinta) |
+| `timezone_status` | `known` \| `assumed_utc` \| `unzoned` \| `invalid` (NULL si el campo no es una fecha) |
 | Idioma de **reportes exportados** | Inglés (plataformas de bug bounty) |
 | Idioma de **documentación** (esta carpeta) | Español |
 | Idioma de **UI/CLI** | Inglés (audiencia internacional / portfolio) |

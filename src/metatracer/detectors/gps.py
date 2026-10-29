@@ -75,6 +75,16 @@ class GpsDetector:
         return drafts
 
 
+def exif_decimal_degrees(raw: str, ref: str | None) -> float | None:
+    """One EXIF coordinate as decimal degrees. None when it cannot be read."""
+    return _dms_to_decimal(_parse_dms(raw), ref)
+
+
+def xmp_decimal_degrees(raw: str) -> float | None:
+    """One XMP coordinate as decimal degrees. None when the text is not a coordinate."""
+    return _parse_decimal(raw)
+
+
 def _draft(lat: float, lon: float, raw_altitude: str | None, source: str) -> FindingDraft:
     text = f"Latitude: {lat:.6f}, Longitude: {lon:.6f}"
     altitude = _parse_altitude(raw_altitude)

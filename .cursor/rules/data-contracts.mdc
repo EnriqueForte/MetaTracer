@@ -26,6 +26,8 @@ Fuente de verdad: `.aicontext/tasks/README.md`. Valores **en minúsculas** en ba
 | `correlation.kind` | `email` \| `gps_point` \| `internal_endpoint` \| `software_version` \| `document_id` \| `device_serial` \| `author_string` (valor compartido, no identidad; `author_string` no es `finding_type`) |
 | `connector.status` | `disabled` \| `available` \| `degraded` \| `error` (Fase 4: un conector apagado no abre socket; `degraded` es un 429 del proveedor y no tumba un run) |
 | `export.redaction` | `none` \| `contacts` \| `coordinates` \| `all` (Fase 5: solo el fichero exportado; la base no cambia. API y CLI por defecto `none`) |
+| `normalized_kind` | `decimal_degrees` \| `iso8601_utc` \| `lowercase_trim` (el valor original no se sobrescribe) |
+| `timezone_status` | `known` \| `assumed_utc` \| `unzoned` \| `invalid` (NULL si el campo no es una fecha) |
 
 No añadir valores sin actualizar antes `.aicontext/tasks/README.md`.
 

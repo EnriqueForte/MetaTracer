@@ -1740,6 +1740,12 @@ export interface components {
             value: string;
             /** Truncated */
             truncated: boolean;
+            /** Value Normalized */
+            value_normalized?: string | null;
+            /** Normalized Kind */
+            normalized_kind?: string | null;
+            /** Timezone Status */
+            timezone_status?: string | null;
         };
         /** MetadataListResponse */
         MetadataListResponse: {

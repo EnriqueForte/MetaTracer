@@ -127,6 +127,9 @@ async def test_jpeg_gps_persisted_raw(session_factory, fake_public_dns, install_
     by_key = {(item.namespace, item.key): item.value for item in items}
     assert by_key[("exif", "GPSLatitudeRef")] == "N"
     assert by_key[("exif", "GPSLatitude")] == '["40/1", "24/1", "4635/100"]'
+    latitude = next(item for item in items if item.key == "GPSLatitude")
+    assert latitude.value_normalized == "40.412875"
+    assert latitude.normalized_kind == "decimal_degrees"
 
 
 async def test_bare_domain_is_crawled_and_documents_discovered(

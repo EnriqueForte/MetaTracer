@@ -95,6 +95,9 @@ class MetadataItemResponse(BaseModel):
     key: str
     value: str
     truncated: bool
+    value_normalized: str | None = None
+    normalized_kind: str | None = None
+    timezone_status: str | None = None
 
     @classmethod
     def from_entry(cls, entry: MetadataEntry) -> MetadataItemResponse:
@@ -106,6 +109,9 @@ class MetadataItemResponse(BaseModel):
             key=entry.key,
             value=entry.value,
             truncated=entry.truncated,
+            value_normalized=entry.value_normalized,
+            normalized_kind=entry.normalized_kind,
+            timezone_status=entry.timezone_status,
         )
 
 

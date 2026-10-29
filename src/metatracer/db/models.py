@@ -288,6 +288,10 @@ class RawMetadataItem(SQLModel, table=True):
     namespace: str
     key: str
     value: str = Field(sa_type=Text)
+    # Reading aid. NULL on rows stored before this column existed.
+    value_normalized: str | None = Field(default=None, sa_type=Text)
+    normalized_kind: str | None = None
+    timezone_status: str | None = None
 
 
 class Finding(SQLModel, table=True):

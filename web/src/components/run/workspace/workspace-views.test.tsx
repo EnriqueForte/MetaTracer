@@ -103,6 +103,9 @@ const metadata = {
       key: "GPSLatitude",
       value: '["40/1", "24/1", "4635/100"]',
       truncated: false,
+      value_normalized: "40.412875",
+      normalized_kind: "decimal_degrees",
+      timezone_status: null,
     },
   ],
 };
@@ -237,6 +240,7 @@ describe("MetadataExplorer", () => {
     });
     expect(within(table).getByText("Author")).toBeInTheDocument();
     expect(within(table).getByText("GPSLatitude")).toBeInTheDocument();
+    expect(within(table).getByText("40.412875")).toBeInTheDocument();
   });
 
   it("opens the value detail with provenance and the original value", async () => {

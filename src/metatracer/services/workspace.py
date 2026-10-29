@@ -109,6 +109,9 @@ class MetadataEntry:
     key: str
     value: str
     truncated: bool
+    value_normalized: str | None = None
+    normalized_kind: str | None = None
+    timezone_status: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -396,6 +399,9 @@ def _metadata_entry(item: RawMetadataItem, *, asset_url: str) -> MetadataEntry:
         key=item.key,
         value=item.value,
         truncated=_is_truncated(item.value),
+        value_normalized=item.value_normalized,
+        normalized_kind=item.normalized_kind,
+        timezone_status=item.timezone_status,
     )
 
 
