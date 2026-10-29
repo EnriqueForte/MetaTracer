@@ -25,6 +25,7 @@ Fuente de verdad: `.aicontext/tasks/README.md`. Valores **en minúsculas** en ba
 | `investigation.status` | `open` \| `closed` (Fase 3: agrupa runs, no aísla. Una sugerencia de triaje no cambia `severity` ni la evidencia y no se aplica sola) |
 | `correlation.kind` | `email` \| `gps_point` \| `internal_endpoint` \| `software_version` \| `document_id` \| `device_serial` \| `author_string` (valor compartido, no identidad; `author_string` no es `finding_type`) |
 | `connector.status` | `disabled` \| `available` \| `degraded` \| `error` (Fase 4: un conector apagado no abre socket; `degraded` es un 429 del proveedor y no tumba un run) |
+| `export.redaction` | `none` \| `contacts` \| `coordinates` \| `all` (Fase 5: solo el fichero exportado; la base no cambia. API y CLI por defecto `none`) |
 
 No añadir valores sin actualizar antes `.aicontext/tasks/README.md`.
 

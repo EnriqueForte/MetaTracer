@@ -90,6 +90,7 @@ from metatracer.extractors.ingest import _EXTRACTION_INCOMPLETE, IngestionPipeli
 from metatracer.reports.bounty import BountyExporter
 from metatracer.reports.builder import DEFAULT_REPORTS_DIR, ReportBuilder
 from metatracer.reports.csv_exporter import CsvReportExporter
+from metatracer.reports.disclosure import Redaction, apply_redaction
 from metatracer.reports.html import HtmlReportExporter
 from metatracer.reports.json_exporter import JsonReportExporter
 from metatracer.reports.markdown import MarkdownReportExporter
@@ -497,6 +498,7 @@ class ScanOrchestratorService:
         formats: ExportFormat = ExportFormat.all,
         output_dir: str | Path = DEFAULT_REPORTS_DIR,
         include_false_positives: bool = False,
+        redact: Redaction = Redaction.none,
     ) -> dict[str, Path]:
         """Re-export the reports of an already persisted run (CLI ``report`` / API export).
 
@@ -506,7 +508,11 @@ class ScanOrchestratorService:
         ``false_positive`` are left out unless ``include_false_positives``.
         """
         return await self._export_reports(
-            run_id, formats, Path(output_dir), include_false_positives=include_false_positives
+            run_id,
+            formats,
+            Path(output_dir),
+            include_false_positives=include_false_positives,
+            redact=redact,
         )
 
     async def _run_background(
@@ -725,6 +731,7 @@ class ScanOrchestratorService:
         output_dir: Path,
         *,
         include_false_positives: bool = False,
+        redact: Redaction = Redaction.none,
     ) -> dict[str, Path]:
         """Build the ReportData once and write the requested formats from it.
 
@@ -734,6 +741,7 @@ class ScanOrchestratorService:
         data = await ReportBuilder(self._session_factory).build(
             run_id, include_false_positives=include_false_positives
         )
+        data = apply_redaction(data, redact)
         paths: dict[str, Path] = {}
         if formats in (ExportFormat.md, ExportFormat.all):
             paths["md"] = MarkdownReportExporter(output_dir).export(data)

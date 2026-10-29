@@ -2703,6 +2703,8 @@ export interface operations {
                 format: "md" | "json" | "html" | "csv" | "bounty";
                 /** @description Keep findings triaged as false_positive (default: excluded) */
                 include_false_positives?: boolean;
+                /** @description Rewrite the exported file only. The database is not changed. */
+                redact?: "none" | "contacts" | "coordinates" | "all";
             };
             header?: never;
             path: {

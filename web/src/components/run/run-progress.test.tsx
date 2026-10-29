@@ -138,11 +138,11 @@ describe("RunProgress", () => {
     render(<RunProgress runId="run-1" />);
     expect(await screen.findByRole("link", { name: "Download Markdown" })).toHaveAttribute(
       "href",
-      "/api/runs/run-1/export?format=md",
+      "/api/runs/run-1/export?format=md&redact=contacts",
     );
     expect(screen.getByRole("link", { name: "Download JSON" })).toHaveAttribute(
       "href",
-      "/api/runs/run-1/export?format=json",
+      "/api/runs/run-1/export?format=json&redact=contacts",
     );
     expect(screen.getByRole("link", { name: "Download HTML" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Download CSV" })).toBeInTheDocument();

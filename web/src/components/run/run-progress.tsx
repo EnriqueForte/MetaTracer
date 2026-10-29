@@ -5,17 +5,10 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { AssetIssues } from "@/components/run/asset-issues";
+import { ExportLinks } from "@/components/run/export-links";
 import { findingsKey, FindingsPanel } from "@/components/run/findings-panel";
 import { AbortRunButton, DeleteRunDialog } from "@/components/run/run-actions";
-import {
-  EXPORTS,
-  exportHref,
-  fetchRun,
-  isLive,
-  RUN_STATUS_LABEL,
-  runKey,
-  TERMINAL,
-} from "@/components/run/run-model";
+import { fetchRun, isLive, RUN_STATUS_LABEL, runKey, TERMINAL } from "@/components/run/run-model";
 import { LiveActivity } from "@/components/run/live-activity";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -175,13 +168,7 @@ export function RunProgress({ runId }: { runId: string }) {
           ) : null}
           {finished ? (
             <>
-              {EXPORTS.map(([format, label]) => (
-                <Button key={format} variant="secondary" className="px-2 py-1 text-xs" asChild>
-                  <a href={exportHref(run.run_id, format)} download>
-                    {label}
-                  </a>
-                </Button>
-              ))}
+              <ExportLinks runId={run.run_id} />
               <Button variant="ghost" className="px-2 py-1 text-xs" asChild>
                 <Link href={`/runs/compare?b=${encodeURIComponent(run.run_id)}`}>Compare</Link>
               </Button>

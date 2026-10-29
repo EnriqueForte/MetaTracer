@@ -56,6 +56,20 @@ export const EXPORTS = [
   ["bounty", "Download Bounty TXT"],
 ] as const;
 
-export function exportHref(runId: string, format: (typeof EXPORTS)[number][0]): string {
-  return `/api/runs/${encodeURIComponent(runId)}/export?format=${format}`;
+export const REDACTIONS = [
+  ["contacts", "Contacts"],
+  ["coordinates", "Coordinates"],
+  ["all", "Contacts and coordinates"],
+  ["none", "None"],
+] as const;
+
+export type Redaction = (typeof REDACTIONS)[number][0];
+
+export function exportHref(
+  runId: string,
+  format: (typeof EXPORTS)[number][0],
+  redact: Redaction = "contacts",
+): string {
+  const query = new URLSearchParams({ format, redact });
+  return `/api/runs/${encodeURIComponent(runId)}/export?${query.toString()}`;
 }

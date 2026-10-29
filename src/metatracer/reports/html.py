@@ -17,6 +17,7 @@ from metatracer.reports.builder import (
     iso_z,
     report_filename_stem,
 )
+from metatracer.reports.disclosure import disclosure_sections
 
 _CSS = """
 :root { color-scheme: dark; }
@@ -84,6 +85,7 @@ def render_html(data: ReportData) -> str:
         f'<p class="notice">{_t(data.compliance_notice)}</p>'
         "<h2>Findings</h2>"
         f"{findings}"
+        f"{_disclosure_html(data)}"
         "<footer>Authorized use only. Reproduction is inspection-only.</footer>"
         "</main></body></html>\n"
     )
@@ -118,7 +120,14 @@ def _render_finding(finding: ReportFindingData) -> str:
         "<p><strong>Reproduction steps</strong></p>"
         f"<ol>{steps}</ol>"
         f"<p><strong>Remediation.</strong> {_t(finding.remediation)}</p>"
+        "<p><strong>Provenance.</strong> Live fetch of this asset; not an archive capture.</p>"
         "</article>"
+    )
+
+
+def _disclosure_html(data: ReportData) -> str:
+    return "".join(
+        f"<h2>{_t(title)}</h2><p>{_t(body)}</p>" for title, body in disclosure_sections(data)
     )
 
 

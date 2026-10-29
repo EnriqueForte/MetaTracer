@@ -5,12 +5,8 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 import { AbortRunButton, DeleteRunDialog } from "@/components/run/run-actions";
-import {
-  EXPORTS,
-  exportHref,
-  isLive,
-  RUN_STATUS_LABEL,
-} from "@/components/run/run-model";
+import { isLive, RUN_STATUS_LABEL } from "@/components/run/run-model";
+import { ExportLinks } from "@/components/run/export-links";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useActor } from "@/lib/session";
@@ -81,15 +77,7 @@ export function RunHeader() {
               Delete run
             </Button>
           ) : null}
-          {finished
-            ? EXPORTS.map(([format, label]) => (
-                <Button key={format} variant="secondary" className="px-2 py-1 text-xs" asChild>
-                  <a href={exportHref(run.run_id, format)} download>
-                    {label}
-                  </a>
-                </Button>
-              ))
-            : null}
+          {finished ? <ExportLinks runId={run.run_id} /> : null}
         </div>
       </div>
 

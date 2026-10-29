@@ -21,6 +21,7 @@ from metatracer.reports.builder import (
     longest_backtick_run,
     report_filename_stem,
 )
+from metatracer.reports.disclosure import disclosure_sections
 
 _WHITESPACE_RUN_RE = re.compile(r"\s+")
 
@@ -48,6 +49,7 @@ def render_markdown(data: ReportData) -> str:
     parts = [_render_header(data), _render_summary(data), _render_compliance(data)]
     if data.findings:
         parts.append(_render_findings(data))
+    parts.append(_render_disclosure(data))
     return "\n\n".join(parts) + "\n"
 
 
@@ -130,7 +132,14 @@ def _render_finding(finding: ReportFindingData) -> str:
             _indent(reproduction),
             "- **Remediation:**",
             _indent(_escape_prose(finding.remediation)),
+            "- **Provenance:** live fetch of this asset; not an archive capture.",
         ]
+    )
+
+
+def _render_disclosure(data: ReportData) -> str:
+    return "\n\n".join(
+        f"## {title}\n\n{_escape_prose(body)}" for title, body in disclosure_sections(data)
     )
 
 

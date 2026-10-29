@@ -35,6 +35,7 @@ from metatracer.reports.builder import (
     iso_z,
     report_filename_stem,
 )
+from metatracer.reports.disclosure import disclosure_sections
 
 
 class BountyExporter:
@@ -62,6 +63,7 @@ def render_bounty(data: ReportData) -> str:
         parts.append("\n\n".join(blocks))
     else:
         parts.append("No findings.")
+    parts.append(_render_disclosure(data))
     return "\n\n".join(parts) + "\n"
 
 
@@ -132,8 +134,13 @@ def _render_finding_text(finding: ReportFindingData) -> str:
             _indent(_no_fake_finding_header(reproduction)),
             "Remediation:",
             _indent(_no_fake_finding_header(finding.remediation)),
+            "Provenance: live fetch of this asset; not an archive capture.",
         ]
     )
+
+
+def _render_disclosure(data: ReportData) -> str:
+    return "\n\n".join(f"{title}\n\n{body}" for title, body in disclosure_sections(data))
 
 
 def _no_fake_finding_header(text: str) -> str:

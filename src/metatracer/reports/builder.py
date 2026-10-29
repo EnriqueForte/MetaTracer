@@ -33,7 +33,7 @@ Documented decisions:
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -156,10 +156,35 @@ class ReportFindingData:
     asset_id: str = ""
     detector_method: DetectorMethod = DetectorMethod.rule
     created_at: datetime | None = None
+    # Live fetch. Archive connectors do not become findings.
+    historical: bool = False
+    capture_date: str | None = None
 
     @property
     def triage_label(self) -> str:
         return TRIAGE_LABELS[self.triage_status]
+
+
+@dataclass(frozen=True, slots=True)
+class ReportCoverage:
+    """Coverage copied from ``Run.ingestion_stats`` for the report only."""
+
+    counters_recorded: bool = False
+    limits_hit: tuple[str, ...] = ()
+    pages_crawled: int = 0
+    assets_queued: int = 0
+    elapsed_seconds: float = 0.0
+
+    def statement(self) -> str:
+        if not self.counters_recorded:
+            return "Discovery counters were not recorded for this run."
+        limits = ", ".join(self.limits_hit) if self.limits_hit else "none"
+        return (
+            f"Pages crawled: {self.pages_crawled}. "
+            f"Assets queued: {self.assets_queued}. "
+            f"Elapsed seconds: {self.elapsed_seconds:.1f}. "
+            f"Limits reached: {limits}."
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,6 +203,9 @@ class ReportData:
     compliance_notice: str
     findings: tuple[ReportFindingData, ...]
     excluded_false_positives: int = 0
+    # Fase 5: additive. Existing constructors keep working.
+    coverage: ReportCoverage = field(default_factory=ReportCoverage)
+    redaction: str = "none"
 
     @property
     def total_findings(self) -> int:
@@ -224,6 +252,9 @@ class ReportBuilder:
         pairs.sort(key=_sort_key)
         entries = tuple(_entry(finding, asset) for finding, asset in pairs)
         counts = _severity_counts(findings)
+        # Local import: disclosure imports ReportData from this module.
+        from metatracer.reports.disclosure import coverage_from_stats
+
         return ReportData(
             metatracer_version=__version__,
             run_id=run.id,
@@ -239,6 +270,7 @@ class ReportBuilder:
             compliance_notice=COMPLIANCE_NOTICE,
             findings=entries,
             excluded_false_positives=excluded,
+            coverage=coverage_from_stats(run.ingestion_stats),
         )
 
 

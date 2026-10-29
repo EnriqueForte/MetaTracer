@@ -36,13 +36,17 @@ _FIELD_TO_COLUMN: dict[str, str] = {
     "explanation": "explanation",
     "remediation": "remediation",
     "triage_status": "triage_status",
+    "historical": "historical",
+    "capture_date": "capture_date",
 }
 
 # Deliberate exclusions, each with its reason (see the module docstring).
 _JSON_ONLY: frozenset[str] = frozenset({"id", "reproduction_steps"})
 
 # CSV columns that are row context, not a projection of one JSON finding field.
-_CSV_ONLY: frozenset[str] = frozenset({"run_id", "target"})
+_CSV_ONLY: frozenset[str] = frozenset(
+    {"run_id", "target", "redaction", "limits_hit", "schema_version"}
+)
 
 
 def test_every_json_finding_field_is_mapped_or_explicitly_excluded() -> None:
@@ -100,4 +104,9 @@ def test_header_order_is_stable() -> None:
         "explanation",
         "remediation",
         "triage_status",
+        "historical",
+        "capture_date",
+        "redaction",
+        "limits_hit",
+        "schema_version",
     ]

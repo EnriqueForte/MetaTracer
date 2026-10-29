@@ -34,6 +34,7 @@ from metatracer.reports.builder import (
     ReportData,
     report_filename_stem,
 )
+from metatracer.reports.disclosure import SCHEMA_VERSION
 
 # Same columns as the JSON report, one per finding, in this order.
 CSV_COLUMNS = [
@@ -49,6 +50,12 @@ CSV_COLUMNS = [
     "explanation",
     "remediation",
     "triage_status",  # TASK-35, lowercase enum value
+    # Fase 5, appended so existing column positions stay stable.
+    "historical",
+    "capture_date",
+    "redaction",
+    "limits_hit",
+    "schema_version",
 ]
 
 
@@ -98,5 +105,10 @@ def _row(data: ReportData, finding) -> dict[str, str]:
         "explanation": finding.explanation,
         "remediation": finding.remediation,
         "triage_status": finding.triage_status.value,
+        "historical": "true" if finding.historical else "false",
+        "capture_date": finding.capture_date or "",
+        "redaction": data.redaction,
+        "limits_hit": "; ".join(data.coverage.limits_hit),
+        "schema_version": SCHEMA_VERSION,
     }
     return {key: neutralize_spreadsheet_formula(value) for key, value in raw.items()}

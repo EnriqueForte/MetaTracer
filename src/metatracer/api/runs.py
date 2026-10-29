@@ -44,6 +44,7 @@ from metatracer.db.repositories import (
     RunRepository,
 )
 from metatracer.reports.builder import ReportBuilder
+from metatracer.reports.disclosure import Redaction
 from metatracer.reports.filters import filter_findings
 from metatracer.services.investigation import suggestions_for
 from metatracer.services.orchestrator import (
@@ -383,6 +384,10 @@ async def export_run(
     include_false_positives: Annotated[
         bool, Query(description="Keep findings triaged as false_positive (default: excluded)")
     ] = False,
+    redact: Annotated[
+        Literal["none", "contacts", "coordinates", "all"],
+        Query(description="Rewrite the exported file only. The database is not changed."),
+    ] = "none",
 ) -> FileResponse:
     """Regenerate the report from the database and serve it as an attachment.
 
@@ -396,6 +401,7 @@ async def export_run(
             formats=ExportFormat(format),
             output_dir=request.app.state.reports_dir,
             include_false_positives=include_false_positives,
+            redact=Redaction(redact),
         )
     except MetaTracerError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

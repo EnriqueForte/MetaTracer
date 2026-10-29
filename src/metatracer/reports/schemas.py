@@ -12,6 +12,11 @@ from pydantic import BaseModel, Field
 
 from metatracer.db.models import Confidence, FindingType, ReasoningDepth, Severity, TriageStatus
 from metatracer.reports.builder import ReportData
+from metatracer.reports.disclosure import (
+    LIMITATIONS,
+    METHODOLOGY,
+    SCHEMA_VERSION,
+)
 
 
 class ReportSeverityCounts(BaseModel):
@@ -48,6 +53,20 @@ class ReportFinding(BaseModel):
     remediation: str
     reproduction_steps: list[str] = Field(default_factory=list)
     triage_status: TriageStatus = TriageStatus.open
+    # JSON-only provenance. Scan findings are live fetches, never archive captures.
+    historical: bool = False
+    capture_date: str | None = None
+
+
+class ReportCoverageDocument(BaseModel):
+    """Crawl coverage copied into the export. Missing stats stay 'not recorded'."""
+
+    counters_recorded: bool = False
+    limits_hit: list[str] = Field(default_factory=list)
+    pages_crawled: int = 0
+    assets_queued: int = 0
+    elapsed_seconds: float = 0.0
+    statement: str = "Discovery counters were not recorded for this run."
 
 
 class ReportDocument(BaseModel):
@@ -62,6 +81,12 @@ class ReportDocument(BaseModel):
     summary: ReportSummary
     findings: list[ReportFinding]
     compliance_notice: str
+    # Fase 5 fields stay at the end so older readers that stop early still parse.
+    schema_version: str = SCHEMA_VERSION
+    methodology: str = METHODOLOGY
+    coverage: ReportCoverageDocument = Field(default_factory=ReportCoverageDocument)
+    limitations: str = LIMITATIONS
+    redaction: str = "none"
 
 
 def build_report_document(data: ReportData) -> ReportDocument:
@@ -105,8 +130,22 @@ def build_report_document(data: ReportData) -> ReportDocument:
                 remediation=finding.remediation,
                 reproduction_steps=list(finding.reproduction_steps),
                 triage_status=finding.triage_status,
+                historical=finding.historical,
+                capture_date=finding.capture_date,
             )
             for finding in data.findings
         ],
         compliance_notice=data.compliance_notice,
+        schema_version=SCHEMA_VERSION,
+        methodology=METHODOLOGY,
+        coverage=ReportCoverageDocument(
+            counters_recorded=data.coverage.counters_recorded,
+            limits_hit=list(data.coverage.limits_hit),
+            pages_crawled=data.coverage.pages_crawled,
+            assets_queued=data.coverage.assets_queued,
+            elapsed_seconds=data.coverage.elapsed_seconds,
+            statement=data.coverage.statement(),
+        ),
+        limitations=LIMITATIONS,
+        redaction=data.redaction,
     )

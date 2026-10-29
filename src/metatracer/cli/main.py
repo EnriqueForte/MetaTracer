@@ -54,6 +54,7 @@ from metatracer.db.repositories import FindingRepository, RunRepository
 from metatracer.extractors.ingest import sweep_stale_tempfiles
 from metatracer.knowledge.portable import export_kb, import_kb
 from metatracer.reports.builder import DEFAULT_REPORTS_DIR, ReportBuilder, ReportData
+from metatracer.reports.disclosure import Redaction
 from metatracer.reports.filters import filter_findings
 from metatracer.scopes.portable import ScopeImportResult, export_scopes, import_scopes
 from metatracer.services.orchestrator import (
@@ -204,11 +205,20 @@ def report(
             help="Keep findings triaged as false_positive (excluded by default).",
         ),
     ] = False,
+    redact: Annotated[
+        Redaction,
+        typer.Option(
+            "--redact",
+            help="Rewrite the exported file only: none, contacts, coordinates, or all.",
+        ),
+    ] = Redaction.none,
 ) -> None:
     """Re-export the Markdown/JSON/HTML/CSV/bounty reports of a persisted run."""
     try:
         paths = asyncio.run(
-            _execute_report(run_id, export_format, output_dir, include_false_positives)
+            _execute_report(
+                run_id, export_format, output_dir, include_false_positives, redact
+            )
         )
     except MetaTracerError as exc:
         err_console.print(f"[red]Error:[/red] {escape(str(exc))}")
@@ -733,6 +743,7 @@ async def _execute_report(
     export_format: ExportFormat,
     output_dir: Path,
     include_false_positives: bool = False,
+    redact: Redaction = Redaction.none,
 ) -> dict[str, Path]:
     """Resolve the run token, then re-export through the orchestrator."""
     settings = Settings()
@@ -749,6 +760,7 @@ async def _execute_report(
             formats=export_format,
             output_dir=output_dir,
             include_false_positives=include_false_positives,
+            redact=redact,
         )
     finally:
         await engine.dispose()
