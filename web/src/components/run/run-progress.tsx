@@ -9,6 +9,7 @@ import { ExportLinks } from "@/components/run/export-links";
 import { findingsKey, FindingsPanel } from "@/components/run/findings-panel";
 import { AbortRunButton, DeleteRunDialog } from "@/components/run/run-actions";
 import { fetchRun, isLive, RUN_STATUS_LABEL, runKey, TERMINAL } from "@/components/run/run-model";
+import { RunSectionNav } from "@/components/run/workspace/run-header";
 import { LiveActivity } from "@/components/run/live-activity";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -166,38 +167,31 @@ export function RunProgress({ runId }: { runId: string }) {
               Delete run
             </Button>
           ) : null}
-          {finished ? (
-            <>
-              <ExportLinks runId={run.run_id} />
-              <Button variant="ghost" className="px-2 py-1 text-xs" asChild>
-                <Link href={`/runs/compare?b=${encodeURIComponent(run.run_id)}`}>Compare</Link>
-              </Button>
-              <Button variant="secondary" className="px-2 py-1 text-xs" asChild>
-                <Link href={`/runs/${encodeURIComponent(run.run_id)}/assets`}>Assets</Link>
-              </Button>
-              <Button variant="secondary" className="px-2 py-1 text-xs" asChild>
-                <Link href={`/runs/${encodeURIComponent(run.run_id)}/metadata`}>Metadata</Link>
-              </Button>
-              <Button variant="secondary" className="px-2 py-1 text-xs" asChild>
-                <Link href={`/runs/${encodeURIComponent(run.run_id)}/coverage`}>Coverage</Link>
-              </Button>
-              <Button variant="ghost" className="px-2 py-1 text-xs" asChild>
-                <Link href="/runs">History</Link>
-              </Button>
-              <Button variant="secondary" className="px-2 py-1 text-xs" asChild>
-                <Link href="/">New scan</Link>
-              </Button>
-            </>
-          ) : null}
         </div>
       </div>
+      <RunSectionNav runId={run.run_id} active="" />
+      {finished ? (
+        <>
+          <ExportLinks runId={run.run_id} />
+          <div className="flex flex-wrap gap-2">
+            <Button variant="ghost" className="px-2 py-1 text-xs" asChild>
+              <Link href={`/runs/compare?b=${encodeURIComponent(run.run_id)}`}>Compare</Link>
+            </Button>
+            <Button variant="ghost" className="px-2 py-1 text-xs" asChild>
+              <Link href="/runs">History</Link>
+            </Button>
+            <Button variant="secondary" className="px-2 py-1 text-xs" asChild>
+              <Link href="/">New scan</Link>
+            </Button>
+          </div>
+        </>
+      ) : null}
       <DeleteRunDialog
         runId={run.run_id}
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
         onDeleted={() => setDeleted(true)}
       />
-      {finished ? <p className="text-xs text-mt-muted">The report file is regenerated on the server.</p> : null}
 
       {run.status === "failed" ? (
         <div role="alert" className="flex flex-col gap-1 rounded-md border border-mt-danger-border bg-mt-danger-bg p-3">

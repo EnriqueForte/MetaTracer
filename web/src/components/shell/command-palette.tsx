@@ -15,7 +15,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 export function baseCommands(actor: Actor): Command[] {
   const commands: Command[] = [
-    { id: "new-scan", label: "New scan", hint: "Reconnaissance", href: "/" },
+    { id: "new-scan", label: "New scan", hint: "Targets and scope", href: "/" },
     { id: "dashboard", label: "Dashboard", hint: "Overview", href: "/dashboard" },
     { id: "history", label: "History", hint: "Local runs", href: "/runs" },
     { id: "compare", label: "Compare runs", hint: "New / resolved / persistent", href: "/runs/compare" },

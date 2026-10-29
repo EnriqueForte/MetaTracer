@@ -54,7 +54,9 @@ describe("AppShell coexistence", () => {
     expect(screen.getByRole("status")).toHaveTextContent("API reachable");
     expect(screen.queryByRole("link", { name: "Classic UI" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: "Reconnaissance" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByText("Research")).toBeInTheDocument();
+    expect(screen.getByText("Administration")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "New scan" })).not.toHaveAttribute("aria-current");
   });
 
   it("hides the sign out control when auth is off (T11: no classic UI link)", async () => {
@@ -93,6 +95,6 @@ describe("AppShell coexistence", () => {
     );
     expect(await screen.findByRole("link", { name: "History" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Dashboard" })).not.toHaveAttribute("aria-current");
-    expect(screen.getByRole("link", { name: "Reconnaissance" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", { name: "New scan" })).not.toHaveAttribute("aria-current");
   });
 });

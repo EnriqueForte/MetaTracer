@@ -170,104 +170,130 @@ export function ScanWizard() {
       ) : null}
 
       <form
-        className="mt-command"
+        className="grid grid-cols-1 gap-3"
         noValidate
         onSubmit={(event) => {
           event.preventDefault();
           openModal();
         }}
       >
-        <div className="mt-command-field">
-          <label htmlFor="targets" className="text-xs text-mt-muted">
-            Targets
-          </label>
-          <textarea
-            id="targets"
-            rows={1}
-            value={targets}
-            disabled={viewer}
-            onChange={(event) => setTargets(event.target.value)}
-            className="mt-tech w-full resize-y rounded-md border border-mt-border-strong bg-mt-bg px-3 py-2 text-sm text-mt-fg placeholder:text-mt-faint focus:border-mt-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mt-focus disabled:opacity-[0.45]"
-            placeholder="One target per line"
-          />
-        </div>
-        <div className="mt-command-field">
-          <label htmlFor="scope" className="text-xs text-mt-muted">
-            Authorized scope domains
-          </label>
-          <Input
-            id="scope"
-            type="text"
-            value={scopeDomains}
-            disabled={viewer || usingSaved}
-            aria-describedby={usingSaved ? "scope-source-note" : undefined}
-            onChange={(event) => setScopeDomains(event.target.value)}
-            className="mt-tech disabled:opacity-[0.45]"
-            placeholder="example.com, static.example.com"
-          />
-        </div>
-        <fieldset className="mt-command-field" disabled={viewer || usingManual}>
-          <legend className="text-xs text-mt-muted">Saved scopes</legend>
-          {savedScopes.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              {savedScopes.map((scope) => (
-                <label key={scope.id} className="flex cursor-pointer items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={activeScopeIds.includes(scope.id)}
-                    aria-describedby={usingManual ? "scope-source-note" : undefined}
-                    onChange={(event) => {
-                      setSelectedScopeIds((current) =>
-                        event.target.checked
-                          ? [...current, scope.id]
-                          : current.filter((id) => id !== scope.id),
-                      );
-                    }}
-                  />
-                  <span className="text-sm text-mt-fg">
-                    {scope.name}{" "}
-                    <span className="text-xs text-mt-muted">({scope.total_domains})</span>
-                  </span>
-                </label>
+        <section className="mt-card flex flex-col gap-3 p-4">
+          <p className="mt-kicker">Step 1</p>
+          <h2 className="mt-section-title">What to fetch</h2>
+          <p className="text-sm text-mt-muted">
+            Public URLs or hostnames you are allowed to request. One target per line. Nothing is
+            downloaded until you confirm the scope.
+          </p>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="targets" className="text-xs font-semibold text-mt-muted">
+              Targets
+            </label>
+            <textarea
+              id="targets"
+              rows={3}
+              value={targets}
+              disabled={viewer}
+              onChange={(event) => setTargets(event.target.value)}
+              className="mt-tech w-full resize-y rounded-md border border-mt-border-strong bg-mt-bg px-3 py-2 text-sm text-mt-fg placeholder:text-mt-faint focus:border-mt-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mt-focus disabled:opacity-[0.45]"
+              placeholder="https://example.com/&#10;files.example.com"
+            />
+          </div>
+        </section>
+
+        <section className="mt-card flex flex-col gap-3 p-4">
+          <p className="mt-kicker">Step 2</p>
+          <h2 className="mt-section-title">Where you are allowed</h2>
+          <p className="text-sm text-mt-muted">
+            The scope is a separate decision. The product never copies it from the targets. Use a
+            saved scope or type the domains.
+          </p>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="scope" className="text-xs font-semibold text-mt-muted">
+              Authorized scope domains
+            </label>
+            <Input
+              id="scope"
+              type="text"
+              value={scopeDomains}
+              disabled={viewer || usingSaved}
+              aria-describedby={usingSaved ? "scope-source-note" : "scope-source-note"}
+              onChange={(event) => setScopeDomains(event.target.value)}
+              className="mt-tech disabled:opacity-[0.45]"
+              placeholder="example.com, static.example.com"
+            />
+          </div>
+          <fieldset className="flex flex-col gap-2" disabled={viewer || usingManual}>
+            <legend className="text-xs font-semibold text-mt-muted">Saved scopes</legend>
+            {savedScopes.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                {savedScopes.map((scope) => (
+                  <label key={scope.id} className="flex cursor-pointer items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={activeScopeIds.includes(scope.id)}
+                      aria-describedby={usingManual ? "scope-source-note" : undefined}
+                      onChange={(event) => {
+                        setSelectedScopeIds((current) =>
+                          event.target.checked
+                            ? [...current, scope.id]
+                            : current.filter((id) => id !== scope.id),
+                        );
+                      }}
+                    />
+                    <span className="text-sm text-mt-fg">
+                      {scope.name}{" "}
+                      <span className="text-xs text-mt-muted">({scope.total_domains})</span>
+                    </span>
+                  </label>
+                ))}
+                <a href={`${BASE_PATH}/scopes`} className="text-xs text-mt-muted underline">
+                  Manage scopes…
+                </a>
+              </div>
+            ) : (
+              <p className="text-xs text-mt-muted">
+                No saved scopes yet —{" "}
+                <a href={`${BASE_PATH}/scopes`} className="underline">
+                  create one
+                </a>
+                .
+              </p>
+            )}
+          </fieldset>
+        </section>
+
+        <section className="mt-card flex flex-col gap-3 p-4">
+          <p className="mt-kicker">Step 3</p>
+          <h2 className="mt-section-title">How the write-up reads</h2>
+          <p className="text-sm text-mt-muted">
+            Brief is a short card. Standard is the default. Detailed asks the analyst for a longer
+            explanation. Severity still comes from the rubric.
+          </p>
+          <div className="flex flex-col gap-1 sm:max-w-xs">
+            <label htmlFor="depth" className="text-xs font-semibold text-mt-muted">
+              Reasoning depth
+            </label>
+            <select
+              id="depth"
+              value={depth}
+              disabled={viewer}
+              onChange={(event) => {
+                const next = DEPTHS.find((item) => item === event.target.value);
+                if (next) setDepth(next);
+              }}
+              className="w-full rounded-md border border-mt-border-strong bg-mt-bg px-3 py-2 text-sm text-mt-fg focus:border-mt-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mt-focus"
+            >
+              {DEPTHS.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
               ))}
-              <a href={`${BASE_PATH}/scopes`} className="text-xs text-mt-muted underline">
-                Manage scopes…
-              </a>
-            </div>
-          ) : (
-            <p className="py-2 text-xs text-mt-muted">
-              No saved scopes yet —{" "}
-              <a href={`${BASE_PATH}/scopes`} className="underline">
-                create one
-              </a>
-              .
-            </p>
-          )}
-        </fieldset>
-        <div className="mt-command-field mt-command-depth">
-          <label htmlFor="depth" className="text-xs text-mt-muted">
-            Reasoning depth
-          </label>
-          <select
-            id="depth"
-            value={depth}
-            disabled={viewer}
-            onChange={(event) => {
-              const next = DEPTHS.find((item) => item === event.target.value);
-              if (next) setDepth(next);
-            }}
-            className="w-full rounded-md border border-mt-border-strong bg-mt-bg px-3 py-2 text-sm text-mt-fg focus:border-mt-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mt-focus"
-          >
-            {DEPTHS.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
-        </div>
-        <Button type="submit" className="mt-command-start" disabled={viewer}>
-          Start scan
-        </Button>
+            </select>
+          </div>
+          <Button type="submit" className="self-start" disabled={viewer}>
+            Start scan
+          </Button>
+        </section>
       </form>
       <p id="scope-source-note" className="text-xs text-mt-muted" aria-live="polite">
         {usingSaved

@@ -146,24 +146,66 @@ async function fetchStats(): Promise<Stats> {
 
 function Onboarding() {
   return (
-    <section className="mt-card flex flex-col gap-3 p-4" aria-labelledby="onboarding-title">
+    <section className="flex flex-col gap-3" aria-labelledby="onboarding-title">
       <h2 id="onboarding-title" className="mt-section-title">
         No data yet
       </h2>
-      <p className="text-sm text-mt-fg">
-        Run a scan to start building the dashboard — runs, findings, domains and agent usage will
-        appear here.
-      </p>
-      <ol className="flex list-decimal flex-col gap-1 ps-5 text-sm text-mt-muted">
-        <li>Enter the public targets you are authorized to audit.</li>
-        <li>Name the authorized scope: domains, or a saved scope. It is never guessed from the targets.</li>
-        <li>Confirm the scope in the dialog. Nothing is downloaded before that confirmation.</li>
-      </ol>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <article className="mt-card flex flex-col gap-2 p-4">
+          <p className="mt-kicker">1</p>
+          <h3 className="text-sm font-semibold text-mt-fg">Name the targets</h3>
+          <p className="text-sm text-mt-muted">Public documents you are authorized to request.</p>
+        </article>
+        <article className="mt-card flex flex-col gap-2 p-4">
+          <p className="mt-kicker">2</p>
+          <h3 className="text-sm font-semibold text-mt-fg">Set the scope</h3>
+          <p className="text-sm text-mt-muted">Domains, or a saved scope. It is never guessed.</p>
+        </article>
+        <article className="mt-card flex flex-col gap-2 p-4">
+          <p className="mt-kicker">3</p>
+          <h3 className="text-sm font-semibold text-mt-fg">Confirm, then read</h3>
+          <p className="text-sm text-mt-muted">Nothing is downloaded before that confirmation.</p>
+        </article>
+      </div>
       <Button className="self-start" asChild>
         <Link href="/">Start your first scan</Link>
       </Button>
     </section>
   );
+}
+
+function nextCards(stats: Stats): { title: string; body: string; href: string; action: string }[] {
+  const failed = stats.runs.failed ?? 0;
+  const cards = [
+    stats.findings.unclassified > 0
+      ? {
+          title: "Findings still open",
+          body: `${stats.findings.unclassified} finding(s) have no severity yet. Open a run and read the evidence before you export.`,
+          href: "/runs",
+          action: "Open runs",
+        }
+      : {
+          title: "Read a finished run",
+          body: "Assets, metadata, and findings live inside each run. Coverage says what that crawl did not fetch.",
+          href: "/runs",
+          action: "Open runs",
+        },
+  ];
+  if (failed > 0) {
+    cards.push({
+      title: "Scans that stopped",
+      body: `${failed} scan(s) did not finish. The run page keeps the error. A failed scan is not a clean target.`,
+      href: "/runs",
+      action: "Review history",
+    });
+  }
+  cards.push({
+    title: "Share a report",
+    body: "Download it from a finished run. Redaction changes the file only. Contacts is the preset for sending it out.",
+    href: "/runs",
+    action: "Choose a run",
+  });
+  return cards.slice(0, 3);
 }
 
 export function DashboardView() {
@@ -202,6 +244,22 @@ export function DashboardView() {
       {stats && stats.runs.total === 0 ? <Onboarding /> : null}
       {stats && stats.runs.total > 0 ? (
         <div className="flex flex-col gap-5">
+          <section className="flex flex-col gap-3" aria-labelledby="next-title">
+            <h2 id="next-title" className="mt-section-title">
+              What to do next
+            </h2>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              {nextCards(stats).map((card) => (
+                <article key={card.title} className="mt-card flex flex-col gap-2 p-4">
+                  <h3 className="text-sm font-semibold text-mt-fg">{card.title}</h3>
+                  <p className="text-sm text-mt-muted">{card.body}</p>
+                  <Button variant="secondary" className="mt-auto self-start px-2 py-1 text-xs" asChild>
+                    <Link href={card.href}>{card.action}</Link>
+                  </Button>
+                </article>
+              ))}
+            </div>
+          </section>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard
               label="Scans"

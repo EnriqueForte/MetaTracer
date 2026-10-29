@@ -16,12 +16,34 @@ import { InvestigationMembership } from "./investigation-membership";
 import { useWorkspace } from "./workspace-context";
 
 export const RUN_TABS = [
-  { segment: "", label: "Overview" },
-  { segment: "assets", label: "Assets" },
-  { segment: "metadata", label: "Metadata" },
-  { segment: "findings", label: "Findings" },
-  { segment: "coverage", label: "Coverage" },
+  { segment: "", label: "Overview", hint: "Progress and the findings on this run" },
+  { segment: "assets", label: "Assets", hint: "Files this run actually fetched" },
+  { segment: "metadata", label: "Metadata", hint: "Original values, with a normalized reading when one exists" },
+  { segment: "findings", label: "Findings", hint: "Evidence, severity, and triage" },
+  { segment: "coverage", label: "Coverage", hint: "What the crawl did not fetch" },
 ] as const;
+
+export function RunSectionNav({ runId, active }: { runId: string; active: string }) {
+  return (
+    <nav aria-label="Run sections" className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
+      {RUN_TABS.map((tab) => {
+        const href = tab.segment ? `/runs/${runId}/${tab.segment}` : `/runs/${runId}`;
+        const isActive = active === tab.segment;
+        return (
+          <Link
+            key={tab.segment || "overview"}
+            href={href}
+            aria-current={isActive ? "page" : undefined}
+            className="mt-card flex flex-col gap-1 p-3 text-mt-muted aria-[current=page]:border-mt-accent aria-[current=page]:bg-mt-accent-soft aria-[current=page]:text-mt-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mt-focus"
+          >
+            <span className="text-sm font-semibold text-mt-fg">{tab.label}</span>
+            <span className="text-xs text-mt-muted">{tab.hint}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
 
 function currentTab(pathname: string, runId: string): string {
   const base = `/runs/${runId}`;
@@ -77,9 +99,11 @@ export function RunHeader() {
               Delete run
             </Button>
           ) : null}
-          {finished ? <ExportLinks runId={run.run_id} /> : null}
         </div>
       </div>
+
+      <RunSectionNav runId={runId} active={active} />
+      {finished ? <ExportLinks runId={run.run_id} /> : null}
 
       <DeleteRunDialog
         runId={run.run_id}
@@ -87,23 +111,6 @@ export function RunHeader() {
         onOpenChange={setConfirmDelete}
         onDeleted={() => setDeleted(true)}
       />
-
-      <nav aria-label="Run sections" className="flex flex-wrap gap-1">
-        {RUN_TABS.map((tab) => {
-          const href = tab.segment ? `/runs/${runId}/${tab.segment}` : `/runs/${runId}`;
-          const isActive = active === tab.segment;
-          return (
-            <Link
-              key={tab.segment || "overview"}
-              href={href}
-              aria-current={isActive ? "page" : undefined}
-              className="rounded-sm border border-transparent px-3 py-1.5 text-sm text-mt-muted hover:text-mt-fg aria-[current=page]:border-mt-accent aria-[current=page]:bg-mt-accent-soft aria-[current=page]:text-mt-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mt-focus"
-            >
-              {tab.label}
-            </Link>
-          );
-        })}
-      </nav>
     </div>
   );
 }

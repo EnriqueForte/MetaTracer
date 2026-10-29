@@ -409,6 +409,16 @@ body {
   color: var(--mt-muted);
 }
 
+.mt-nav-label {
+  margin: 14px 18px 4px;
+  color: var(--mt-faint);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
 .mt-nav-link {
   display: flex;
   align-items: center;

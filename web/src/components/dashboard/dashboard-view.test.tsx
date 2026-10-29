@@ -67,6 +67,7 @@ describe("DashboardView", () => {
     expect(barClass("Email")).toContain("bg-mt-chart-2");
     expect(screen.getByRole("img", { name: "10 findings" })).toBeInTheDocument();
     expect(screen.getByText("example.com")).toBeInTheDocument();
+    expect(screen.getByText("Findings still open")).toBeInTheDocument();
     expect(screen.getByText("Latitude: 1")).toBeInTheDocument();
     const agent = screen.getByRole("region", { name: "Agent usage" });
     expect(agent).toHaveTextContent("Calls 1");

@@ -20,7 +20,7 @@ import { formatRelative } from "@/lib/time";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/", label: "Reconnaissance", icon: Radar },
+  { href: "/", label: "New scan", icon: Radar },
   { href: "/runs", label: "History", icon: History },
   { href: "/scopes", label: "Scopes", icon: Shield },
 ] as const;
@@ -166,38 +166,50 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="mt-brand-sub">Security Intelligence</span>
           </Link>
           <nav className="flex flex-col" aria-label="Primary">
-            {NAV.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="mt-nav-link"
-                  aria-current={isNavCurrent(item.href, pathname) ? "page" : undefined}
-                  onClick={() => setNavOpen(false)}
-                >
-                  <Icon aria-hidden="true" className="size-4" />
-                  {item.label}
-                </Link>
-              );
-            })}
-            {showUsers
-              ? OPERATOR_NAV.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className="mt-nav-link"
-                      aria-current={isNavCurrent(item.href, pathname) ? "page" : undefined}
-                      onClick={() => setNavOpen(false)}
-                    >
-                      <Icon aria-hidden="true" className="size-4" />
-                      {item.label}
-                    </Link>
-                  );
-                })
-              : null}
+            <p id="nav-research" className="mt-nav-label">
+              Research
+            </p>
+            <div role="group" aria-labelledby="nav-research">
+              {NAV.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="mt-nav-link"
+                    aria-current={isNavCurrent(item.href, pathname) ? "page" : undefined}
+                    onClick={() => setNavOpen(false)}
+                  >
+                    <Icon aria-hidden="true" className="size-4" />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+            {showUsers ? (
+              <>
+                <p id="nav-admin" className="mt-nav-label">
+                  Administration
+                </p>
+                <div role="group" aria-labelledby="nav-admin">
+                  {OPERATOR_NAV.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className="mt-nav-link"
+                        aria-current={isNavCurrent(item.href, pathname) ? "page" : undefined}
+                        onClick={() => setNavOpen(false)}
+                      >
+                        <Icon aria-hidden="true" className="size-4" />
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </>
+            ) : null}
           </nav>
           <div className="mt-auto flex flex-col gap-1 px-2.5 pt-4">
             <span className="mt-kicker">Theme</span>
