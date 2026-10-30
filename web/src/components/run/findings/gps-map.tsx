@@ -4,6 +4,7 @@ import type { KeyboardEvent } from "react";
 
 import { severityKey } from "@/lib/api/types";
 
+import landOutlines from "./land-outlines.json";
 import { SEVERITY_LABEL, type Finding } from "./model";
 
 /** Same shape and range rules as classification/anchor.py::parse_gps_line. */
@@ -21,26 +22,18 @@ export function parseGpsLine(snippet: string): { lat: number; lon: number } | nu
   return { lat, lon };
 }
 
-const WIDTH = 360;
-const HEIGHT = 180;
+/** Natural Earth 110m land (public domain), simplified and bundled. No tiles. */
+const LAND = landOutlines as [number, number][][][];
+
+const WORLD_W = 360;
+const WORLD_H = 180;
 
 /** Equirectangular: x from longitude, y from latitude. */
 function project(lat: number, lon: number): [number, number] {
   return [lon + 180, 90 - lat];
 }
 
-/** Coarse continent outlines bundled with the app: no tiles, no network (CSP connect-src 'self'). */
-const OUTLINES: [number, number][][] = [
-  [[-168, 65], [-140, 70], [-95, 72], [-80, 62], [-60, 55], [-55, 47], [-70, 42], [-76, 35], [-81, 25], [-97, 26], [-97, 18], [-87, 15], [-83, 9], [-78, 8], [-92, 15], [-105, 20], [-117, 32], [-124, 40], [-124, 48], [-135, 57], [-150, 60], [-165, 60]],
-  [[-55, 82], [-25, 83], [-20, 70], [-42, 60], [-55, 65]],
-  [[-80, 10], [-62, 11], [-50, 0], [-35, -7], [-40, -22], [-48, -28], [-58, -38], [-65, -55], [-74, -52], [-72, -30], [-70, -18], [-81, -5]],
-  [[-10, 36], [-9, 44], [-2, 48], [-5, 58], [5, 62], [15, 70], [30, 71], [40, 66], [40, 46], [28, 41], [20, 40], [12, 44], [3, 43]],
-  [[-17, 21], [-10, 35], [10, 37], [32, 31], [43, 12], [51, 12], [40, -15], [32, -29], [20, -35], [12, -17], [9, 4], [-8, 4], [-17, 14]],
-  [[40, 66], [70, 73], [110, 77], [140, 72], [180, 68], [170, 60], [140, 50], [130, 42], [122, 30], [110, 20], [105, 10], [100, 2], [92, 22], [78, 8], [72, 22], [57, 25], [52, 12], [43, 12], [35, 30], [28, 41], [40, 46]],
-  [[113, -22], [122, -17], [131, -11], [142, -11], [146, -19], [153, -28], [150, -37], [140, -38], [130, -32], [115, -34]],
-];
-
-function outlinePath(points: [number, number][]): string {
+function ringPath(points: [number, number][]): string {
   return (
     points
       .map(([lon, lat], index) => {
@@ -49,6 +42,37 @@ function outlinePath(points: [number, number][]): string {
       })
       .join(" ") + " Z"
   );
+}
+
+function landPaths(): string[] {
+  return LAND.map((polygon) => polygon.map(ringPath).join(" "));
+}
+
+type Frame = { x: number; y: number; w: number; h: number };
+
+function frameOf(points: { lat: number; lon: number }[]): Frame {
+  let minLat = 90;
+  let maxLat = -90;
+  let minLon = 180;
+  let maxLon = -180;
+  for (const point of points) {
+    minLat = Math.min(minLat, point.lat);
+    maxLat = Math.max(maxLat, point.lat);
+    minLon = Math.min(minLon, point.lon);
+    maxLon = Math.max(maxLon, point.lon);
+  }
+  if (maxLon - minLon > 180) return { x: 0, y: 0, w: WORLD_W, h: WORLD_H };
+  const latSpan = Math.max(maxLat - minLat, 16);
+  const lonSpan = Math.max(maxLon - minLon, 16);
+  const midLat = (minLat + maxLat) / 2;
+  const midLon = (minLon + maxLon) / 2;
+  const south = Math.max(-90, midLat - latSpan * 0.7);
+  const north = Math.min(90, midLat + latSpan * 0.7);
+  const west = Math.max(-180, midLon - lonSpan * 0.7);
+  const east = Math.min(180, midLon + lonSpan * 0.7);
+  const x = west + 180;
+  const y = 90 - north;
+  return { x, y, w: Math.max(east - west, 8), h: Math.max(north - south, 8) };
 }
 
 const MARKER_FILL: Record<string, string> = {
@@ -60,6 +84,8 @@ const MARKER_FILL: Record<string, string> = {
   unclassified: "fill-mt-sev-unclassified",
 };
 
+const PATHS = landPaths();
+
 type Props = { findings: Finding[]; onOpen: (finding: Finding) => void };
 
 export function GpsMap({ findings, onOpen }: Props) {
@@ -68,6 +94,11 @@ export function GpsMap({ findings, onOpen }: Props) {
     .map((finding) => ({ finding, at: parseGpsLine(finding.evidence_snippet) }))
     .filter((point): point is { finding: Finding; at: { lat: number; lon: number } } => point.at !== null);
   if (points.length === 0) return null;
+
+  const frame = frameOf(points.map((point) => point.at));
+  const zoomed = frame.w < 240;
+  const radius = Math.max(0.45, Math.min(frame.w, frame.h) * 0.018);
+  const labelSize = Math.min(frame.w, frame.h) * 0.055;
 
   function onKey(event: KeyboardEvent<SVGGElement>, finding: Finding) {
     if (event.key === "Enter" || event.key === " ") {
@@ -82,43 +113,95 @@ export function GpsMap({ findings, onOpen }: Props) {
         <h2 className="mt-section-title inline">GPS map</h2>{" "}
         <span className="mt-meta inline">({points.length} location(s), coordinates from the evidence only)</span>
       </summary>
-      <svg
-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-        className="mt-3 h-auto max-h-72 w-full rounded-md bg-mt-bg"
-        role="group"
-        aria-label="GPS findings on a world outline"
+      <div
+        className={
+          zoomed
+            ? "mt-3 grid min-w-0 grid-cols-1 gap-3 sm:h-72 sm:grid-cols-[7fr_3fr]"
+            : "mt-3 grid h-72 min-w-0 grid-cols-1"
+        }
       >
-        {[-60, -30, 0, 30, 60].map((lat) => (
-          <line key={`lat${lat}`} x1={0} x2={WIDTH} y1={90 - lat} y2={90 - lat} className="stroke-mt-border" strokeWidth={lat === 0 ? 0.6 : 0.3} />
-        ))}
-        {[-120, -60, 0, 60, 120].map((lon) => (
-          <line key={`lon${lon}`} y1={0} y2={HEIGHT} x1={lon + 180} x2={lon + 180} className="stroke-mt-border" strokeWidth={lon === 0 ? 0.6 : 0.3} />
-        ))}
-        {OUTLINES.map((outline, index) => (
-          <path key={index} d={outlinePath(outline)} className="fill-mt-elevated stroke-mt-border-strong" strokeWidth={0.4} />
-        ))}
-        {points.map(({ finding, at }) => {
-          const [x, y] = project(at.lat, at.lon);
-          const level = severityKey(finding.severity);
-          const label = `${SEVERITY_LABEL[level]} GPS finding at ${at.lat.toFixed(4)}, ${at.lon.toFixed(4)}`;
-          return (
-            <g
-              key={finding.id}
-              role="button"
-              tabIndex={0}
-              aria-label={label}
-              className="cursor-pointer focus:outline-none [&:focus-visible>circle:last-child]:stroke-mt-focus"
-              onClick={() => onOpen(finding)}
-              onKeyDown={(event) => onKey(event, finding)}
+        <svg
+          viewBox={`${frame.x.toFixed(2)} ${frame.y.toFixed(2)} ${frame.w.toFixed(2)} ${frame.h.toFixed(2)}`}
+          preserveAspectRatio="xMidYMid meet"
+          className="h-56 min-h-0 w-full overflow-hidden rounded-md bg-mt-bg sm:h-full"
+          role="group"
+          aria-label="GPS findings on a local land outline"
+        >
+          <rect x={0} y={0} width={WORLD_W} height={WORLD_H} className="fill-mt-bg" />
+          {PATHS.map((d, index) => (
+            <path
+              key={index}
+              d={d}
+              fillRule="evenodd"
+              vectorEffect="non-scaling-stroke"
+              className="fill-mt-elevated stroke-mt-border-strong"
+              strokeWidth={1}
+            />
+          ))}
+          {points.map(({ finding, at }) => {
+            const [x, y] = project(at.lat, at.lon);
+            const level = severityKey(finding.severity);
+            const label = `${SEVERITY_LABEL[level]} GPS finding at ${at.lat.toFixed(4)}, ${at.lon.toFixed(4)}`;
+            return (
+              <g
+                key={finding.id}
+                role="button"
+                tabIndex={0}
+                aria-label={label}
+                className="cursor-pointer focus:outline-none [&:focus-visible>circle:last-of-type]:stroke-mt-focus"
+                onClick={() => onOpen(finding)}
+                onKeyDown={(event) => onKey(event, finding)}
+              >
+                <title>{label}</title>
+                <circle cx={x} cy={y} r={radius * 2.2} className="fill-none stroke-mt-fg" strokeWidth={radius * 0.25} />
+                <circle cx={x} cy={y} r={radius} className={`${MARKER_FILL[level]} stroke-mt-bg`} strokeWidth={radius * 0.35} />
+                {points.length <= 6 ? (
+                  <text
+                    x={x + radius * 2.8}
+                    y={y + labelSize * 0.35}
+                    className="fill-mt-fg"
+                    fontSize={labelSize}
+                    fontFamily="ui-monospace, monospace"
+                  >
+                    {at.lat.toFixed(2)}, {at.lon.toFixed(2)}
+                  </text>
+                ) : null}
+              </g>
+            );
+          })}
+        </svg>
+        {zoomed ? (
+          <div className="relative h-44 min-h-0 min-w-0 overflow-hidden rounded-md bg-mt-bg sm:h-full">
+            <p className="mt-kicker pointer-events-none absolute left-2 top-2 z-10">World</p>
+            <svg
+              viewBox={`0 0 ${WORLD_W} ${WORLD_H}`}
+              preserveAspectRatio="xMidYMid slice"
+              className="h-full w-full"
+              aria-label="World outline showing the framed region"
             >
-              <title>{label}</title>
-              <circle cx={x} cy={y} r={4} className="fill-mt-bg" />
-              <circle cx={x} cy={y} r={2.6} className={`${MARKER_FILL[level]} stroke-mt-bg`} strokeWidth={0.8} />
-            </g>
-          );
-        })}
-      </svg>
-      <p className="mt-meta">Outline is approximate and drawn locally; no map tiles are loaded.</p>
+              {PATHS.map((d, index) => (
+                <path key={index} d={d} fillRule="evenodd" className="fill-mt-elevated" />
+              ))}
+              <rect
+                x={frame.x}
+                y={frame.y}
+                width={frame.w}
+                height={frame.h}
+                className="fill-none stroke-mt-accent"
+                strokeWidth={2.5}
+              />
+              {points.map(({ finding, at }) => {
+                const [x, y] = project(at.lat, at.lon);
+                return <circle key={finding.id} cx={x} cy={y} r={3} className="fill-mt-fg" />;
+              })}
+            </svg>
+          </div>
+        ) : null}
+      </div>
+      <p className="mt-meta">
+        Coastline is a bundled Natural Earth outline, drawn locally. The frame follows the evidence.
+        No map tiles are loaded.
+      </p>
     </details>
   );
 }

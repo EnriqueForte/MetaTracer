@@ -62,6 +62,13 @@ describe("GPS map (TASK-35)", () => {
     expect(markers).toHaveLength(1);
     fireEvent.keyDown(markers[0], { key: "Enter" });
     expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: "ok" }));
+    const map = container.querySelector('svg[role="group"]');
+    expect(map?.getAttribute("viewBox")).not.toBe("0 0 360 180");
+    expect(map?.querySelector("svg")).toBeNull();
+    expect(screen.getByLabelText("World outline showing the framed region")).toBeInTheDocument();
+    expect(container.querySelectorAll("path").length).toBeGreaterThan(20);
+    expect(screen.getByText("40.42, -3.70")).toBeInTheDocument();
+    expect(screen.getByText(/No map tiles are loaded/)).toBeInTheDocument();
     expect(container.querySelector("img")).toBeNull();
     expect(container.querySelector("image")).toBeNull();
   });
@@ -113,7 +120,11 @@ describe("Compare runs (TASK-35)", () => {
     const fresh = await screen.findByRole("region", { name: "New" });
     expect(within(fresh).getByText("<b>fresh</b>@acme.com")).toBeInTheDocument();
     expect(within(screen.getByRole("region", { name: "Resolved" })).getByText("old@acme.com")).toBeInTheDocument();
-    expect(within(screen.getByRole("region", { name: "Persistent" })).getByText("No finding appears in both runs.")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("region", { name: "Persistent" })).getByText(
+        "No finding appears in both runs with the same severity.",
+      ),
+    ).toBeInTheDocument();
     expect(document.querySelector("b")).toBeNull();
   });
 });

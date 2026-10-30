@@ -20,6 +20,27 @@ type StatusFilter = (typeof STATUSES)[number];
 
 const FILTER_LABEL: Record<StatusFilter, string> = { all: "All", ...RUN_STATUS_LABEL };
 
+function isStatusFilter(value: string | null): value is StatusFilter {
+  return value !== null && (STATUSES as readonly string[]).includes(value);
+}
+
+function statusFromSearch(): StatusFilter {
+  const raw = new URLSearchParams(window.location.search).get("status");
+  return isStatusFilter(raw) ? raw : "all";
+}
+
+function writeStatus(status: StatusFilter) {
+  const params = new URLSearchParams(window.location.search);
+  if (status === "all") params.delete("status");
+  else params.set("status", status);
+  const search = params.toString();
+  window.history.replaceState(
+    window.history.state,
+    "",
+    `${window.location.pathname}${search ? `?${search}` : ""}${window.location.hash}`,
+  );
+}
+
 function fetchPage(status: StatusFilter, cursor: string | null): Promise<RunListResponse> {
   const params = new URLSearchParams();
   params.set("limit", "50");
@@ -34,7 +55,7 @@ function isActive(status: RunStatus): boolean {
 
 export function HistoryView() {
   const actor = useActor();
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(statusFromSearch);
   const [cursorStack, setCursorStack] = useState<(string | null)[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<RunListItem | null>(null);
@@ -54,6 +75,7 @@ export function HistoryView() {
 
   function changeStatus(next: StatusFilter) {
     setStatusFilter(next);
+    writeStatus(next);
     setCursor(null);
     setCursorStack([]);
   }

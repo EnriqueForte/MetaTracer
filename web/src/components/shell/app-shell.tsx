@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 import { CommandPalette, ShortcutsHelp } from "@/components/shell/command-palette";
+import { MaintainerCredit } from "@/components/shell/maintainer-credit";
 import { ThemeSwitcher } from "@/components/shell/theme-switcher";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -256,6 +257,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               Go to… <span className="mt-tech text-mt-faint">Ctrl K</span>
             </Button>
+            <MaintainerCredit />
             <div className="mt-session ml-auto">
               <p className="mt-status" role="status">
                 <span
@@ -371,7 +373,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <p className="mt-session-note">
                     Signing out ends this session on every surface.
                   </p>
-                  <Button variant="ghost" className="py-1" onClick={() => void signOut()}>
+                  <Button variant="ghost" className="shrink-0 py-1" onClick={() => void signOut()}>
                     Sign out
                   </Button>
                 </>

@@ -8,6 +8,7 @@ import { HistoryView } from "@/components/history/history-view";
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  window.history.replaceState(null, "", "/");
 });
 
 describe("HistoryView", () => {
@@ -44,6 +45,24 @@ describe("HistoryView", () => {
     const table = screen.getByRole("table", { name: "Local scan history" });
     expect(table).toHaveTextContent("Aborted");
     expect(table.querySelector("td")?.className).toContain("py-1.5");
+  });
+
+  it("opens the status filter from the URL", async () => {
+    window.history.replaceState(null, "", "/runs?status=failed");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({ total: 0, has_more: false, next_cursor: null, runs: [] }),
+          { status: 200 },
+        ),
+      ),
+    );
+    render(<HistoryView />);
+    expect(await screen.findByRole("button", { name: "Filter by status failed" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 
   it("shows Delete run only to an operator on a finished scan", async () => {

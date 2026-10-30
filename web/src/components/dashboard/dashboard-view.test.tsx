@@ -68,10 +68,30 @@ describe("DashboardView", () => {
     expect(screen.getByRole("img", { name: "10 findings" })).toBeInTheDocument();
     expect(screen.getByText("example.com")).toBeInTheDocument();
     expect(screen.getByText("Findings still open")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open completed runs" })).toHaveAttribute(
+      "href",
+      "/runs?status=completed",
+    );
+    expect(screen.getByRole("link", { name: "Open compare" })).toHaveAttribute("href", "/runs/compare");
     expect(screen.getByText("Latitude: 1")).toBeInTheDocument();
     const agent = screen.getByRole("region", { name: "Agent usage" });
     expect(agent).toHaveTextContent("Calls 1");
     expect(agent.className).not.toContain("text-2xl");
+  });
+
+  it("sends failed scans to the failed history filter", async () => {
+    const payload = statsPayload(3);
+    payload.runs.failed = 2;
+    payload.findings.unclassified = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify(payload), { status: 200 })),
+    );
+    render(<DashboardView />);
+    expect(await screen.findByRole("link", { name: "Review failed scans" })).toHaveAttribute(
+      "href",
+      "/runs?status=failed",
+    );
   });
 
   it("shows a single empty state when there are no runs", async () => {

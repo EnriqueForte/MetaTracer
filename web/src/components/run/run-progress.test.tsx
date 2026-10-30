@@ -64,6 +64,9 @@ function stub(status: string, role?: "operator" | "viewer") {
       if (url.includes("/findings")) {
         return new Response(JSON.stringify({ findings: [] }), { status: 200 });
       }
+      if (url.includes("/correlations")) {
+        return new Response(JSON.stringify({ run_id: "run-1", total: 0, groups: [] }), { status: 200 });
+      }
       return new Response(JSON.stringify(runBody(status)), { status: 200 });
     }),
   );
@@ -131,6 +134,13 @@ describe("RunProgress", () => {
     });
     expect(panel).toHaveTextContent("Classification and AI analysis");
     expect(panel).toHaveTextContent("Classifying");
+  });
+
+  it("shows shared values on a finished run", async () => {
+    stub("completed");
+    render(<RunProgress runId="run-1" />);
+    expect(await screen.findByRole("region", { name: "Shared values" })).toBeInTheDocument();
+    expect(screen.getByText("No shared value links this run to another asset.")).toBeInTheDocument();
   });
 
   it("puts the five exports in the run bar", async () => {

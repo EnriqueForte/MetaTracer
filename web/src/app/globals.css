@@ -578,6 +578,38 @@ body {
   background: var(--mt-danger);
 }
 
+.mt-credit {
+  display: none;
+  min-width: 0;
+  margin: 0;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.mt-credit-link {
+  display: inline-flex;
+  color: var(--mt-muted);
+  border-radius: var(--mt-radius-sm);
+}
+
+.mt-credit-link:hover {
+  color: var(--mt-fg);
+}
+
+.mt-credit-link:focus-visible {
+  outline: 2px solid var(--mt-focus);
+  outline-offset: 2px;
+}
+
+@media (min-width: 1024px) {
+  .mt-credit {
+    display: inline-flex;
+  }
+}
+
 .mt-session {
   display: flex;
   min-width: 0;
@@ -642,7 +674,7 @@ body {
 
 @media (max-width: 1279px) {
   .mt-session-note {
-    max-width: 9rem;
+    display: none;
   }
 }
 
@@ -846,25 +878,108 @@ body {
 
 .mt-auth {
   display: flex;
-  min-height: 100vh;
+  height: 100dvh;
+  min-height: 100dvh;
+  max-height: 100dvh;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 16px 8px;
+  overflow: hidden;
+  background-color: var(--mt-bg);
+  background-image:
+    linear-gradient(var(--mt-border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--mt-border) 1px, transparent 1px);
+  background-size: 32px 32px;
+  color: var(--mt-fg);
+}
+
+.mt-auth-frame {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+  gap: 12px;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.mt-auth-brief {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  flex-direction: column;
+  justify-content: center;
+  overflow: visible;
+}
+
+.mt-auth-diagram {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  overflow: visible;
+}
+
+.mt-auth-spoke {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: mt-auth-draw 1.15s ease-out forwards;
+}
+
+.mt-auth-spoke-session {
+  stroke-dashoffset: 1;
+  animation-duration: 1.35s;
+}
+
+.mt-auth-node {
+  opacity: 0;
+  animation: mt-auth-arrive 0.55s ease-out forwards;
+}
+
+.mt-auth-stack {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
   justify-content: center;
   gap: 12px;
-  padding: 24px 16px;
-  background: var(--mt-bg);
-  color: var(--mt-fg);
+  z-index: 2;
 }
 
 .mt-auth-panel {
   display: flex;
   width: min(100%, 28rem);
   flex-direction: column;
-  gap: 12px;
-  padding: 16px;
-  border: 1px solid var(--mt-border);
+  gap: 14px;
+  padding: 20px 18px;
+  border: 1px solid var(--mt-border-strong);
+  border-left: 2px solid var(--mt-accent);
   border-radius: var(--mt-radius-md);
   background: var(--mt-surface);
+}
+
+@keyframes mt-auth-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes mt-auth-arrive {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .mt-auth-note {
@@ -874,7 +989,70 @@ body {
   line-height: 1.4;
 }
 
+.mt-credit-page {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-self: center;
+  flex-shrink: 0;
+  gap: 12px 16px;
+  padding: 2px 0 4px;
+  font-size: 16px;
+  line-height: 1.35;
+  white-space: normal;
+}
+
+.mt-credit-page .mt-tech {
+  font-size: 15px;
+}
+
+@media (min-width: 960px) {
+  .mt-auth-frame {
+    grid-template-columns: minmax(0, 1fr) minmax(20rem, 24rem);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .mt-auth-stack {
+    grid-column: 2;
+  }
+
+  .mt-auth-stack,
+  .mt-auth-panel,
+  .mt-auth-note {
+    width: 100%;
+  }
+}
+
+@media (max-width: 959px) {
+  .mt-auth {
+    height: auto;
+    max-height: none;
+    overflow: auto;
+  }
+
+  .mt-auth-frame {
+    min-height: min(70dvh, 36rem);
+  }
+
+  .mt-auth-diagram {
+    min-height: 18rem;
+    max-height: min(70dvh, 36rem);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .mt-auth-spoke,
+  .mt-auth-spoke-session,
+  .mt-auth-node {
+    animation: none;
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
+
+  .mt-auth-signal {
+    display: none;
+  }
+
   .mt-sidebar,
   .mt-nav-link,
   .mt-bar > span,

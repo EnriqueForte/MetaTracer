@@ -180,30 +180,37 @@ function nextCards(stats: Stats): { title: string; body: string; href: string; a
     stats.findings.unclassified > 0
       ? {
           title: "Findings still open",
-          body: `${stats.findings.unclassified} finding(s) have no severity yet. Open a run and read the evidence before you export.`,
-          href: "/runs",
-          action: "Open runs",
+          body: `${stats.findings.unclassified} finding(s) have no severity yet. Open a finished run and read the evidence before you export.`,
+          href: "/runs?status=completed",
+          action: "Open completed runs",
         }
       : {
           title: "Read a finished run",
           body: "Assets, metadata, and findings live inside each run. Coverage says what that crawl did not fetch.",
-          href: "/runs",
-          action: "Open runs",
+          href: "/runs?status=completed",
+          action: "Open completed runs",
         },
   ];
   if (failed > 0) {
     cards.push({
       title: "Scans that stopped",
       body: `${failed} scan(s) did not finish. The run page keeps the error. A failed scan is not a clean target.`,
-      href: "/runs",
-      action: "Review history",
+      href: "/runs?status=failed",
+      action: "Review failed scans",
+    });
+  } else {
+    cards.push({
+      title: "Run another scan",
+      body: "Confirm the scope first. Only public documents on hosts you named are requested.",
+      href: "/",
+      action: "New scan",
     });
   }
   cards.push({
-    title: "Share a report",
-    body: "Download it from a finished run. Redaction changes the file only. Contacts is the preset for sending it out.",
-    href: "/runs",
-    action: "Choose a run",
+    title: "Compare two scans",
+    body: "Pick two runs in history, or open compare and drop in the IDs. Same evidence across runs is a shared value, not an identity.",
+    href: "/runs/compare",
+    action: "Open compare",
   });
   return cards.slice(0, 3);
 }

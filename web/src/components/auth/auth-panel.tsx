@@ -1,5 +1,8 @@
 import type { ReactNode } from "react";
 
+import { AuthStage } from "@/components/auth/auth-stage";
+import { MaintainerCredit } from "@/components/shell/maintainer-credit";
+
 export function AuthPanel({
   title,
   lede,
@@ -13,15 +16,17 @@ export function AuthPanel({
 }) {
   return (
     <main id="main-content" className="mt-auth">
-      <div className="mt-auth-panel">
+      <AuthStage
+        note={note}
+      >
         <div>
-          <p className="text-xs text-mt-muted">MetaTracer</p>
+          <p className="mt-kicker">Session</p>
           <h1 className="mt-title">{title}</h1>
           <p className="text-sm text-mt-muted">{lede}</p>
         </div>
         {children}
-      </div>
-      {note ? <div className="mt-auth-note">{note}</div> : null}
+      </AuthStage>
+      <MaintainerCredit placement="page" />
     </main>
   );
 }

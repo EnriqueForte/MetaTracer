@@ -9,6 +9,7 @@ import { ExportLinks } from "@/components/run/export-links";
 import { findingsKey, FindingsPanel } from "@/components/run/findings-panel";
 import { AbortRunButton, DeleteRunDialog } from "@/components/run/run-actions";
 import { fetchRun, isLive, RUN_STATUS_LABEL, runKey, TERMINAL } from "@/components/run/run-model";
+import { CorrelationPanel } from "@/components/run/workspace/correlation-panel";
 import { RunSectionNav } from "@/components/run/workspace/run-header";
 import { LiveActivity } from "@/components/run/live-activity";
 import { Badge } from "@/components/ui/badge";
@@ -221,6 +222,8 @@ export function RunProgress({ runId }: { runId: string }) {
           totalSteps={step.total}
         />
       ) : null}
+
+      {finished ? <CorrelationPanel runId={run.run_id} /> : null}
 
       {finished ? <FindingsPanel runId={run.run_id} totalAssets={run.total_assets} /> : null}
 

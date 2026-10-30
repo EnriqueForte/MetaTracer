@@ -28,5 +28,14 @@ describe("Auth surfaces", () => {
     expect(screen.getByRole("heading", { name: title })).toBeInTheDocument();
     expect(document.querySelectorAll(".mt-auth-panel")).toHaveLength(1);
     expect(screen.queryByRole("navigation", { name: "Primary" })).not.toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: "How MetaTracer works" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /Capture pipeline/ })).toBeInTheDocument();
+    expect(screen.getByText("Confirmed scope")).toBeInTheDocument();
+    expect(screen.getByText("Bounty report")).toBeInTheDocument();
+    expect(screen.getByText("Enrique Forte")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "GitHub profile of Enrique Forte" })).toHaveAttribute(
+      "href",
+      "https://github.com/enriqueforte",
+    );
   });
 });

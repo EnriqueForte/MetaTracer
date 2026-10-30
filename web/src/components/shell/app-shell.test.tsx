@@ -57,6 +57,16 @@ describe("AppShell coexistence", () => {
     expect(screen.getByText("Research")).toBeInTheDocument();
     expect(screen.getByText("Administration")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "New scan" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByText("Enrique Forte")).toBeInTheDocument();
+    expect(screen.getByText("@T3r0s3c")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "GitHub profile of Enrique Forte" })).toHaveAttribute(
+      "href",
+      "https://github.com/enriqueforte",
+    );
+    expect(screen.getByRole("link", { name: "LinkedIn profile of Enrique Forte" })).toHaveAttribute(
+      "href",
+      "https://www.linkedin.com/in/enriqueforte",
+    );
   });
 
   it("hides the sign out control when auth is off (T11: no classic UI link)", async () => {
