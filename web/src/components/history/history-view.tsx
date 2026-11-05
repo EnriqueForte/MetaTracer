@@ -25,6 +25,7 @@ function isStatusFilter(value: string | null): value is StatusFilter {
 }
 
 function statusFromSearch(): StatusFilter {
+  if (typeof window === "undefined") return "all";
   const raw = new URLSearchParams(window.location.search).get("status");
   return isStatusFilter(raw) ? raw : "all";
 }
