@@ -42,6 +42,8 @@ async def test_build_with_zero_rows(session_factory) -> None:
         "internal_path": 0,
         "software_version": 0,
         "debug_comment": 0,
+        "internal_endpoint": 0,
+        "cloud_storage": 0,
     }
     assert stats.top_domains == []
     assert stats.top_evidence == []

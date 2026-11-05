@@ -84,7 +84,7 @@ export function CaptureDiagram({
         />
       ))}
       <circle cx={CX} cy={CY} r={86} className="fill-mt-elevated stroke-mt-accent" strokeWidth={1.75} />
-      {path ? (
+      {path && sessionX != null ? (
         <line
           x1={CX}
           y1={POINT_Y}

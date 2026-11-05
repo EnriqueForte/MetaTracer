@@ -1,5 +1,6 @@
 """TASK-44: UTC 5-field crontab for watch --cron (stdlib, no apscheduler)."""
 
+import re
 from datetime import UTC, datetime
 
 import pytest
@@ -7,6 +8,12 @@ from typer.testing import CliRunner
 
 from metatracer.cli.main import app
 from metatracer.services.cron import CronError, next_fire, parse_cron, seconds_until
+
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _plain(output: str) -> str:
+    return _ANSI_RE.sub("", output).replace("\n", "")
 
 
 def test_parse_daily_alias_and_five_fields() -> None:
@@ -73,11 +80,14 @@ def test_weekday_monday_cron_one() -> None:
     assert next_fire(schedule, after) == datetime(2026, 11, 9, 0, 0, tzinfo=UTC)
 
 
-def test_watch_help_lists_cron() -> None:
+def test_watch_help_lists_cron(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("COLUMNS", "200")
+    monkeypatch.setenv("TERM", "dumb")
     result = CliRunner().invoke(app, ["watch", "--help"])
     assert result.exit_code == 0
-    assert "--cron" in result.output
-    assert "--interval" in result.output
+    output = _plain(result.output)
+    assert "--cron" in output
+    assert "--interval" in output
 
 
 def test_watch_rejects_cron_with_interval() -> None:

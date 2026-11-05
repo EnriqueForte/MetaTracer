@@ -18,7 +18,7 @@ _IPV4_RE = re.compile(
     r"(?<!\d)(\d{1,3}(?:\.\d{1,3}){3})(?!\d)"
 )
 _HOST_RE = re.compile(
-    r"(?<![A-Za-z0-9-])("
+    r"(?<![A-Za-z0-9-@])("
     r"(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+"
     r"(?:svc\.cluster\.local|internal|corp|local|lan)"
     r")(?![A-Za-z0-9-])",

@@ -41,6 +41,9 @@ def test_rfc1918_and_internal_hosts_are_endpoints() -> None:
     }
     assert _snippets(detector, "8.8.8.8 172.15.0.1 172.32.0.1 127.0.0.1 localhost") == []
     assert _snippets(detector, "Apache 2.4.52") == []
+    # An email is the email detector's job; @host.corp is not an endpoint.
+    assert _snippets(detector, "jane.doe@target.corp") == []
+    assert _snippets(detector, "security.lead@acme-corp.internal") == []
 
 
 def test_cloud_urls_are_recorded_without_the_query_string() -> None:
