@@ -8,6 +8,7 @@ import pytest
 from metatracer.connectors.egress import ProviderClient
 from metatracer.connectors.wayback import ProvenanceError, search_domain
 from metatracer.core.safety.guard import NetworkSafetyGuard
+from metatracer.db.models import ConnectorStatus
 
 CDX = [
     ["timestamp", "original", "statuscode", "mimetype"],
@@ -30,6 +31,8 @@ async def test_disabled_wayback_does_not_touch_the_network(fake_public_dns) -> N
 
     summary = await search_domain("example.com", client=_client(handler), enabled=False)
     assert summary.status == "disabled"
+    silent = await search_domain("example.com", client=None, enabled=False)
+    assert silent.status == "disabled"
     assert summary.replay_fetched is False
 
 
@@ -70,7 +73,7 @@ def test_a_capture_without_a_date_cannot_pass_as_available() -> None:
 
     summary = WaybackSummary(
         domain="example.com",
-        status="available",
+        status=ConnectorStatus.available,
         detail=None,
         captures=(Capture("yesterday", "http://example.com/", "200", "text/html"),),
         replay_fetched=False,

@@ -79,4 +79,5 @@ El target escribe `evidence_snippet`; el modelo escribe
 - [ ] Controles de mutación ocultos a viewers **y** 403 verificado en el API.
 - [ ] Sin CDN ni orígenes de terceros; assets empaquetados.
 - [ ] Enums del API importados del schema generado, no redefinidos.
+- [ ] Download: redaction default `contacts` en UI; el API sigue en `none` si no hay query.
 - [ ] Suite `web/`: Vitest verde y `playwright` (wizard + auth) cuando aplique.

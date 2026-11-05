@@ -8,6 +8,7 @@ export type Confidence = Schemas["Confidence"];
 export type FindingType = Schemas["FindingType"];
 export type TriageStatus = Schemas["TriageStatus"];
 export type TriageResponse = Schemas["TriageResponse"];
+export type BulkTriageResponse = Schemas["BulkTriageResponse"];
 
 export type FindingResponse = Schemas["FindingResponse"];
 export type FindingsResponse = Schemas["FindingsResponse"];
@@ -31,3 +32,7 @@ export function severityKey(severity: Severity | null | undefined): SeverityKey 
 
 export type RunComparisonResponse = Schemas["RunComparisonResponse"];
 export type ComparedFindingResponse = Schemas["ComparedFindingResponse"];
+export type InvestigationStatus = Schemas["InvestigationStatus"];
+export type InvestigationResponse = Schemas["InvestigationResponse"];
+export type InvestigationListResponse = Schemas["InvestigationListResponse"];
+export type InvestigationRunResponse = Schemas["InvestigationRunResponse"];

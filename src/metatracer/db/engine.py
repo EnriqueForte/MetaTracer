@@ -103,6 +103,9 @@ async def init_db(engine: AsyncEngine) -> None:
         await connection.exec_driver_sql(
             "CREATE INDEX IF NOT EXISTS ix_finding_triage_status ON finding (triage_status)"
         )
+        await connection.exec_driver_sql(
+            "INSERT OR IGNORE INTO concurrency_gate (id) VALUES (1)"
+        )
 
 
 async def _init_postgres(engine: AsyncEngine) -> None:

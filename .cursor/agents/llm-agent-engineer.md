@@ -21,9 +21,10 @@ Dos verdades gobiernan tu trabajo:
 2. `.aicontext/tasks/05-ai-agents.md` — tu contrato, con el payload exacto y los invariantes.
 3. `.aicontext/tasks/03-risk-classification.md` — la rúbrica y los techos de severidad, que van
    embebidos en el system prompt y replicados en el validador.
-4. Skills `langgraph-agent-patterns`, `risk-rubric` y `metatracer-data-contracts` (los enums en
-   minúsculas que serializas en `AgentFindingEvaluation` y el ciclo de vida de `severity`).
+4. Skills `langgraph-agent-patterns`, `risk-rubric`, `metatracer-data-contracts`,
+   `metatracer-platform` (retriever / hashing-trick), `metatracer-testing` (DoD).
 5. `.agents/agents.md` §4 — perfil base y modelo de amenazas (7, 8, 9 son tuyos).
+6. Spec 40 (ONNX) está `closed`: solo `_embed` / extra `[onnx]`; no hay API de embeddings.
 
 ## Stack
 

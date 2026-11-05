@@ -5,11 +5,11 @@ the same contract (``rebuild`` + ``search`` returning :class:`RetrievedEvidence`
 ranked rows over historical findings) but ranks by **vector similarity**
 instead of lexical BM25:
 
-- the embedding is a deterministic, dependency-free **hashing-trick** vector
-  (384 dims, crc32 feature hashing, L2-normalized). It is not a learned model:
-  it captures token/character-overlap similarity, which is exactly what the
-  FTS5 baseline captured — semantics can be upgraded later by swapping only
-  ``_embed`` for a local ONNX encoder (feature approved in 12-platform-v3);
+- the embedding is 384-d. TASK-40 prefers a local MiniLM ONNX encoder when
+  the operator points ``METATRACER_ONNX_MODEL_PATH`` at a file and the
+  optional ``[onnx]`` extra is installed; otherwise the deterministic
+  hashing-trick (crc32 feature hashing, L2-normalized) keeps the same
+  geometry. A failed ONNX load never fails a scan (rule 5);
 - the index is a **derived artifact**, never a source of truth: it lives in
   the ``knowledge_vectors`` table, is dropped and rebuilt on demand, and is
   deliberately NOT an ORM model (same posture as the FTS5 virtual table);
@@ -31,9 +31,6 @@ serving :class:`KnowledgeRetriever`.
 """
 
 import logging
-import math
-import re
-import zlib
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -41,6 +38,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from metatracer.agents.embeddings import EMBEDDING_DIM, embed_text, features, format_vector, ngrams
 from metatracer.db.models import Finding, FindingType, Severity
 
 logger = logging.getLogger("metatracer.agents.knowledge_pg")
@@ -74,60 +72,13 @@ _INDEX_SNIPPET_MAX = 300
 # How many historical findings to load for the index per rebuild (same seed
 # policy as KnowledgeIndex.rebuild, TASK-14 / TASK-17).
 _INDEX_SEED_LIMIT = 1000
-# Hashing-trick embedding geometry. 384 dims matches the small-ONNX-model
-# shape the feature contemplates, so a future swap keeps the column type.
-_EMBEDDING_DIM = 384
-# Tokenization: the same alphanumeric split the FTS5 unicode61 tokenizer used,
-# so "41.6521" indexes tokens "41" and "6521" exactly like the lexical path.
-_TOKEN_RE = re.compile(r"[a-z0-9_]+")
-# Word trigrams start above 3 chars (matches FTS5 prefix behavior closely
-# enough for overlap similarity; short tokens stay whole words).
-_NGRAM_N = 3
-
+# Geometry is fixed at 384 (MiniLM and hashing-trick share the column type).
+_EMBEDDING_DIM = EMBEDDING_DIM
 Vector = list[float]
-
-
-def _ngrams(term: str) -> list[str]:
-    """Character n-grams of a token (empty list for short tokens)."""
-    if len(term) <= _NGRAM_N:
-        return []
-    return [term[i : i + _NGRAM_N] for i in range(len(term) - _NGRAM_N + 1)]
-
-
-def _features(text_value: str) -> list[str]:
-    """Lowercased tokens + trigrams: the feature space of the embedding."""
-    words = _TOKEN_RE.findall((text_value or "").lower())
-    features = list(words)
-    for word in words:
-        features.extend(_ngrams(word))
-    return features
-
-
-def _embed(text_value: str) -> Vector:
-    """Deterministic hashing-trick embedding (crc32, L2-normalized).
-
-    crc32 instead of Python ``hash()``: stable across processes and restarts,
-    so vectors persisted in Postgres by a previous run of the app stay in the
-    same feature space and remain comparable. The 32-bit crc32 bucket is
-    folded into the 384-dim space with modulo, and the fold direction
-    alternates so the projection is balanced (classic hashing-trick trick to
-    reduce collision bias on one side).
-    """
-    vec = [0.0] * _EMBEDDING_DIM
-    for feature in _features(text_value):
-        digest = zlib.crc32(feature.encode("utf-8"))
-        index = digest % _EMBEDDING_DIM
-        sign = 1.0 if (digest >> 31) & 1 else -1.0
-        vec[index] += sign
-    norm = math.sqrt(sum(value * value for value in vec))
-    if norm > 0.0:
-        vec = [value / norm for value in vec]
-    return vec
-
-
-def _format_vector(vec: Vector) -> str:
-    """Render an embedding as the pgvector text form ``[v1,v2,...]``."""
-    return "[" + ",".join(f"{value:.6f}" for value in vec) + "]"
+_ngrams = ngrams
+_features = features
+_embed = embed_text
+_format_vector = format_vector
 
 
 async def pgvector_available(engine: AsyncEngine) -> bool:

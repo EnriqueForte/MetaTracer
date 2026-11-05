@@ -96,5 +96,33 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # Headless watch (TASK-44). Off unless you pass --profile watch.
+  # Replace METATRACER_WATCH_SCOPE with a saved scope id. Crontab is UTC.
+  # The entrypoint already forwards unknown commands to the CLI.
+  watch:
+    build: .
+    image: metatracer:0.6.0
+    profiles: ["watch"]
+    command:
+      [
+        "watch",
+        "${METATRACER_WATCH_SCOPE:?METATRACER_WATCH_SCOPE is required}",
+        "--cron",
+        "${METATRACER_WATCH_CRON:-0 2 * * *}",
+      ]
+    environment:
+      METATRACER_DATABASE_URL: "${METATRACER_DATABASE_URL:-sqlite+aiosqlite:///./data/metatracer.db}"
+      METATRACER_LLM_API_KEY: "${METATRACER_LLM_API_KEY:-}"
+      METATRACER_LLM_BASE_URL: "${METATRACER_LLM_BASE_URL:-}"
+      METATRACER_LLM_MODEL: "${METATRACER_LLM_MODEL:-}"
+      METATRACER_LOG_LEVEL: "${METATRACER_LOG_LEVEL:-INFO}"
+    volumes:
+      - ./data:/app/data
+      - ./reports:/app/reports
+    # CLI watch does not serve /api/health (image HEALTHCHECK would go red).
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
 volumes:
   pgdata:

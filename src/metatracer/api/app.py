@@ -19,7 +19,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from starlette.exceptions import HTTPException
 
 from metatracer import __version__
@@ -75,8 +75,10 @@ from metatracer.services.watch import DeltaReporter
 _RATE_LIMIT_EXEMPT_PREFIXES: tuple[str, ...] = (
     "/api/health",
     "/api/ready",
+    "/api/metrics",
     "/static/",
 )
+_API_V1_PREFIX = "/api/v1"
 
 _RETENTION_INTERVAL_SECONDS = 24 * 3600
 _WEBHOOK_RETRY_SECONDS = 15
@@ -122,11 +124,21 @@ def _as_http_exception(exc: BaseException) -> HTTPException | None:
     return None
 
 
+def rewrite_api_v1_path(path: str) -> str:
+    """Map ``/api/v1/...`` onto ``/api/...`` without a second origin (TASK-41)."""
+    if path == _API_V1_PREFIX:
+        return "/api"
+    if path.startswith(_API_V1_PREFIX + "/"):
+        return "/api" + path[len(_API_V1_PREFIX) :]
+    return path
+
+
 def _is_rate_limit_exempt(path: str) -> bool:
-    """True for health, static assets and SSE streams (see above)."""
-    if path.startswith(_RATE_LIMIT_EXEMPT_PREFIXES):
+    """True for health, static assets, metrics and SSE streams (see above)."""
+    canonical = rewrite_api_v1_path(path)
+    if canonical.startswith(_RATE_LIMIT_EXEMPT_PREFIXES):
         return True
-    return path.startswith("/api/runs/") and path.endswith("/stream")
+    return canonical.startswith("/api/runs/") and canonical.endswith("/stream")
 
 
 def create_app(
@@ -239,6 +251,12 @@ def create_app(
         """
         limiter: ApiRateLimiter | None = getattr(request.app.state, "rate_limiter", None)
         max_body: int = getattr(request.app.state, "max_request_body_bytes", 0)
+        rewritten = rewrite_api_v1_path(request.scope.get("path", request.url.path))
+        if rewritten != request.scope.get("path"):
+            request.scope["path"] = rewritten
+            raw = request.scope.get("raw_path")
+            if isinstance(raw, (bytes, bytearray)):
+                request.scope["raw_path"] = rewritten.encode("ascii")
         try:
             if limiter is not None and not _is_rate_limit_exempt(request.url.path):
                 await limiter.check(request)
@@ -285,6 +303,42 @@ def create_app(
         except Exception as exc:
             raise HTTPException(status_code=503, detail="database unavailable") from exc
         return {"status": "ok"}
+
+    @app.get("/api/metrics")
+    async def metrics(request: Request) -> Response:
+        """Prometheus text exposition without a new dependency (TASK-41)."""
+        from sqlmodel import select
+
+        from metatracer.db.models import Run, RunStatus
+
+        counts = {status.value: 0 for status in RunStatus}
+        async with request.app.state.session_factory() as session:
+            result = await session.exec(select(Run.status))
+            for status in result.all():
+                counts[str(status)] += 1
+        limit = max(1, int(request.app.state.settings.max_concurrent_runs))
+        open_slots = counts[RunStatus.pending.value] + counts[RunStatus.running.value]
+        lines = [
+            "# HELP metatracer_runs Number of persisted runs by status.",
+            "# TYPE metatracer_runs gauge",
+        ]
+        for status, count in counts.items():
+            lines.append(f'metatracer_runs{{status="{status}"}} {count}')
+        lines.extend(
+            [
+                "# HELP metatracer_scan_slots_open Open pending and running runs.",
+                "# TYPE metatracer_scan_slots_open gauge",
+                f"metatracer_scan_slots_open {open_slots}",
+                "# HELP metatracer_scan_slots_limit Configured concurrent scan slots.",
+                "# TYPE metatracer_scan_slots_limit gauge",
+                f"metatracer_scan_slots_limit {limit}",
+                "",
+            ]
+        )
+        return Response(
+            "\n".join(lines),
+            media_type="text/plain; version=0.0.4; charset=utf-8",
+        )
 
     # TASK-24 (v3.0, Eje C): every data router takes the auth dependencies
     # UNCONDITIONALLY. When auth is disabled (default) they no-op and the

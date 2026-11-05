@@ -57,6 +57,10 @@ describe("AppShell coexistence", () => {
     expect(screen.getByText("Research")).toBeInTheDocument();
     expect(screen.getByText("Administration")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "New scan" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", { name: "Investigations" })).toHaveAttribute(
+      "href",
+      "/investigations",
+    );
     expect(screen.getByText("Enrique Forte")).toBeInTheDocument();
     expect(screen.getByText("@T3r0s3c")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "GitHub profile of Enrique Forte" })).toHaveAttribute(

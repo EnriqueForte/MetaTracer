@@ -98,6 +98,10 @@ class Settings(BaseSettings):
     # Watch deltas use remaining historical findings: deleting a baseline run
     # can make a later watch report those findings as new.
     retention_days: int | None = None
+    # TASK-40: local MiniLM ONNX. Empty keeps hashing-trick embeddings.
+    # Never a URL — the file must already be on disk (no runtime download).
+    onnx_model_path: str = ""
+    onnx_tokenizer_path: str = ""
 
     @field_validator("retention_days", mode="before")
     @classmethod

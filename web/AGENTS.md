@@ -1,3 +1,15 @@
+# MetaTracer Web UI — producto
+
+Antes de tocar `web/`, lee la raíz:
+
+- [`../AGENTS.md`](../AGENTS.md) — inviolables, un origen, render como texto
+- [`../MEMORY.md`](../MEMORY.md) — specs abiertas; no implementar reserved
+- Skill `metatracer-ui` — stack Next 16 / React 19 / Tailwind 4, `safeUrl`, CSP
+- Dueño: subagente `v2-ui-engineer`. Contratos visuales: `ui-architect` (V2) y
+  `.aicontext/ui/design-system-v2.md`. FastAPI es solo-API.
+
+El bloque Next debajo lo reescribe `next dev`. **No borres este prefijo.**
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know

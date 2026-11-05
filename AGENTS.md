@@ -7,6 +7,9 @@ datos personales (GPS, emails) y pasa texto escrito por el target a un LLM.
 Este archivo es el **punto de entrada** para cualquier agente. No duplica las
 reglas: apunta a ellas.
 
+**Antes de código:** [`MEMORY.md`](MEMORY.md) (qué está abierto) y
+[`specs/README.md`](specs/README.md) (ritual SDD). TASK-00–35 están cerradas.
+
 ## Lo inviolable (léelo antes de tocar código)
 
 Dos rules se aplican siempre, sin excepción:
@@ -15,17 +18,23 @@ Dos rules se aplican siempre, sin excepción:
   confirmado y por el wrapper único, cero binarios, redirects in-scope, un asset
   fallido no tumba el run, los agentes no inventan evidencia, loopback bloqueado).
 - `.cursor/rules/data-contracts.mdc` — enums cerrados en minúsculas, `severity`
-  NULL hasta clasificar, `dedup_signature`, idiomas por capa.
+  NULL hasta clasificar, `dedup_signature`, idiomas por capa. No quedan enums
+  reserved. Findings `internal_endpoint`/`cloud_storage` y namespaces `ooxml`/`odf`
+  están en TASK-37. `connector.status` está en TASK-38. `export.redaction` está
+  en TASK-39. Ops hygiene (lock durable, resume, métricas, `/api/v1`) está en
+  TASK-41. Specs 40 y 42 siguen `reserved`.
 
-Si una petición exige violarlas, **para** y explica el conflicto.
+Si una petición exigiría violarlas, **para** y explica el conflicto.
 
 ## Mapa del repositorio
 
 | Ruta | Qué es |
 | :--- | :--- |
+| `MEMORY.md` | Memoria de trabajo (versión, specs, prohibiciones) |
+| `specs/` | Overlay SDD: specs activas y reserved |
 | `src/metatracer/core/` | Configuración, logging, safety core (`safety/scope.py`, `guard.py`, `http.py`) |
-| `src/metatracer/extractors/` | Ingesta, crawler, allowlist por magic bytes, PDF/imagen/HTML/JS/headers |
-| `src/metatracer/detectors/` | Los 5 detectores deterministas (sin severity) |
+| `src/metatracer/extractors/` | Ingesta, crawler, allowlist por magic bytes, PDF/imagen/HTML/JS/headers/office |
+| `src/metatracer/detectors/` | Detectores deterministas (sin severity), incl. `network.py` |
 | `src/metatracer/classification/` | Rúbrica y clasificador heurístico |
 | `src/metatracer/agents/` | Grafo LangGraph, guard post-LLM, fallback |
 | `src/metatracer/reports/` | Exportadores Markdown/JSON/HTML/CSV/Bounty |
@@ -33,7 +42,7 @@ Si una petición exige violarlas, **para** y explica el conflicto.
 | `web/` | **La Web UI** (Next.js 16 + React 19 + Tailwind 4). Servida desde la raíz |
 | `deploy/` | `Caddyfile` (un solo origen: `/api` → FastAPI, resto → Next) |
 | `tests/` | `unit/`, `agents/`, `integration/` (+ e2e). Ver `tests/README.md` |
-| `.aicontext/` | PRD, features, backlog (`tasks/`), ADR (`decisions/`), arquitectura |
+| `.aicontext/` | PRD, features, backlog cerrado (`tasks/` 00–35), ADR, arquitectura |
 | `.aicontext/ui/design-system-v2.md` | **Contrato visual vigente** (tokens `--mt-*`, densidad, panel, procedencia) |
 | `.agents/agents.md` | Catálogo de subagentes y modelo de amenazas (§4.2) |
 
@@ -58,7 +67,7 @@ npm run test:e2e  # Playwright (requiere build previo)
 
 El DoD de cualquier cambio: `ruff` limpio, los tests de la slice verdes,
 cobertura ≥ 85% en `core`/`detectors`/`extractors`/`reports`, y
-`git diff` sin nada fuera de alcance.
+`git diff` sin nada fuera de alcance. Código de producto exige spec `active` + task.
 
 ## Convenciones que no se negocian
 
@@ -72,14 +81,16 @@ cobertura ≥ 85% en `core`/`detectors`/`extractors`/`reports`, y
 - **Lista cerrada de dependencias.** Añadir una exige justificación y revisión
   de supply chain; `pyproject.toml` y `requirements.in` deben ir en lockstep.
 - **Idiomas:** reportes y UI en inglés; documentación en español.
+- **SDD:** spec reserved ≠ permiso para implementar. Skill `metatracer-sdd`.
 
 ## Skills y subagentes
 
-- Skills (just-in-time): `.cursor/skills/` — 10 materializadas, catálogo en
-  `.agents/skills.md`.
+- Skills (just-in-time): `.cursor/skills/` — 13 materializadas (incluye
+  `metatracer-investigations`), catálogo en `.agents/skills.md`.
 - Subagentes: `.cursor/agents/` — `safety-guardian` (veto), `pipeline-engineer`,
-  `llm-agent-engineer`, `ui-engineer` (CLI+API), `v2-ui-engineer` (Web UI),
-  `test-engineer`, `docs-architect`, `ui-architect` (obsoleto para V2).
+  `llm-agent-engineer`, `ui-engineer` (CLI+API), `v2-ui-engineer` (Web UI, único
+  dueño del navegador), `ui-architect` (V2, readonly, contratos visuales),
+  `test-engineer`, `docs-architect` (`MEMORY.md` + `specs/`).
 
 `safety-guardian` es el único cuyo veredicto **bloquea** un merge.
 
@@ -87,6 +98,7 @@ cobertura ≥ 85% en `core`/`detectors`/`extractors`/`reports`, y
 
 - Cumplir la petición exigiría violar una regla inviolable.
 - Falta un contrato (enum, campo, endpoint) o dos documentos se contradicen.
+- Spec `reserved` o no hay TASK-NN y piden código de esa slice.
 - Hace falta una dependencia o variable de entorno nueva.
 - La decisión es de producto o legal (wording del aviso, UX de confirmación).
 - Necesitas un secreto o acceso externo.

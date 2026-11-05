@@ -26,6 +26,9 @@ Runtime: `pydantic>=2.7`, `pydantic-settings>=2.3`, `sqlmodel>=0.0.18`, `aiosqli
 Dev: `pytest>=8.0.0`, `pytest-asyncio>=0.23.0`, `pytest-cov>=5.0`, `ruff>=0.4.0`,
 `reportlab>=4.2`, `piexif>=1.1.3` (fixtures JPEG only; not imported from `src/`).
 
+Optional extra `[onnx]` (TASK-40): `onnxruntime>=1.17.0,<2`, `tokenizers>=0.20.0,<1`.
+Not in the default image. Local model file only; no runtime download.
+
 Runtime: `requires-python = ">=3.11,<3.13"`, `ruff.target-version = "py311"`.
 
 **Separación runtime/dev, no decorativa.** `reportlab` existe solo para generar fixtures de PDF

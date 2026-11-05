@@ -3,8 +3,8 @@
 **Proyecto:** MetaTracer — AI-powered sensitive metadata discovery for Bug Bounty & Red Team
 **PRD:** [índice](../.aicontext/PRD.md) · **Backlog:** [tasks](../.aicontext/tasks/README.md)
 **Documento hermano:** [agents.md](agents.md) (define los agentes; este define sus skills)
-**Versión:** 1.3
-**Fecha:** 21 de septiembre de 2026
+**Versión:** 1.4
+**Fecha:** 5 de noviembre de 2026
 
 > **Este archivo es especificación de diseño, no un skill cargable.** Se llama `skills.md` (y no
 > `skills/SKILL.md`) a propósito: `.agents/skills/` es una raíz de skills que Cursor recorre, así
@@ -26,9 +26,8 @@ contexto si estuviera siempre presente.
   conciso con progressive disclosure.
 - **Regla de oro de autoría:** referenciar los documentos fuente (`.aicontext/tasks/...`) en
   lugar de duplicarlos. Cuando el PRD evolucione, solo hay un sitio que actualizar.
-- **Regla de adopción:** crear cada skill al abrir su slice, no antes. Los tres skills
-  transversales (1-3) existen porque condicionan todo el código posterior; `metatracer-ui` se
-  materializó con el cierre de TASK-26.
+- **Regla de adopción:** crear cada skill de módulo **nuevo** al abrir su slice, no antes.
+  Las skills 1–14 existen (incluye `metatracer-onnx`).
 
 ### 1.1 Qué capa se lleva cada conocimiento
 
@@ -193,7 +192,8 @@ imagen), `ui-engineer` (assets de CDN) y `safety-guardian` (auditoría con veto)
 - TASK-09: `HtmlMetadataExtractor` (title / meta allowlist / comentarios, salta `<!--[if`),
   `extract_http_headers` (allowlist de recon; denylist de cookies/Authorization),
   `JavaScriptMetadataExtractor` (parser de `//` y `/* */` que salta strings; `https://` no es
-  comentario). Namespaces `html` / `http` / `js`. Cero body persistido.
+  comentario). Namespaces `html` / `http` / `js`. TASK-37: `OfficeMetadataExtractor` lee
+  `docProps/*.xml` / `meta.xml` (`ooxml`/`odf`) y nunca el cuerpo. Cero body persistido.
 - Sanitización: tuplas/`IFDRational`/bytes → string UTF-8 o JSON corto; nunca blobs
   (thumbnails, ICC, HTML/JS fuente); truncar >2 KB con `[truncated]`.
 - Ciclo de vida del asset: crear `Asset` antes de extraer, borrar el temporal en `finally`
@@ -233,6 +233,8 @@ extractores. Recomendable para `test-engineer` al generar fixtures (ver §3.1).
 - `DebugCommentDetector`: keywords fuertes (`TODO:`, `FIXME:`, tickets `JIRA-\d+`...) vs.
   débiles (`CONFIDENTIAL`, `DRAFT`); un finding por campo, no por keyword. Las claves
   `comment` / `description` cubren `html:comment` y `js:comment` sin detector nuevo.
+- TASK-37: `InternalEndpointDetector` (RFC1918 y hostnames internos) y
+  `CloudStorageDetector` (S3/GCS/Azure/R2, sin query; la URL no se pide). Sin severity.
 - `FindingConsolidator`: firma de dedup, insert ignorando conflictos, actualización de
   `Run.total_findings`.
 - Normalización de texto (strip, NFC) y snippet máx. ~150 chars (GPS: una línea).
@@ -244,7 +246,7 @@ extractores. Recomendable para `test-engineer` al generar fixtures (ver §3.1).
 **Lo usan:** `pipeline-engineer` (núcleo). Recomendable para `test-engineer` al escribir los
 casos negativos de cada detector.
 
-**Fuente:** `.aicontext/tasks/02-specific-detection.md`.
+**Fuente:** `.aicontext/tasks/02-specific-detection.md`, `.aicontext/tasks/37-new-detectors.md`.
 
 ---
 
@@ -348,12 +350,15 @@ mocks del grafo.
   cercado del bloque no puede romperse ni alterar los bytes de la evidencia.
 - Independencia de TASK-05: campos de prosa vacíos → `Not generated (heuristic baseline)`,
   nunca crash.
+- TASK-39: `apply_redaction` reescribe el `ReportData` del fichero (`none`/`contacts`/
+  `coordinates`/`all`); la BD no cambia. API/CLI default `none`; UI propone `contacts`.
 
 **Amenazas que cubre:** 10, 11, 14 (compliance notice).
 
 **Lo usan:** `pipeline-engineer` (núcleo), `ui-engineer` (endpoints de export).
 
-**Fuente:** `.aicontext/tasks/04-report-generation.md`, `.aicontext/tasks/08-usability.md`.
+**Fuente:** `.aicontext/tasks/04-report-generation.md`, `.aicontext/tasks/08-usability.md`,
+`.aicontext/tasks/39-export-redaction.md`.
 
 ---
 
@@ -390,8 +395,8 @@ cualquier rediseño de la Web UI.
 
 **Amenazas que cubre:** 10, 11, 12, 15.
 
-**Lo usan:** `ui-engineer` (núcleo), `ui-architect` (al diseñar contratos de UI) y
-`safety-guardian` (al revisar plantillas y estáticos).
+**Lo usan:** `v2-ui-engineer` (núcleo Web), `ui-engineer` (API/CLI), `ui-architect` (contratos V2)
+y `safety-guardian` (CSP / `safeUrl`).
 
 **Fuente:** `.aicontext/tasks/06-interfaces.md`, `.aicontext/tasks/20-ui-polish.md`,
 `.aicontext/tasks/26-ui-redesign.md`, `.aicontext/ui/`.
@@ -433,6 +438,67 @@ cualquier rediseño de la Web UI.
 
 ---
 
+### 2.11 `metatracer-sdd` — Overlay · Prioridad alta · **Creado**
+
+**Ubicación:** `.cursor/skills/metatracer-sdd/SKILL.md`
+
+**Se activa cuando:** se escribe o cambia `specs/`, `MEMORY.md`, `.aicontext/tasks/` o se abre TASK-36+.
+
+**Conocimiento:** ritual reserved → active → enum → task → skill → código → línea en MEMORY.
+No forkear enums. No implementar reserved.
+
+**Amenazas:** ninguna nueva; evita implementar Fase 3–5 sin contrato.
+
+**Lo usan:** `docs-architect` (núcleo). Recomendada para cualquier ingeniero al abrir slice.
+
+**Fuente:** `specs/README.md`, `specs/00-sdd-governance.md`.
+
+---
+
+### 2.12 `metatracer-platform` — TASK-22–35 · Prioridad alta · **Creado**
+
+**Ubicación:** `.cursor/skills/metatracer-platform/SKILL.md`
+
+**Se activa cuando:** se toca watch, Postgres/Alembic/pgvector, auth/CSRF, webhooks HMAC, triage o retención.
+
+**Conocimiento:** comportamiento **ya existente**. Watch `--cron` = spec 44. Leftover: deltas desaparecido/severity-up. ONNX = spec 40.
+
+**Amenazas:** 1, 14, 15 (egreso, PII, deps).
+
+**Lo usan:** `pipeline-engineer`, `ui-engineer`, `llm-agent-engineer` (retriever), `safety-guardian` al revisar auth/webhooks.
+
+**Fuente:** TASK-22–35, `features/12-platform-v3.md`.
+
+---
+
+### 2.13 `metatracer-investigations` — TASK-36 · Prioridad alta · **Creado**
+
+**Ubicación:** `.cursor/skills/metatracer-investigations/SKILL.md`
+
+**Se activa cuando:** se toca `services/investigation.py`, correlación, `api/investigations.py`, CLI `investigation` o TASK-36.
+
+**Conocimiento:** agrupa runs, no aísla; sugerencia de triage no se aplica; `value_hash` no es identidad.
+
+**Lo usan:** `pipeline-engineer`, `ui-engineer` (CLI).
+
+**Fuente:** TASK-36, spec 36.
+
+---
+
+### 2.14 `metatracer-onnx` — TASK-40 · Prioridad media · **Creado**
+
+**Ubicación:** `.cursor/skills/metatracer-onnx/SKILL.md`
+
+**Se activa cuando:** se toca `agents/embeddings.py`, `_embed` de pgvector o el extra `[onnx]`.
+
+**Conocimiento:** MiniLM local 384-d; fallback hashing-trick; cero red; no va en la imagen default.
+
+**Lo usan:** `llm-agent-engineer`, `safety-guardian` (deps).
+
+**Fuente:** TASK-40, spec 40.
+
+---
+
 ## 3. Trazabilidad
 
 ### 3.1 Matriz skill × agente
@@ -441,37 +507,31 @@ La **fuente de verdad** de qué carga cada agente es su propio archivo en `.curs
 enumera su contexto en la sección "Contexto que debes cargar". Esta matriz refleja lo declarado
 allí; si divergen, manda el archivo del agente y esta tabla se corrige.
 
-Leyenda: `N` = núcleo (el agente no puede trabajar sin ella) · `S` = soporte declarado ·
-`r` = recomendada pero **no** declarada todavía en el archivo del agente · vacío = no aplica.
+Leyenda: `N` = núcleo · `S` = soporte declarado · vacío = no aplica.
 
-| Skill | safety-guardian | pipeline-engineer | llm-agent-engineer | ui-engineer | ui-architect | test-engineer |
-| :--- | :-: | :-: | :-: | :-: | :-: | :-: |
-| `metatracer-safety-rules` | N | S | | | S (restricciones al proponer) | S (bypass loopback) |
-| `metatracer-data-contracts` | | S | S | S | S (enums de presentación) | |
-| `metatracer-supply-chain` | N (auditoría) | S (`pyproject.toml`) | | S (CDN/static) | S (assets propuestos) | S (imagen) |
-| `metadata-extraction` | S (revisión del crawler) | N | | | | r (fixtures) |
-| `detector-patterns` | | N | | | | r (casos negativos) |
-| `risk-rubric` | | N (TASK-03) | N (prompts y guard) | | | |
-| `langgraph-agent-patterns` | | | N | | | r (mocks) |
-| `report-engine` | | N | | S | | |
-| `metatracer-ui` | | | | N | N (contratos de diseño) | |
-| `metatracer-testing` | | r (DoD) | r (DoD) | r (DoD) | | N |
+| Skill | safety-guardian | pipeline-engineer | llm-agent-engineer | ui-engineer | ui-architect | v2-ui-engineer | test-engineer | docs-architect |
+| :--- | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
+| `metatracer-safety-rules` | N | S | | | S | | S (bypass loopback) | |
+| `metatracer-data-contracts` | | S | S | S | S | S | | |
+| `metatracer-supply-chain` | N (auditoría) | S (`pyproject.toml`) | | S | S | S (bundle) | S (imagen) | |
+| `metadata-extraction` | S (crawler) | N | | | | | S (fixtures) | |
+| `detector-patterns` | | N | | | | | S (negativos) | |
+| `risk-rubric` | | N | N | | | | | |
+| `langgraph-agent-patterns` | | | N | | | | S (mocks) | |
+| `report-engine` | | N | | S | | | | |
+| `metatracer-ui` | | | | S (API/CLI) | N | N | | |
+| `metatracer-testing` | | S (DoD) | S (DoD) | S (DoD) | | S (DoD) | N | |
+| `metatracer-sdd` | | S | S | S | | S | | N |
+| `metatracer-platform` | S (auth/webhook) | S | S (retriever) | S | | | | |
+| `metatracer-investigations` | | S | | S (CLI) | | | | |
 
 Notas de lectura:
 
-- Las **rules** son otra capa y aplican siempre: `safety-invariants` y `data-contracts` están en
-  el contexto de los siete agentes sin necesidad de declararlas. Por eso un agente puede no
-  cargar la skill `metatracer-data-contracts` y aun así conocer los enums.
-- Las celdas `r` son deuda de configuración conocida, no un error de funcionamiento: el agente
-  puede leer la skill si la necesita, pero no la tiene en su lista de arranque. Se resuelven
-  añadiendo una línea a la sección "Contexto que debes cargar" del archivo correspondiente.
-- `risk-rubric` es la única skill con **dos núcleos**. Es intencionado (rúbrica compartida entre
-  heurístico y agente) y también su principal riesgo de deriva.
-- `docs-architect` no aparece a propósito: no escribe código de producto, así que no carga skills
-  de módulo. Su contexto son el PRD, el backlog y [agents.md](agents.md).
-- `metatracer-ui` y `metatracer-supply-chain` son las únicas skills con más de un núcleo
-  declarado: `ui-architect` necesita la primera para que sus contratos sean implementables y la
-  segunda para no proponer assets de terceros (amenaza 15).
+- Las **rules** aplican siempre a los ocho agentes. Un agente puede no cargar
+  `metatracer-data-contracts` y aun así conocer los enums.
+- `risk-rubric` es la única skill de producto con **dos núcleos** (heurístico y agente).
+- `docs-architect` carga `metatracer-sdd`; no carga skills de módulo de producto.
+- `metatracer-ui` tiene dos núcleos: `ui-architect` (contratos V2) y `v2-ui-engineer` (código).
 
 ### 3.2 Orden de creación por slice
 
@@ -485,8 +545,9 @@ Alineado con las fases de [tasks/README.md](../.aicontext/tasks/README.md).
 | 4 | TASK-04, TASK-06 | `report-engine`, `metatracer-ui` | Ambas **creadas** (`report-engine` en T5, `metatracer-ui` en TASK-26) |
 | 5 | TASK-07 | `metatracer-testing` | **Creada** |
 | 6 | TASK-08 | (reusa `metatracer-ui`, `report-engine`, guard de TASK-05) | v1.1 cerrada; sin skill nueva |
-| 7 | TASK-09 | (reusa y actualiza el diseño de `metadata-extraction` / `detector-patterns`) | v1.2 cerrada; skill de extracción sigue pendiente de materializar |
-| 8 | TASK-20, TASK-26 | (reusa y **actualiza** `metatracer-ui`) | v2.3/v3.1 cerradas; `metatracer-ui` materializada con el design system de TASK-26 |
+| 7 | TASK-09 | (reusa `metadata-extraction` / `detector-patterns`) | v1.2 cerrada; skills materializadas |
+| 8 | TASK-20, TASK-26, T11 | (reusa `metatracer-ui`) | Web V2 vigente; skill actualizada |
+| 9 | overlay SDD | `metatracer-sdd`, `metatracer-platform` | Creadas 2026-11-05 |
 
 Un agente sin su skill no está roto: funciona con las rules y su propio prompt. Con la skill,
 además conoce los valores exactos del módulo y sus trampas conocidas.

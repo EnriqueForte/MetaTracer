@@ -87,6 +87,23 @@ async def test_abort_completed_run_is_409(open_app: FastAPI) -> None:
     assert response.status_code == 409
 
 
+async def test_resume_completed_run_is_409(open_app: FastAPI) -> None:
+    async with open_app.state.session_factory() as session:
+        run = await RunRepository(session).create(
+            Run(
+                target_input='["target.com"]',
+                allowed_scope='["target.com"]',
+                scope_confirmed=True,
+                status=RunStatus.completed,
+            )
+        )
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=open_app), base_url="http://testserver"
+    ) as client:
+        response = await client.post(f"/api/runs/{run.id}/resume")
+    assert response.status_code == 409
+
+
 async def test_abort_missing_run_is_404(open_app: FastAPI) -> None:
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=open_app), base_url="http://testserver"

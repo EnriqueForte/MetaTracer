@@ -24,7 +24,7 @@ Tres ejes, en orden de dependencia:
 
 **Objetivo:** un comando/daemon que re-escanea un scope con cadencia configurable y solo notifica **deltas** (nuevos findings, findings que desaparecen, severidad que sube).
 
-> **Estado 2026-09-16:** implementado como [TASK-22](../tasks/22-watch-headless.md). `metatracer watch` con `--once`/`--interval`/`--webhook`, lock por scope, delta determinista por `dedup_signature` (sin LLM) y `new_findings` en el payload de webhook. Pendiente del Eje A: `--cron` real (requiere aprobación supply-chain), daemon systemd, y "findings que desaparecen / severidad que sube" (hoy el delta solo reporta nuevos).
+> **Estado 2026-09-16 / cron 2026-11-05:** implementado como [TASK-22](../tasks/22-watch-headless.md) y [TASK-44](../tasks/44-watch-cron.md). `metatracer watch` con `--once`/`--interval`/`--cron` (UTC, stdlib)/`--webhook`, lock por scope, delta determinista y `new_findings` en el webhook. Pendiente del Eje A: "findings que desaparecen / severidad que sube" (hoy el delta solo reporta nuevos; ampliar `PAYLOAD_KEYS` exige spec).
 
 Entregables:
 

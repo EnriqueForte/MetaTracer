@@ -54,6 +54,8 @@ async def test_disabled_connector_does_not_touch_the_network(fake_public_dns) ->
 
     summary = await lookup_domain("example.com", client=_client(handler), enabled=False)
     assert summary.status == "disabled"
+    silent = await lookup_domain("example.com", client=None, enabled=False)
+    assert silent.status == "disabled"
 
 
 async def test_lookup_reads_bootstrap_then_the_tld_server(fake_public_dns) -> None:

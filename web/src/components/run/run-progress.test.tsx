@@ -157,6 +157,7 @@ describe("RunProgress", () => {
     expect(screen.getByRole("link", { name: "Download HTML" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Download CSV" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Download Bounty TXT" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Redaction")).toHaveValue("contacts");
     expect(screen.getByText("The report file is regenerated on the server.")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Reports" })).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Scan activity" })).not.toBeInTheDocument();

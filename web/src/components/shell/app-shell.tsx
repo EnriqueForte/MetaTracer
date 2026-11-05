@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, BookOpen, History, LayoutDashboard, Menu, Plug, Radar, Shield, Users, Webhook } from "lucide-react";
+import { Bell, BookOpen, History, LayoutDashboard, Layers, Menu, Plug, Radar, Shield, Users, Webhook } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
@@ -23,6 +23,7 @@ const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/", label: "New scan", icon: Radar },
   { href: "/runs", label: "History", icon: History },
+  { href: "/investigations", label: "Investigations", icon: Layers },
   { href: "/scopes", label: "Scopes", icon: Shield },
 ] as const;
 

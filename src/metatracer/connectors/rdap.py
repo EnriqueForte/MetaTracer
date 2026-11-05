@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 from urllib.parse import urlsplit
 
 from metatracer.connectors.egress import EgressError, ProviderClient
+from metatracer.db.models import ConnectorStatus
 
 BOOTSTRAP_URL = "https://data.iana.org/rdap/dns.json"
 IANA_HOST = "data.iana.org"
@@ -52,11 +53,11 @@ class RdapSummary:
     nameservers: tuple[str, ...]
     events: tuple[tuple[str, str], ...]
     provenance: Provenance
-    status: str  # available | degraded | error | disabled
+    status: ConnectorStatus
     detail: str | None = None
 
     def require_provenance(self) -> None:
-        if self.status == "available":
+        if self.status is ConnectorStatus.available:
             self.provenance.require()
 
 
@@ -76,16 +77,34 @@ def clear_cache() -> None:
     _CACHE.summaries.clear()
 
 
-async def lookup_domain(domain: str, *, client: ProviderClient, enabled: bool) -> RdapSummary:
+async def lookup_domain(
+    domain: str, *, client: ProviderClient | None, enabled: bool
+) -> RdapSummary:
     """Look up one domain. ``enabled=False`` never touches ``client``."""
     name = domain.strip().lower().rstrip(".")
     if not enabled:
         return _result(
-            name, "disabled", "connector is disabled", source_url=BOOTSTRAP_URL, body=None
+            name,
+            ConnectorStatus.disabled,
+            "connector is disabled",
+            source_url=BOOTSTRAP_URL,
+            body=None,
+        )
+    if client is None:
+        return _result(
+            name,
+            ConnectorStatus.error,
+            "connector client is missing",
+            source_url=BOOTSTRAP_URL,
+            body=None,
         )
     if not _DOMAIN_RE.match(name):
         return _result(
-            name, "error", "domain is not a hostname", source_url=BOOTSTRAP_URL, body=None
+            name,
+            ConnectorStatus.error,
+            "domain is not a hostname",
+            source_url=BOOTSTRAP_URL,
+            body=None,
         )
     cached = _CACHE.summaries.get(name)
     if cached is not None and time.monotonic() - cached[0] < CACHE_TTL_SECONDS:
@@ -97,7 +116,11 @@ async def lookup_domain(domain: str, *, client: ProviderClient, enabled: bool) -
     base = _select_base(bootstrap, name)
     if base is None:
         return _result(
-            name, "error", "no RDAP service for this TLD", source_url=BOOTSTRAP_URL, body=None
+            name,
+            ConnectorStatus.error,
+            "no RDAP service for this TLD",
+            source_url=BOOTSTRAP_URL,
+            body=None,
         )
     host = (urlsplit(base).hostname or "").lower()
     url = base.rstrip("/") + "/domain/" + name
@@ -107,12 +130,16 @@ async def lookup_domain(domain: str, *, client: ProviderClient, enabled: bool) -
         return _result(name, _status_for(exc), str(exc), source_url=url, body=None)
     if response.status_code == 429:
         return _result(
-            name, "degraded", "provider rate limited the lookup", source_url=url, body=None
+            name,
+            ConnectorStatus.degraded,
+            "provider rate limited the lookup",
+            source_url=url,
+            body=None,
         )
     if response.status_code != 200:
         return _result(
             name,
-            "error",
+            ConnectorStatus.error,
             f"provider returned HTTP {response.status_code}",
             source_url=url,
             body=None,
@@ -173,12 +200,16 @@ def _summarize(domain: str, body: bytes, *, source_url: str) -> RdapSummary:
         document = json.loads(body)
     except json.JSONDecodeError:
         return _result(
-            domain, "error", "RDAP document is not JSON", source_url=source_url, body=None
+            domain,
+            ConnectorStatus.error,
+            "RDAP document is not JSON",
+            source_url=source_url,
+            body=None,
         )
     if not isinstance(document, dict):
         return _result(
             domain,
-            "error",
+            ConnectorStatus.error,
             "RDAP document is not an object",
             source_url=source_url,
             body=None,
@@ -189,7 +220,7 @@ def _summarize(domain: str, body: bytes, *, source_url: str) -> RdapSummary:
     registrar = _registrar(document.get("entities"))
     return _result(
         domain,
-        "available",
+        ConnectorStatus.available,
         None,
         source_url=source_url,
         body=body,
@@ -202,7 +233,7 @@ def _summarize(domain: str, body: bytes, *, source_url: str) -> RdapSummary:
 
 def _result(
     domain: str,
-    status: str,
+    status: ConnectorStatus,
     detail: str | None,
     *,
     source_url: str,
@@ -227,16 +258,16 @@ def _result(
         status=status,
         detail=detail,
     )
-    if status == "available":
+    if status is ConnectorStatus.available:
         summary.require_provenance()
     return summary
 
 
-def _status_for(exc: EgressError) -> str:
+def _status_for(exc: EgressError) -> ConnectorStatus:
     text = str(exc).lower()
     if "rate limited" in text:
-        return "degraded"
-    return "error"
+        return ConnectorStatus.degraded
+    return ConnectorStatus.error
 
 
 def _strings(value: object, *, limit: int) -> tuple[str, ...]:

@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 from urllib.parse import urlencode
 
 from metatracer.connectors.egress import EgressError, ProviderClient
+from metatracer.db.models import ConnectorStatus
 
 CONNECTOR_ID = "wayback"
 ARCHIVE_HOST = "web.archive.org"
@@ -56,14 +57,14 @@ class Capture:
 @dataclass(frozen=True, slots=True)
 class WaybackSummary:
     domain: str
-    status: str
+    status: ConnectorStatus
     detail: str | None
     captures: tuple[Capture, ...]
     replay_fetched: bool
     provenance: Provenance
 
     def require_provenance(self) -> None:
-        if self.status == "available":
+        if self.status is ConnectorStatus.available:
             self.provenance.require()
             for capture in self.captures:
                 if not _TIMESTAMP_RE.match(capture.capture_date):
@@ -71,30 +72,42 @@ class WaybackSummary:
 
 
 async def search_domain(
-    domain: str, *, client: ProviderClient, enabled: bool, limit: int = DEFAULT_LIMIT
+    domain: str, *, client: ProviderClient | None, enabled: bool, limit: int = DEFAULT_LIMIT
 ) -> WaybackSummary:
     """Search the CDX index. ``enabled=False`` never calls ``client``."""
     name = domain.strip().lower().rstrip(".")
     bounded = min(max(limit, 1), MAX_LIMIT)
     if not enabled:
-        return _summary(name, "disabled", "connector is disabled", (), cdx_url(name, bounded))
+        return _summary(
+            name, ConnectorStatus.disabled, "connector is disabled", (), cdx_url(name, bounded)
+        )
+    if client is None:
+        return _summary(
+            name, ConnectorStatus.error, "connector client is missing", (), cdx_url(name, bounded)
+        )
     if not _DOMAIN_RE.match(name):
-        return _summary(name, "error", "domain is not a hostname", (), cdx_url(name, bounded))
+        return _summary(
+            name, ConnectorStatus.error, "domain is not a hostname", (), cdx_url(name, bounded)
+        )
     url = cdx_url(name, bounded)
     if "/web/" in url:
-        return _summary(name, "error", "replay URLs are not requested", (), url)
+        return _summary(name, ConnectorStatus.error, "replay URLs are not requested", (), url)
     try:
         response = await client.get(url, allow_hosts=frozenset({ARCHIVE_HOST}))
     except EgressError as exc:
         text = str(exc).lower()
-        status = "degraded" if "rate limited" in text else "error"
+        status = ConnectorStatus.degraded if "rate limited" in text else ConnectorStatus.error
         return _summary(name, status, str(exc), (), url)
     if response.status_code == 429:
-        return _summary(name, "degraded", "provider rate limited the search", (), url)
+        return _summary(
+            name, ConnectorStatus.degraded, "provider rate limited the search", (), url
+        )
     if response.status_code != 200:
-        return _summary(name, "error", f"provider returned HTTP {response.status_code}", (), url)
+        return _summary(
+            name, ConnectorStatus.error, f"provider returned HTTP {response.status_code}", (), url
+        )
     captures = _captures(response.body)
-    summary = _summary(name, "available", None, captures, url)
+    summary = _summary(name, ConnectorStatus.available, None, captures, url)
     summary.require_provenance()
     return summary
 
@@ -153,7 +166,7 @@ def _cell(row: list[object], position: int | None) -> str:
 
 def _summary(
     domain: str,
-    status: str,
+    status: ConnectorStatus,
     detail: str | None,
     captures: tuple[Capture, ...],
     source_url: str,
@@ -170,6 +183,6 @@ def _summary(
             retrieved_at=datetime.now(UTC),
         ),
     )
-    if status == "available":
+    if status is ConnectorStatus.available:
         summary.require_provenance()
     return summary

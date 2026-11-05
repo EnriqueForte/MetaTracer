@@ -18,6 +18,7 @@ export function baseCommands(actor: Actor): Command[] {
     { id: "new-scan", label: "New scan", hint: "Targets and scope", href: "/" },
     { id: "dashboard", label: "Dashboard", hint: "Overview", href: "/dashboard" },
     { id: "history", label: "History", hint: "Local runs", href: "/runs" },
+    { id: "investigations", label: "Investigations", hint: "Grouped runs", href: "/investigations" },
     { id: "compare", label: "Compare runs", hint: "New / resolved / persistent", href: "/runs/compare" },
     { id: "scopes", label: "Scopes", hint: "Saved scopes", href: "/scopes" },
   ];
@@ -174,6 +175,7 @@ export const SHORTCUTS: [string, string][] = [
   ["Ctrl / ⌘ + K", "Open the command palette"],
   ["/", "Focus the findings search"],
   ["j / k", "Next / previous finding"],
+  ["x", "Select or unselect the active finding"],
   ["Enter or Space", "Open the selected finding"],
   ["Esc", "Close the open panel or dialog"],
   ["?", "Show this help"],

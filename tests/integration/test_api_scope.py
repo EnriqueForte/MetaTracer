@@ -130,6 +130,24 @@ async def test_health_endpoint(client) -> None:
     assert response.json() == {"status": "ok"}
 
 
+async def test_api_v1_health_matches_unversioned_health(client) -> None:
+    unversioned = await client.get("/api/health")
+    versioned = await client.get("/api/v1/health")
+    assert versioned.status_code == 200
+    assert versioned.json() == unversioned.json()
+
+
+async def test_metrics_exposes_prometheus_text(client) -> None:
+    response = await client.get("/api/metrics")
+    assert response.status_code == 200
+    body = response.text
+    assert "metatracer_runs{status=" in body
+    assert "metatracer_scan_slots_limit" in body
+    versioned = await client.get("/api/v1/metrics")
+    assert versioned.status_code == 200
+    assert "metatracer_scan_slots_open" in versioned.text
+
+
 async def test_findings_severity_filter_validation(client) -> None:
     # Invalid enum value: 422 before the run is even looked up.
     response = await client.get("/api/runs/whatever/findings", params={"severity": "bogus"})

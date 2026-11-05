@@ -26,11 +26,20 @@ def _snippets(detector: object, value: str) -> list[str]:
 def test_rfc1918_and_internal_hosts_are_endpoints() -> None:
     detector = InternalEndpointDetector()
     assert _snippets(detector, "see 10.1.2.3 and 192.168.0.9") == ["10.1.2.3", "192.168.0.9"]
+    assert _snippets(detector, "jump 172.16.0.4 then 172.31.255.1") == [
+        "172.16.0.4",
+        "172.31.255.1",
+    ]
     assert _snippets(detector, "db.corp and api.svc.cluster.local") == [
         "api.svc.cluster.local",
         "db.corp",
     ]
-    assert _snippets(detector, "8.8.8.8 172.15.0.1 127.0.0.1 localhost") == []
+    assert set(_snippets(detector, "vpn.internal files.lan printer.local")) == {
+        "vpn.internal",
+        "files.lan",
+        "printer.local",
+    }
+    assert _snippets(detector, "8.8.8.8 172.15.0.1 172.32.0.1 127.0.0.1 localhost") == []
     assert _snippets(detector, "Apache 2.4.52") == []
 
 
@@ -44,6 +53,9 @@ def test_cloud_urls_are_recorded_without_the_query_string() -> None:
     assert "secret" not in snippets[0]
     assert _snippets(detector, "https://files.blob.core.windows.net/docs") == [
         "https://files.blob.core.windows.net/docs"
+    ]
+    assert _snippets(detector, "https://storage.googleapis.com/acme-logs/2024") == [
+        "https://storage.googleapis.com/acme-logs/2024"
     ]
     assert _snippets(detector, "nots3.amazonaws.com and https://example.com/file") == []
 

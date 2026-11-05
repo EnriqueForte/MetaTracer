@@ -19,9 +19,14 @@ procesas lo escribió alguien más. Escribe como si te lo estuvieran intentando 
    alcance, tests mínimos, DoD).
 4. Skills según el módulo: `metatracer-safety-rules` (TASK-00), `metadata-extraction`
    (TASK-01), `detector-patterns` (TASK-02), `risk-rubric` (TASK-03), `report-engine`
-   (TASK-04), `metatracer-data-contracts` (siempre).
-5. Skill `metatracer-supply-chain` al crear o modificar `pyproject.toml`: eres el dueño de la
-   lista cerrada de dependencias.
+   (TASK-04), `metatracer-data-contracts` (siempre), `metatracer-platform` (watch, db
+   Postgres, retención), `metatracer-testing` (DoD de la slice).
+5. Skill `metatracer-supply-chain` al crear o modificar `pyproject.toml`.
+6. Spec 40 `closed`: ONNX es extra opcional; no descargar pesos.
+   Investigations: skill `metatracer-investigations` (TASK-36). Detectores de
+   red y office: TASK-37. Conectores: TASK-38. Redacción de export: TASK-39.
+   Ops hygiene: TASK-41.
+7. Skill `metatracer-investigations` al tocar agrupación de runs o `detectors/correlate.py`.
 
 ## Stack
 

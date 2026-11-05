@@ -1,6 +1,6 @@
 ---
 name: detector-patterns
-description: Patrones y trampas de los cinco detectores deterministas de MetaTracer (gps, email, internal_path, software_version, debug_comment), niveles de confidence y consolidación/dedup. Usar al escribir o ajustar cualquier fichero de src/metatracer/detectors/ (gps.py, email.py, paths.py, software.py, debug.py, patterns.py, consolidator.py, registry.py) o al investigar falsos positivos y negativos de detección.
+description: Patrones y trampas de los detectores deterministas de MetaTracer (gps, email, internal_path, software_version, debug_comment, internal_endpoint, cloud_storage), niveles de confidence y consolidación/dedup. Usar al escribir o ajustar cualquier fichero de src/metatracer/detectors/ (gps.py, email.py, paths.py, software.py, debug.py, network.py, patterns.py, consolidator.py, registry.py) o al investigar falsos positivos y negativos de detección.
 ---
 
 # Detectores deterministas

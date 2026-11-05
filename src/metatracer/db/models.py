@@ -505,6 +505,21 @@ class WebhookDelivery(SQLModel, table=True):
 # metadata. A future slice could add a template table if a use case requires it.
 
 
+class ConnectorStatus(StrEnum):
+    """Operational state of an external connector (TASK-38).
+
+    ``disabled`` means no socket. ``degraded`` is a provider 429 (or equivalent
+    rate limit) and must not fail a scan. Catalogue cards use ``disabled`` /
+    ``available`` from the persisted toggle; lookup payloads may also be
+    ``degraded`` or ``error``.
+    """
+
+    disabled = "disabled"
+    available = "available"
+    degraded = "degraded"
+    error = "error"
+
+
 class UserRole(StrEnum):
     """Role of an installation user (TASK-24 single operator; TASK-25 multi-user).
 
@@ -582,6 +597,19 @@ class InvitationCode(SQLModel, table=True):
     used_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
     used_by: str | None = Field(default=None, foreign_key="user.id")
     created_at: datetime = Field(default_factory=_utc_now, sa_type=DateTime(timezone=True))
+
+
+class ConcurrencyGate(SQLModel, table=True):
+    """Singleton row locked while a process checks scan capacity (TASK-41).
+
+    ``SELECT … FOR UPDATE`` on ``id=1`` serializes two API processes that
+    share a database. The in-memory semaphore still rejects extra scans
+    inside one process; this row is what makes the limit durable.
+    """
+
+    __tablename__ = "concurrency_gate"
+
+    id: int = Field(default=1, primary_key=True)
 
 
 class ConnectorSetting(SQLModel, table=True):

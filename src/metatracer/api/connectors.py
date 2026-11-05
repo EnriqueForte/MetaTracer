@@ -18,7 +18,7 @@ from metatracer.connectors.rdap import IANA_HOST, lookup_domain
 from metatracer.connectors.wayback import ARCHIVE_HOST, search_domain
 from metatracer.connectors.wayback import CONNECTOR_ID as WAYBACK_ID
 from metatracer.core.safety.guard import NetworkSafetyGuard
-from metatracer.db.models import ConnectorSetting
+from metatracer.db.models import ConnectorSetting, ConnectorStatus
 
 router = APIRouter(prefix="/api/connectors", tags=["connectors"])
 
@@ -42,6 +42,7 @@ class ConnectorCard(BaseModel):
     label: str
     kind: str
     enabled: bool
+    status: ConnectorStatus
     sends: list[str]
     egress_hosts: list[str]
     notice: str
@@ -71,7 +72,7 @@ class ProvenanceResponse(BaseModel):
 
 class RdapLookupResponse(BaseModel):
     domain: str
-    status: str
+    status: ConnectorStatus
     detail: str | None
     registrar: str | None
     statuses: list[str]
@@ -89,11 +90,15 @@ class WaybackCaptureResponse(BaseModel):
 
 class WaybackSearchResponse(BaseModel):
     domain: str
-    status: str
+    status: ConnectorStatus
     detail: str | None
     replay_fetched: bool
     captures: list[WaybackCaptureResponse]
     provenance: ProvenanceResponse
+
+
+def _card_status(enabled: bool) -> ConnectorStatus:
+    return ConnectorStatus.available if enabled else ConnectorStatus.disabled
 
 
 def _rdap_card(enabled: bool) -> ConnectorCard:
@@ -102,6 +107,7 @@ def _rdap_card(enabled: bool) -> ConnectorCard:
         label="RDAP",
         kind="context",
         enabled=enabled,
+        status=_card_status(enabled),
         sends=["domain name"],
         egress_hosts=[IANA_HOST],
         notice=_RDAP_NOTICE,
@@ -117,7 +123,7 @@ class CommonCrawlHitResponse(BaseModel):
 
 class CommonCrawlSearchResponse(BaseModel):
     domain: str
-    status: str
+    status: ConnectorStatus
     detail: str | None
     warc_fetched: bool
     hits: list[CommonCrawlHitResponse]
@@ -130,6 +136,7 @@ def _wayback_card(enabled: bool) -> ConnectorCard:
         label="Wayback CDX",
         kind="discovery",
         enabled=enabled,
+        status=_card_status(enabled),
         sends=["domain name"],
         egress_hosts=[ARCHIVE_HOST],
         notice=_WAYBACK_NOTICE,
@@ -142,6 +149,7 @@ def _crawl_card(enabled: bool) -> ConnectorCard:
         label="Common Crawl",
         kind="discovery",
         enabled=enabled,
+        status=_card_status(enabled),
         sends=["domain name"],
         egress_hosts=[INDEX_HOST],
         notice=_CRAWL_NOTICE,
@@ -163,6 +171,12 @@ async def _set_enabled(request: Request, connector_id: str, enabled: bool) -> No
             row.enabled = enabled
             session.add(row)
         await session.commit()
+
+
+def _provider_client(request: Request, *, enabled: bool) -> ProviderClient | None:
+    if not enabled:
+        return None
+    return ProviderClient(NetworkSafetyGuard(request.app.state.settings.allow_loopback))
 
 
 @router.get("")
@@ -197,15 +211,9 @@ async def set_commoncrawl(body: ConnectorToggle, request: Request) -> ConnectorC
 @router.post("/rdap/lookup")
 async def rdap_lookup(body: RdapLookupRequest, request: Request) -> RdapLookupResponse:
     enabled = await _is_enabled(request, RDAP_ID)
-    client = ProviderClient(
-        NetworkSafetyGuard(request.app.state.settings.allow_loopback),
+    summary = await lookup_domain(
+        body.domain, client=_provider_client(request, enabled=enabled), enabled=enabled
     )
-    if not enabled:
-        # Build the client only after the flag is known to be false? The
-        # lookup returns before any method on the client runs.
-        summary = await lookup_domain(body.domain, client=client, enabled=False)
-    else:
-        summary = await lookup_domain(body.domain, client=client, enabled=True)
     return RdapLookupResponse(
         domain=summary.domain,
         status=summary.status,
@@ -225,8 +233,9 @@ async def rdap_lookup(body: RdapLookupRequest, request: Request) -> RdapLookupRe
 @router.post("/wayback/search")
 async def wayback_search(body: RdapLookupRequest, request: Request) -> WaybackSearchResponse:
     enabled = await _is_enabled(request, WAYBACK_ID)
-    client = ProviderClient(NetworkSafetyGuard(request.app.state.settings.allow_loopback))
-    summary = await search_domain(body.domain, client=client, enabled=enabled)
+    summary = await search_domain(
+        body.domain, client=_provider_client(request, enabled=enabled), enabled=enabled
+    )
     return WaybackSearchResponse(
         domain=summary.domain,
         status=summary.status,
@@ -254,8 +263,9 @@ async def commoncrawl_search(
     body: RdapLookupRequest, request: Request
 ) -> CommonCrawlSearchResponse:
     enabled = await _is_enabled(request, CRAWL_ID)
-    client = ProviderClient(NetworkSafetyGuard(request.app.state.settings.allow_loopback))
-    summary = await search_commoncrawl(body.domain, client=client, enabled=enabled)
+    summary = await search_commoncrawl(
+        body.domain, client=_provider_client(request, enabled=enabled), enabled=enabled
+    )
     return CommonCrawlSearchResponse(
         domain=summary.domain,
         status=summary.status,

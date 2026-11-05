@@ -11,4 +11,6 @@ export const queryKeys = {
   invitations: ["invitations"] as const,
   webhooks: ["webhooks"] as const,
   compare: (a: string, b: string) => ["compare", a, b] as const,
+  investigations: ["investigations"] as const,
+  investigation: (id: string) => ["investigation", id] as const,
 };

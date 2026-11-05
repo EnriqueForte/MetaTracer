@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 from urllib.parse import urlencode, urlsplit
 
 from metatracer.connectors.egress import EgressError, ProviderClient, ProviderResponse
+from metatracer.db.models import ConnectorStatus
 
 CONNECTOR_ID = "commoncrawl"
 INDEX_HOST = "index.commoncrawl.org"
@@ -60,14 +61,14 @@ class IndexHit:
 @dataclass(frozen=True, slots=True)
 class CommonCrawlSummary:
     domain: str
-    status: str
+    status: ConnectorStatus
     detail: str | None
     hits: tuple[IndexHit, ...]
     warc_fetched: bool
     provenance: Provenance
 
     def require_provenance(self) -> None:
-        if self.status != "available":
+        if self.status is not ConnectorStatus.available:
             return
         self.provenance.require()
         for hit in self.hits:
@@ -78,7 +79,7 @@ class CommonCrawlSummary:
 async def search_domain(
     domain: str,
     *,
-    client: ProviderClient,
+    client: ProviderClient | None,
     enabled: bool,
     limit: int = DEFAULT_LIMIT,
     backoff_seconds: float = _BACKOFF_SECONDS,
@@ -88,9 +89,11 @@ async def search_domain(
     bounded = min(max(limit, 1), MAX_LIMIT)
     placeholder = _index_query("https://index.commoncrawl.org/latest-index", name, bounded)
     if not enabled:
-        return _summary(name, "disabled", "connector is disabled", (), placeholder)
+        return _summary(name, ConnectorStatus.disabled, "connector is disabled", (), placeholder)
+    if client is None:
+        return _summary(name, ConnectorStatus.error, "connector client is missing", (), placeholder)
     if not _DOMAIN_RE.match(name):
-        return _summary(name, "error", "domain is not a hostname", (), placeholder)
+        return _summary(name, ConnectorStatus.error, "domain is not a hostname", (), placeholder)
     try:
         listing = await _get(client, COLLINFO_URL, backoff_seconds)
     except EgressError as exc:
@@ -98,20 +101,24 @@ async def search_domain(
     if listing.status_code in _RETRYABLE:
         return _summary(
             name,
-            "degraded",
+            ConnectorStatus.degraded,
             f"provider returned HTTP {listing.status_code}",
             (),
             COLLINFO_URL,
         )
     if listing.status_code != 200:
         return _summary(
-            name, "error", f"provider returned HTTP {listing.status_code}", (), COLLINFO_URL
+            name,
+            ConnectorStatus.error,
+            f"provider returned HTTP {listing.status_code}",
+            (),
+            COLLINFO_URL,
         )
     index = _latest_index(listing.body)
     if index is None:
         return _summary(
             name,
-            "error",
+            ConnectorStatus.error,
             "collection list has no index on the allowlisted host",
             (),
             COLLINFO_URL,
@@ -122,10 +129,14 @@ async def search_domain(
     except EgressError as exc:
         return _summary(name, _status_for(exc), str(exc), (), query)
     if page.status_code in _RETRYABLE:
-        return _summary(name, "degraded", f"provider returned HTTP {page.status_code}", (), query)
+        return _summary(
+            name, ConnectorStatus.degraded, f"provider returned HTTP {page.status_code}", (), query
+        )
     if page.status_code != 200:
-        return _summary(name, "error", f"provider returned HTTP {page.status_code}", (), query)
-    summary = _summary(name, "available", None, _hits(page.body), query)
+        return _summary(
+            name, ConnectorStatus.error, f"provider returned HTTP {page.status_code}", (), query
+        )
+    summary = _summary(name, ConnectorStatus.available, None, _hits(page.body), query)
     summary.require_provenance()
     return summary
 
@@ -197,7 +208,7 @@ def _hits(body: bytes) -> tuple[IndexHit, ...]:
 
 def _summary(
     domain: str,
-    status: str,
+    status: ConnectorStatus,
     detail: str | None,
     hits: tuple[IndexHit, ...],
     source_url: str,
@@ -214,13 +225,13 @@ def _summary(
             retrieved_at=datetime.now(UTC),
         ),
     )
-    if status == "available":
+    if status is ConnectorStatus.available:
         summary.require_provenance()
     return summary
 
 
-def _status_for(exc: EgressError) -> str:
+def _status_for(exc: EgressError) -> ConnectorStatus:
     text = str(exc).lower()
     if "rate limited" in text or "503" in text:
-        return "degraded"
-    return "error"
+        return ConnectorStatus.degraded
+    return ConnectorStatus.error

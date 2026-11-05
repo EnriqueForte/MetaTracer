@@ -1,4 +1,4 @@
-"""DetectorRegistry: runs the five deterministic detectors over one asset's items.
+"""DetectorRegistry: runs the deterministic detectors over one asset's items.
 
 A detector that raises must not kill the run (same isolation rule as a failed
 asset): the failure is logged — type names only, never target-controlled

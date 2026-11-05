@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AssetFindings } from "@/components/run/findings/asset-findings";
+import { BulkTriageBar, BULK_TRIAGE_LIMIT } from "@/components/run/findings/bulk-triage-bar";
 import { FiltersBar } from "@/components/run/findings/filters-bar";
 import { FindingSheet } from "@/components/run/findings/finding-sheet";
 import { FindingsTable } from "@/components/run/findings/findings-table";
@@ -24,6 +25,7 @@ import {
 } from "@/components/run/findings/model";
 import { TriageForm, triageVariant } from "@/components/run/findings/triage-form";
 import { Badge } from "@/components/ui/badge";
+import { DensitySwitch } from "@/components/ui/density-switch";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { getJson, hasArray } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
@@ -56,7 +58,9 @@ export function FindingsPanel({ runId, totalAssets }: { runId: string; totalAsse
   );
   const setSelected = useCallback((finding: Finding | null) => setSelectedId(finding?.id ?? null), []);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const searchRef = useRef<HTMLInputElement>(null);
+  const canBulk = actor === "operator";
 
   const changeFilters = useCallback((next: Filters) => {
     setFilters(next);
@@ -97,11 +101,23 @@ export function FindingsPanel({ runId, totalAssets }: { runId: string; totalAsse
       } else if (event.key === "k") {
         event.preventDefault();
         setActiveIndex((index) => Math.max(0, index - 1));
+      } else if (event.key === "x" && canBulk) {
+        event.preventDefault();
+        const index = activeIndex < 0 ? 0 : activeIndex;
+        const row = filtered[index];
+        if (!row) return;
+        setActiveIndex(index);
+        setSelectedIds((current) => {
+          const next = new Set(current);
+          if (next.has(row.id)) next.delete(row.id);
+          else if (next.size < BULK_TRIAGE_LIMIT) next.add(row.id);
+          return next;
+        });
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [filtered.length, selected]);
+  }, [activeIndex, canBulk, filtered, selected]);
 
   const loaded = query.isSuccess || query.isError;
   const error = query.isError
@@ -114,15 +130,18 @@ export function FindingsPanel({ runId, totalAssets }: { runId: string; totalAsse
 
   return (
     <div className="flex flex-col gap-4">
-      <FiltersBar
-        filters={filters}
-        onChange={changeFilters}
-        total={base.length}
-        counts={counts}
-        types={types}
-        dismissed={dismissed}
-        searchRef={searchRef}
-      />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <FiltersBar
+          filters={filters}
+          onChange={changeFilters}
+          total={base.length}
+          counts={counts}
+          types={types}
+          dismissed={dismissed}
+          searchRef={searchRef}
+        />
+        <DensitySwitch />
+      </div>
 
       {error ? (
         <div className="flex flex-col gap-1">
@@ -148,12 +167,37 @@ export function FindingsPanel({ runId, totalAssets }: { runId: string; totalAsse
         />
       ) : null}
 
+      {canBulk && selectedIds.size > 0 ? (
+        <BulkTriageBar
+          runId={runId}
+          selectedIds={[...selectedIds]}
+          onClear={() => setSelectedIds(new Set())}
+        />
+      ) : null}
+
       {filtered.length > 0 ? (
         <FindingsTable
           rows={filtered}
           activeIndex={activeIndex}
           onActiveChange={setActiveIndex}
           onOpen={setSelected}
+          selectable={canBulk}
+          selectedIds={selectedIds}
+          onToggle={(finding) =>
+            setSelectedIds((current) => {
+              const next = new Set(current);
+              if (next.has(finding.id)) next.delete(finding.id);
+              else if (next.size < BULK_TRIAGE_LIMIT) next.add(finding.id);
+              return next;
+            })
+          }
+          onToggleAll={() =>
+            setSelectedIds((current) => {
+              const visible = filtered.slice(0, BULK_TRIAGE_LIMIT);
+              const allOn = visible.every((row) => current.has(row.id));
+              return allOn ? new Set() : new Set(visible.map((row) => row.id));
+            })
+          }
           extraColumn={{
             header: "Triage",
             cell: (finding) => {

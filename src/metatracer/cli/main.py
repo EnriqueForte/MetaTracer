@@ -19,7 +19,9 @@ import asyncio
 import json
 import logging
 from collections.abc import Callable
+from contextlib import asynccontextmanager
 from dataclasses import replace
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -32,6 +34,7 @@ from metatracer.cli import formatters
 from metatracer.core.bind_auth import enforce_public_bind_auth, is_loopback_bind
 from metatracer.core.config import Settings, enforce_loopback_test_only
 from metatracer.core.exceptions import (
+    InvestigationConflictError,
     LoopbackOutsideTestsError,
     MetaTracerError,
     ScanAlreadyRunningError,
@@ -44,19 +47,27 @@ from metatracer.db.models import (
     Confidence,
     Finding,
     FindingType,
+    InvestigationStatus,
     ReasoningDepth,
     Run,
     RunStatus,
     Severity,
     TriageStatus,
 )
-from metatracer.db.repositories import FindingRepository, RunRepository
+from metatracer.db.repositories import FindingRepository, InvestigationRepository, RunRepository
 from metatracer.extractors.ingest import sweep_stale_tempfiles
 from metatracer.knowledge.portable import export_kb, import_kb
 from metatracer.reports.builder import DEFAULT_REPORTS_DIR, ReportBuilder, ReportData
 from metatracer.reports.disclosure import Redaction
 from metatracer.reports.filters import filter_findings
 from metatracer.scopes.portable import ScopeImportResult, export_scopes, import_scopes
+from metatracer.services.cron import CronError, CronSchedule, next_fire, parse_cron
+from metatracer.services.investigation import (
+    attach_run,
+    create_investigation,
+    detach_run,
+    set_investigation_status,
+)
 from metatracer.services.orchestrator import (
     ExportFormat,
     ProgressEvent,
@@ -228,6 +239,25 @@ def report(
 
 
 @app.command()
+def resume(
+    run_id: Annotated[
+        str, typer.Argument(help="Aborted run UUID or the 8-character prefix from list-runs.")
+    ],
+    output_dir: Annotated[
+        Path,
+        typer.Option("--output-dir", "-o", help="Directory for exported reports."),
+    ] = DEFAULT_REPORTS_DIR,
+) -> None:
+    """Re-queue an aborted run as a new scan. The original row stays aborted."""
+    try:
+        new_id = asyncio.run(_execute_resume(run_id, output_dir))
+    except MetaTracerError as exc:
+        err_console.print(f"[red]Error:[/red] {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+    console.print(f"Resumed as run {new_id}")
+
+
+@app.command()
 def show(
     run_id: Annotated[
         str, typer.Argument(help="Run UUID or the 8-character prefix from list-runs.")
@@ -345,6 +375,138 @@ def findings_triage(
     console.print(f"Finding {escape(finding.id)} triaged as {finding.triage_status.value}.")
 
 
+@findings_app.command("bulk-triage")
+def findings_bulk_triage(
+    finding_ids: Annotated[
+        list[str],
+        typer.Argument(help="Finding ids (JSON/CSV exports). Max 200."),
+    ],
+    status: Annotated[
+        TriageStatus,
+        typer.Option("--status", help="open, confirmed, false_positive or fixed."),
+    ],
+    note: Annotated[
+        str | None,
+        typer.Option("--note", help="Optional operator note (max 500 characters)."),
+    ] = None,
+) -> None:
+    """Set triage on many findings. Severity and evidence are not changed."""
+    if note is not None and len(note) > 500:
+        err_console.print("[red]Error:[/red] the note is limited to 500 characters.")
+        raise typer.Exit(1)
+    if len(finding_ids) > 200:
+        err_console.print("[red]Error:[/red] bulk triage is limited to 200 findings.")
+        raise typer.Exit(1)
+    try:
+        updated, missing = asyncio.run(
+            _execute_bulk_triage(finding_ids, status, note.strip() if note else None)
+        )
+    except MetaTracerError as exc:
+        err_console.print(f"[red]Error:[/red] {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+    console.print(f"Triaged {updated} finding(s) as {status.value}.")
+    if missing:
+        listed = ", ".join(escape(item) for item in missing)
+        err_console.print(f"[yellow]Missing:[/yellow] {listed}")
+        raise typer.Exit(1)
+
+
+investigation_app = typer.Typer(
+    help="Group runs without isolating them. Suggested triage is never applied."
+)
+app.add_typer(investigation_app, name="investigation")
+
+
+@investigation_app.command("list")
+def investigation_list() -> None:
+    """List investigation groups (newest first)."""
+    rows = asyncio.run(_execute_investigation_list())
+    if not rows:
+        console.print("No investigations recorded yet.")
+        return
+    console.print(formatters.investigations_table(rows))
+
+
+@investigation_app.command("show")
+def investigation_show(
+    investigation_id: Annotated[str, typer.Argument(help="Investigation UUID.")],
+) -> None:
+    """Show one investigation and the runs it groups."""
+    try:
+        investigation, runs = asyncio.run(_execute_investigation_show(investigation_id))
+    except MetaTracerError as exc:
+        err_console.print(f"[red]Error:[/red] {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+    status = InvestigationStatus(investigation.status).value
+    console.print(f"{escape(investigation.name)} ({status}) — {len(runs)} run(s).")
+    if investigation.description:
+        console.print(escape(investigation.description))
+    if runs:
+        console.print(formatters.runs_table(runs))
+
+
+@investigation_app.command("create")
+def investigation_create(
+    name: Annotated[str, typer.Argument(help="Unique name inside this install.")],
+    description: Annotated[
+        str | None,
+        typer.Option("--description", help="Optional operator note (not sent to the LLM)."),
+    ] = None,
+) -> None:
+    """Create an open investigation. Does not attach runs."""
+    try:
+        created = asyncio.run(
+            _execute_investigation_create(name, description.strip() if description else None)
+        )
+    except InvestigationConflictError as exc:
+        err_console.print(f"[red]Error:[/red] {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+    console.print(f"Created investigation {created.id} ({escape(created.name)}).")
+
+
+@investigation_app.command("close")
+def investigation_close(
+    investigation_id: Annotated[str, typer.Argument(help="Investigation UUID.")],
+) -> None:
+    """Mark the group closed. Existing runs stay listed; attach is refused."""
+    try:
+        closed = asyncio.run(
+            _execute_investigation_close(investigation_id, InvestigationStatus.closed)
+        )
+    except MetaTracerError as exc:
+        err_console.print(f"[red]Error:[/red] {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+    console.print(f"Investigation {escape(closed.id)} is closed.")
+
+
+@investigation_app.command("attach")
+def investigation_attach(
+    investigation_id: Annotated[str, typer.Argument(help="Investigation UUID.")],
+    run_id: Annotated[str, typer.Argument(help="Run UUID or unique prefix.")],
+) -> None:
+    """Put a run in the group. A run belongs to at most one investigation."""
+    try:
+        asyncio.run(_execute_investigation_attach(investigation_id, run_id))
+    except (InvestigationConflictError, MetaTracerError) as exc:
+        err_console.print(f"[red]Error:[/red] {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+    console.print(f"Attached run {escape(run_id)} to investigation {escape(investigation_id)}.")
+
+
+@investigation_app.command("detach")
+def investigation_detach(
+    investigation_id: Annotated[str, typer.Argument(help="Investigation UUID.")],
+    run_id: Annotated[str, typer.Argument(help="Run UUID or unique prefix.")],
+) -> None:
+    """Ungroup a run. Findings and triage on that run are unchanged."""
+    try:
+        asyncio.run(_execute_investigation_detach(investigation_id, run_id))
+    except MetaTracerError as exc:
+        err_console.print(f"[red]Error:[/red] {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+    console.print(f"Detached run {escape(run_id)} from investigation {escape(investigation_id)}.")
+
+
 @runs_app.command("delete")
 def runs_delete(
     run_id: Annotated[str, typer.Argument(help="Run UUID or unique prefix.")],
@@ -399,12 +561,19 @@ def watch(
         typer.Argument(help="The saved scope id to re-scan (the single scope source)."),
     ],
     interval: Annotated[
-        float,
+        float | None,
         typer.Option(
             "--interval",
-            help="Seconds between scans (default 6h = 21600s).",
+            help="Seconds between scans (default 6h = 21600s). Exclusive with --cron.",
         ),
-    ] = 21600.0,
+    ] = None,
+    cron: Annotated[
+        str | None,
+        typer.Option(
+            "--cron",
+            help="UTC 5-field crontab (e.g. '0 2 * * *'). Exclusive with --interval.",
+        ),
+    ] = None,
     once: Annotated[
         bool,
         typer.Option(
@@ -429,9 +598,8 @@ def watch(
     Platform v3.0, Eje A (TASK-22): headless continuous recon. The scope is
     never inferred — ``scope_id`` is the single source of authorization, and
     every iteration goes through the exact same ``ScanOrchestratorService``
-    gate. ``--once`` runs a single iteration and exits; without it, the
-    command loops forever with ``asyncio.sleep`` (a real ``--cron`` requires
-    supply-chain approval and is out of scope).
+    gate. ``--once`` runs a single iteration and exits. Without it the
+    command loops: ``--interval`` (default 6h) or ``--cron`` (UTC 5-field).
 
     Deltas: each iteration compares the run's ``dedup_signature`` set against
     the historical same-scope baseline (deterministic, no LLM). ``--webhook``
@@ -440,15 +608,28 @@ def watch(
     """
     _guard_loopback()
     formatters.print_banner(console)
+    if once and cron:
+        err_console.print("[red]Error:[/red] --once cannot be combined with --cron.")
+        raise typer.Exit(1)
+    if cron and interval is not None:
+        err_console.print("[red]Error:[/red] --cron cannot be combined with --interval.")
+        raise typer.Exit(1)
+    schedule = None
+    if cron:
+        try:
+            schedule = parse_cron(cron)
+            next_fire(schedule, datetime.now(UTC))
+        except CronError as exc:
+            err_console.print(f"[red]Error:[/red] {escape(str(exc))}")
+            raise typer.Exit(1) from exc
     try:
         results = asyncio.run(
             _execute_watch(
                 scope_id=scope_id,
-                # ``--once``: a single iteration, signalled to the loop as a
-                # zero interval (exit after the first scan). The user-supplied
-                # ``--interval`` is only meaningful when looping.
-                interval=0 if once else interval,
+                # ``--once``: a single iteration, signalled as interval 0.
+                interval=0 if once else (interval if interval is not None else 21600.0),
                 once=once,
+                cron=schedule,
                 webhook_id=webhook_id,
                 output_dir=output_dir,
             )
@@ -625,6 +806,65 @@ def scope_export(
     console.print(f"[green]Exported[/green] {n} {noun} to {output}")
 
 
+@asynccontextmanager
+async def _cli_session_factory():
+    """One-shot engine for CLI commands that only touch the database."""
+    settings = Settings()
+    configure_logging(settings.log_level)
+    engine = create_db_engine(settings.database_url)
+    try:
+        await init_db(engine)
+        yield create_session_factory(engine)
+    finally:
+        await engine.dispose()
+
+
+async def _execute_investigation_list():
+    async with _cli_session_factory() as session_factory:
+        async with session_factory() as session:
+            repo = InvestigationRepository(session)
+            rows = await repo.list_recent()
+            counts = await repo.run_counts()
+        return [(row, counts.get(row.id, 0)) for row in rows]
+
+
+async def _execute_investigation_show(investigation_id: str):
+    async with _cli_session_factory() as session_factory:
+        async with session_factory() as session:
+            repo = InvestigationRepository(session)
+            row = await repo.get(investigation_id)
+            if row is None:
+                raise MetaTracerError("investigation not found")
+            runs = await repo.runs_for(investigation_id)
+        return row, runs
+
+
+async def _execute_investigation_create(name: str, description: str | None):
+    async with _cli_session_factory() as session_factory:
+        async with session_factory() as session:
+            return await create_investigation(session, name=name, description=description)
+
+
+async def _execute_investigation_close(investigation_id: str, status: InvestigationStatus):
+    async with _cli_session_factory() as session_factory:
+        async with session_factory() as session:
+            return await set_investigation_status(session, investigation_id, status)
+
+
+async def _execute_investigation_attach(investigation_id: str, run_token: str) -> None:
+    async with _cli_session_factory() as session_factory:
+        async with session_factory() as session:
+            run = await RunRepository(session).resolve(run_token)
+            await attach_run(session, investigation_id, run.id)
+
+
+async def _execute_investigation_detach(investigation_id: str, run_token: str) -> None:
+    async with _cli_session_factory() as session_factory:
+        async with session_factory() as session:
+            run = await RunRepository(session).resolve(run_token)
+            await detach_run(session, investigation_id, run.id)
+
+
 async def _execute_scope_import(source: Path) -> ScopeImportResult:
     """Single async boundary of ``scope import``: engine up, import, engine down."""
     settings = Settings()
@@ -766,6 +1006,23 @@ async def _execute_report(
         await engine.dispose()
 
 
+async def _execute_resume(run_id: str, output_dir: Path) -> str:
+    """Resolve the aborted run and start a new scan from its snapshot."""
+    settings = Settings()
+    configure_logging(settings.log_level)
+    engine = create_db_engine(settings.database_url)
+    try:
+        await init_db(engine)
+        session_factory = create_session_factory(engine)
+        async with session_factory() as session:
+            run = await RunRepository(session).resolve(run_id)
+        orchestrator = ScanOrchestratorService(session_factory, settings)
+        await orchestrator.recover_interrupted_runs()
+        return await orchestrator.resume_scan(run.id, output_dir=output_dir)
+    finally:
+        await engine.dispose()
+
+
 async def _execute_triage(finding_id: str, status: TriageStatus, note: str | None) -> Finding:
     """Set a finding's triage from the CLI (``triaged_by="cli"``)."""
     settings = Settings()
@@ -785,6 +1042,38 @@ async def _execute_triage(finding_id: str, status: TriageStatus, note: str | Non
         if updated is None:
             raise MetaTracerError(f"finding not found: {finding_id}")
         return updated
+    finally:
+        await engine.dispose()
+
+
+async def _execute_bulk_triage(
+    finding_ids: list[str], status: TriageStatus, note: str | None
+) -> tuple[int, list[str]]:
+    """Set triage on many findings from the CLI (``triaged_by="cli"``)."""
+    settings = Settings()
+    configure_logging(settings.log_level)
+    engine = create_db_engine(settings.database_url)
+    try:
+        await init_db(engine)
+        session_factory = create_session_factory(engine)
+        updated = 0
+        missing: list[str] = []
+        async with session_factory() as session:
+            repo = FindingRepository(session)
+            by_run: dict[str, list[str]] = {}
+            for finding_id in finding_ids:
+                found = await repo.get(finding_id)
+                if found is None:
+                    missing.append(finding_id)
+                    continue
+                by_run.setdefault(found.run_id, []).append(finding_id)
+            for run_id, ids in by_run.items():
+                rows, gone = await repo.set_triage_many(
+                    run_id, ids, status=status, note=note, by="cli"
+                )
+                updated += len(rows)
+                missing.extend(gone)
+        return updated, missing
     finally:
         await engine.dispose()
 
@@ -865,6 +1154,7 @@ async def _execute_watch(
     once: bool,
     webhook_id: str | None,
     output_dir: Path,
+    cron: CronSchedule | None = None,
 ) -> list[ScanResult]:
     """Single async boundary of the watch command.
 
@@ -902,6 +1192,7 @@ async def _execute_watch(
                 interval,
                 webhook_id,
                 output_dir,
+                cron=cron,
             )
         finally:
             if lock is not None:
@@ -917,11 +1208,12 @@ async def _watch_loop(
     interval: float,
     webhook_id: str | None,
     output_dir: Path,
+    cron: CronSchedule | None = None,
 ) -> list[ScanResult]:
-    """Run one scan, then keep running every ``interval`` seconds.
+    """Run one scan, then sleep ``interval`` seconds or until the next cron fire.
 
-    ``--once`` is signalled by ``interval <= 0`` and runs a single iteration.
-    On a failure the loop backs off (doubling, capped) instead of hammering.
+    ``--once`` is signalled by ``interval <= 0`` and no cron. On a failure the
+    loop backs off (doubling, capped) instead of hammering.
 
     ``webhook_id`` resolves to a ``WebhookDispatcher`` wired exactly like the
     API lifespan (same anti-SSRF guard) so the watch loop can notify the
@@ -965,11 +1257,15 @@ async def _watch_loop(
                 consecutive_failures += 1
             else:
                 consecutive_failures = 0
-            if interval <= 0:
+            if interval <= 0 and cron is None:
                 return results  # --once
             delay = interval
             if consecutive_failures > 1:
                 delay = min(max_backoff, base_backoff * (2 ** (consecutive_failures - 1)))
+            elif cron is not None:
+                from metatracer.services.cron import seconds_until
+
+                delay = seconds_until(cron)
             console.print(
                 f"[dim]Next scan in {_format_delay(delay)}[/dim] (consecutive failures: "
                 f"{consecutive_failures})"

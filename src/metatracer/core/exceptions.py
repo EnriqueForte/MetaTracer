@@ -71,6 +71,15 @@ class RunNotAbortableError(MetaTracerError):
         super().__init__(f"run {run_id} is already {status}")
 
 
+class RunNotResumableError(MetaTracerError):
+    """Only an ``aborted`` run can be re-queued (TASK-41)."""
+
+    def __init__(self, run_id: str, status: str) -> None:
+        self.run_id = run_id
+        self.status = status
+        super().__init__(f"run {run_id} is {status}; only aborted runs can be resumed")
+
+
 class RunActiveError(MetaTracerError):
     """A pending or running scan cannot be deleted (TASK-30)."""
 

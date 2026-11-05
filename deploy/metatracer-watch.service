@@ -1,0 +1,22 @@
+# Example systemd unit for MetaTracer watch (TASK-44).
+# Copy to /etc/systemd/system/ and replace ScopeId. Times are UTC.
+# Do NOT set METATRACER_ALLOW_LOOPBACK — that flag is test-only.
+
+[Unit]
+Description=MetaTracer watch (authorized recon)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=metatracer
+Group=metatracer
+WorkingDirectory=/var/lib/metatracer
+EnvironmentFile=-/etc/metatracer.env
+ExecStart=/usr/bin/metatracer watch ScopeId --cron "0 2 * * *"
+Restart=on-failure
+RestartSec=30
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

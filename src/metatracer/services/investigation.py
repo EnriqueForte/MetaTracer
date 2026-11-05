@@ -63,6 +63,18 @@ async def attach_run(session: AsyncSession, investigation_id: str, run_id: str) 
     return await runs.update(run)
 
 
+async def set_investigation_status(
+    session: AsyncSession, investigation_id: str, status: InvestigationStatus
+) -> Investigation:
+    """Flip ``open``/``closed``. Closing does not hide or detach runs."""
+    repo = InvestigationRepository(session)
+    row = await repo.get(investigation_id)
+    if row is None:
+        raise MetaTracerError("investigation not found")
+    row.status = status
+    return await repo.update(row)
+
+
 async def detach_run(session: AsyncSession, investigation_id: str, run_id: str) -> Run:
     runs = RunRepository(session)
     run = await runs.get(run_id)

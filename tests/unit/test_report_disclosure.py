@@ -95,3 +95,26 @@ def test_coordinate_redaction_replaces_a_gps_snippet() -> None:
     assert original.evidence.startswith("Latitude:")
     assert exported.findings[0].evidence == "[redacted-coordinates]"
     assert "40.416775" not in exported.findings[0].impact
+
+
+def test_none_redaction_does_not_rewrite_evidence() -> None:
+    original = _finding()
+    exported = apply_redaction(_report(original), Redaction.none)
+    assert exported.findings[0].evidence == original.evidence
+    assert exported.redaction == "none"
+
+
+def test_all_redaction_covers_contacts_and_coordinates() -> None:
+    original = _finding(
+        finding_type=FindingType.gps,
+        type_label="GPS / Coordinates",
+        evidence="Latitude: 40.416775, Longitude: -3.703790",
+        impact="Ask ada@target.example about 40.416775, -3.703790.",
+    )
+    exported = apply_redaction(_report(original), Redaction.all)
+    assert original.evidence.startswith("Latitude:")
+    assert original.impact.startswith("Ask ada@")
+    assert exported.findings[0].evidence == "[redacted-coordinates]"
+    assert "ada@" not in exported.findings[0].impact
+    assert "40.416775" not in exported.findings[0].impact
+    assert exported.redaction == "all"

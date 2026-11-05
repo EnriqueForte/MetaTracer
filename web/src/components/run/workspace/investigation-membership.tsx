@@ -1,11 +1,13 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { useState } from "react";
 
 import { runKey, type RunSnapshot } from "@/components/run/run-model";
 import { Button } from "@/components/ui/button";
 import { errorMessage, getJson, sendJson } from "@/lib/api/client";
+import { queryKeys } from "@/lib/query/keys";
 
 type InvestigationRow = {
   id: string;
@@ -35,14 +37,14 @@ export function InvestigationMembership({
   const [picked, setPicked] = useState("");
   const [formError, setFormError] = useState("");
   const list = useQuery({
-    queryKey: ["investigations"],
+    queryKey: queryKeys.investigations,
     queryFn: () => getJson<InvestigationList>("/api/investigations", isInvestigationList),
     enabled: canMutate && !run.investigation_id,
   });
 
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: runKey(run.run_id) });
-    await queryClient.invalidateQueries({ queryKey: ["investigations"] });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.investigations });
   };
 
   const start = useMutation({
@@ -93,8 +95,13 @@ export function InvestigationMembership({
       <div className="flex flex-wrap items-center gap-2 text-xs text-mt-muted">
         <p>
           Investigation{" "}
-          <span className="text-mt-fg">{run.investigation_name ?? run.investigation_id}</span>.
-          Triage from other runs in this group is suggested, not applied.
+          <Link
+            href={`/investigations/${encodeURIComponent(run.investigation_id)}`}
+            className="text-mt-fg underline-offset-2 hover:underline"
+          >
+            {run.investigation_name ?? run.investigation_id}
+          </Link>
+          . Triage from other runs in this group is suggested, not applied.
         </p>
         {canMutate ? (
           <Button variant="secondary" disabled={leave.isPending} onClick={() => leave.mutate()}>

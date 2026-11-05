@@ -3,11 +3,16 @@
 **Proyecto:** MetaTracer  
 **Versión:** 3.2 cerrada (hardening post-auditoría 2026-10-03, TASK-27 → TASK-35, 2026-10-05) — suite verificada 2026-10-23  
 **PRD:** [Volver al PRD](../PRD.md)  
-**Estado:** MVP **v1.0–v1.2 cerradas** (TASK-00 → TASK-09) — **v2.0 completada** (TASK-10/11/12 ✅) — **v2.1 completada** (TASK-13 feedback ✅, TASK-14 RAG ligero ✅) — **v2.2 "Integraciones" completada 2026-09-13** (TASK-15 a TASK-19 ✅; 475 passed + ruff limpio + cobertura ≥85%) — **v2.3 "Performance & UI polish" cerrada 2026-09-16** (TASK-20 ✅; 528 passed) — **v2.4 "Multi-engagement" cerrada 2026-09-16** (TASK-21 ✅). **Plataforma v3.0 cerrada**: [visión](../features/12-platform-v3.md) — **TASK-22 (Eje A, watch/headless) 2026-09-16** (`metatracer watch` con `--once`/`--interval`/`--webhook`, lock por scope, `DeltaReporter` determinista sin LLM, `new_findings` en el webhook) · **TASK-23 (Eje B, PostgreSQL + pgvector) 2026-09-17** (`postgresql+asyncpg` exigido, migraciones Alembic empaquetadas y ejecutadas en `init_db`, `PgVectorKnowledgeIndex` con hashing-trick 384-d tras la misma interfaz `KnowledgeRetriever`, `METATRACER_MAX_CONCURRENT_RUNS`, compose profile `postgres` con `pgvector/pgvector:pg17`) · **TASK-24 (Eje C, auth básica) 2026-09-18** (cookie `HttpOnly` + CSRF double-submit, roles `operator`/`viewer`, **PBKDF2-SHA256 600k stdlib** versionado, token de sesión solo-hash, rotación en login, kill-switch `METATRACER_AUTH_ENABLED`, CLI sin login; suite **598 passed**, cobertura 87.2%). **v3.1 cerrada 2026-09-21**: [TASK-25](25-user-registration.md) multi-usuario (first-run setup, panel de admin, invitaciones de un solo uso, registro desde Sign In) → [TASK-26](26-ui-redesign.md) rediseño de la Web UI (design system `.mt-*`, Tailwind compilado offline, Alpine CSP vendored en `/static`, sin CDN). **v3.2 cerrada 2026-10-05**: [TASK-27](27-security-hardening-p0.md) → [TASK-35](35-ui-ux-improvements.md) — ver la tabla de mapeo abajo. **Suite verificada 2026-10-23: 787 passed, 6 skipped** (e2e incluido) · **cobertura 91.30%** (DoD ≥85%) · ruff limpio. Tests Postgres se skipean sin servidor (el redir local de Docker Desktop no cuenta como servidor).
+**Estado:** MVP **v1.0–v1.2 cerradas** (TASK-00 → TASK-09) — **v2.0 completada** (TASK-10/11/12 ✅) — **v2.1 completada** (TASK-13 feedback ✅, TASK-14 RAG ligero ✅) — **v2.2 "Integraciones" completada 2026-09-13** (TASK-15 a TASK-19 ✅; 475 passed + ruff limpio + cobertura ≥85%) — **v2.3 "Performance & UI polish" cerrada 2026-09-16** (TASK-20 ✅; 528 passed) — **v2.4 "Multi-engagement" cerrada 2026-09-16** (TASK-21 ✅). **Plataforma v3.0 cerrada**: [visión](../features/12-platform-v3.md) — **TASK-22 (Eje A, watch/headless) 2026-09-16** (`metatracer watch` con `--once`/`--interval`/`--webhook`, lock por scope, `DeltaReporter` determinista sin LLM, `new_findings` en el webhook) · **TASK-23 (Eje B, PostgreSQL + pgvector) 2026-09-17** (`postgresql+asyncpg` exigido, migraciones Alembic empaquetadas y ejecutadas en `init_db`, `PgVectorKnowledgeIndex` con hashing-trick 384-d tras la misma interfaz `KnowledgeRetriever`, `METATRACER_MAX_CONCURRENT_RUNS`, compose profile `postgres` con `pgvector/pgvector:pg17`) · **TASK-24 (Eje C, auth básica) 2026-09-18** (cookie `HttpOnly` + CSRF double-submit, roles `operator`/`viewer`, **PBKDF2-SHA256 600k stdlib** versionado, token de sesión solo-hash, rotación en login, kill-switch `METATRACER_AUTH_ENABLED`, CLI sin login; suite **598 passed**, cobertura 87.2%). **v3.1 cerrada 2026-09-21**: [TASK-25](25-user-registration.md) multi-usuario (first-run setup, panel de admin, invitaciones de un solo uso, registro desde Sign In) → [TASK-26](26-ui-redesign.md) rediseño de la Web UI (design system `.mt-*`; entrega V1 histórica, sustituida por Web V2). **v3.2 cerrada 2026-10-05**: [TASK-27](27-security-hardening-p0.md) → [TASK-35](35-ui-ux-improvements.md) — ver la tabla de mapeo abajo. **Suite verificada 2026-10-23: 787 passed, 6 skipped** (e2e incluido) · **cobertura 91.30%** (DoD ≥85%) · ruff limpio. Tests Postgres se skipean sin servidor (el redir local de Docker Desktop no cuenta como servidor).
 
 Este directorio descompone el MVP en tareas implementables. Cada archivo es un contrato: objetivo, subtareas, contratos de datos, fuera de alcance, tests mínimos y criterios de aceptación verificables.
 
 Las features del PRD definen *qué* debe existir. Estas tasks definen *cómo* construirlo sin contradecir el PRD.
+
+> **Gobernanza (2026-11-05):** TASK-00–35 están cerradas. El trabajo **activo** está en
+> [`specs/`](../../specs/README.md) y [`MEMORY.md`](../../MEMORY.md). Valores **reserved**
+> restantes: ninguno. Specs 36–44 están **closed**.
+> No mover estos archivos a `archive/` (rompen enlaces).
 
 ---
 
@@ -27,7 +32,7 @@ Valores **en minúsculas** en base de datos, JSON, API y Pydantic. La capa de pr
 
 | Contrato | Valores |
 | :--- | :--- |
-| `finding_type` | `gps` \| `email` \| `internal_path` \| `software_version` \| `debug_comment` \| `internal_endpoint` \| `cloud_storage` (`internal_endpoint`: IPv4 RFC1918 o hostname `.internal`/`.corp`/`.local`/`.lan`/`*.svc.cluster.local`, techo `medium`. `cloud_storage`: host de S3, GCS, Azure Blob o R2, techo `high`; el producto no pide esa URL. Ninguno es `author_name`) |
+| `finding_type` | `gps` \| `email` \| `internal_path` \| `software_version` \| `debug_comment` \| `internal_endpoint` \| `cloud_storage` ([TASK-37](37-new-detectors.md): `internal_endpoint` = IPv4 RFC1918 o hostname `.internal`/`.corp`/`.local`/`.lan`/`*.svc.cluster.local`, techo `medium`. `cloud_storage` = host S3/GCS/Azure Blob/R2, techo `high`; el producto no pide esa URL. Ninguno es `author_name`) |
 | `severity` | `critical` \| `high` \| `medium` \| `low` \| `info` |
 | `confidence` | `high` \| `medium` \| `low` |
 | `detector_method` | `rule` \| `heuristic` \| `agent` |
@@ -35,14 +40,14 @@ Valores **en minúsculas** en base de datos, JSON, API y Pydantic. La capa de pr
 | `run.status` | `pending` \| `running` \| `completed` \| `failed` \| `aborted` |
 | `extraction_status` | `ok` \| `skipped` \| `failed` |
 | `skip_reason` | `unsupported_type` \| `too_large` \| `out_of_scope` \| `duplicate_hash` \| `empty_body` \| `robots_disallow` (`robots_disallow` es cortesía de `robots.txt`: la URL no se solicita; no autoriza hosts, no es una decisión de scope y no prueba que el recurso no exista) |
-| `namespace` | `exif` \| `xmp` \| `pdfinfo` \| `iptc` \| `http` \| `html` \| `js` \| `ooxml` \| `odf` (`ooxml`/`odf` son propiedades del paquete, nunca el cuerpo del documento) |
+| `namespace` | `exif` \| `xmp` \| `pdfinfo` \| `iptc` \| `http` \| `html` \| `js` \| `ooxml` \| `odf` ([TASK-37](37-new-detectors.md): `ooxml`/`odf` = propiedades del paquete, nunca el cuerpo del documento) |
 | límites de crawl (Fase 2) | `max_depth` \| `max_pages` \| `max_assets` \| `max_total_bytes` \| `max_seconds` (se registran en `Run.ingestion_stats.limits_hit`; identificadores estables, no traducir) |
 | `user.role` (TASK-24) | `operator` \| `viewer` |
 | `triage_status` (TASK-35) | `open` \| `confirmed` \| `false_positive` \| `fixed` (default: `open`; solo lo cambia un operador, nunca el agente; independiente de `severity`; `false_positive` queda fuera de exports y conteos salvo inclusión explícita) |
-| `investigation.status` (Fase 3) | `open` \| `closed` (agrupa runs; no aísla clientes: una instalación sigue siendo un solo dominio de confianza. El triaje de otro run del mismo grupo se *sugiere*, nunca se copia solo) |
-| `correlation.kind` (Fase 3) | `email` \| `gps_point` \| `internal_endpoint` \| `software_version` \| `document_id` \| `device_serial` \| `author_string` (dos assets que comparten `value_hash` comparten un valor, no una identidad. `internal_endpoint` lo escribe el detector homónimo. `author_string` no es un hallazgo: ADR-0009 sigue en pie) |
-| `connector.status` (Fase 4) | `disabled` \| `available` \| `degraded` \| `error` (apagado = ninguna petición; `degraded` es un 429 y no tumba un run) |
-| `export.redaction` (Fase 5) | `none` \| `contacts` \| `coordinates` \| `all` (solo el fichero exportado; la base no cambia. API y CLI por defecto `none`. La UI de descarga propone `contacts`) |
+| `investigation.status` (Fase 3, [TASK-36](36-investigations.md)) | `open` \| `closed` (agrupa runs; no aísla clientes: una instalación sigue siendo un solo dominio de confianza. El triaje de otro run del mismo grupo se *sugiere*, nunca se copia solo) |
+| `correlation.kind` (Fase 3, TASK-36) | `email` \| `gps_point` \| `internal_endpoint` \| `software_version` \| `document_id` \| `device_serial` \| `author_string` (dos assets que comparten `value_hash` comparten un valor, no una identidad. `internal_endpoint` lo escribe el detector homónimo, TASK-37. `author_string` no es un hallazgo: ADR-0009 sigue en pie) |
+| `connector.status` (Fase 4, [TASK-38](38-connectors.md)) | `disabled` \| `available` \| `degraded` \| `error` (apagado = ninguna petición; `degraded` es un 429 y no tumba un run) |
+| `export.redaction` (Fase 5, [TASK-39](39-export-redaction.md)) | `none` \| `contacts` \| `coordinates` \| `all` (solo el fichero exportado; la base no cambia. API y CLI por defecto `none`. La UI de descarga propone `contacts`) |
 | `normalized_kind` | `decimal_degrees` \| `iso8601_utc` \| `lowercase_trim` (el `value` original no se sobrescribe; NULL si no hay forma normalizada distinta) |
 | `timezone_status` | `known` \| `assumed_utc` \| `unzoned` \| `invalid` (NULL si el campo no es una fecha) |
 | Idioma de **reportes exportados** | Inglés (plataformas de bug bounty) |
@@ -84,6 +89,7 @@ Aplican a **todas** las tasks. Un PR que las viole no está done.
 | **TASK-09** | [09-source-expansion.md](09-source-expansion.md) | HTML, cabeceras HTTP, comentarios JS como fuentes | TASK-00 a TASK-08 |
 | **TASK-10** | [10-scope-management.md](10-scope-management.md) | Scopes persistentes, CRUD API, select en wizard (v2.0) | TASK-00 a TASK-09 |
 | **TASK-11** | [11-dashboard.md](11-dashboard.md) | Dashboard agregado + GET /api/stats (v2.0) | TASK-00 a TASK-10 |
+| **TASK-12** | [12-notifications.md](12-notifications.md) | Notificaciones: cola en memoria, campana en la UI, `GET/DELETE /api/notifications` (v2.0) — cerrada | TASK-00 a TASK-11 |
 | **TASK-13** | [13-feedback-loop.md](13-feedback-loop.md) | Feedback loop: corrección humana persistida + few-shot memory (v2.1+) | TASK-00 a TASK-12 |
 | **TASK-14** | [14-rag-lite.md](14-rag-lite.md) | RAG ligero: índice full-text FTS5 + contexto histórico al agente (v2.1+) | TASK-00 a TASK-13 |
 | **TASK-15** | [15-webhooks.md](15-webhooks.md) | Webhooks de salida: config CRUD, dispatcher, relay buffer, run_ref (v2.2) | TASK-00 a TASK-14 |
@@ -97,7 +103,7 @@ Aplican a **todas** las tasks. Un PR que las viole no está done.
 | **TASK-23** | [23-postgres-pgvector.md](23-postgres-pgvector.md) | Eje B: PostgreSQL + asyncpg + Alembic + índice pgvector + `METATRACER_MAX_CONCURRENT_RUNS` (v3.0) — **cerrada 2026-09-17** | TASK-00 a TASK-22 |
 | **TASK-24** | [24-auth-basic.md](24-auth-basic.md) | Eje C: auth básica 1 usuario — cookie `HttpOnly` + CSRF, roles `operator`/`viewer`, PBKDF2 stdlib, kill-switch `METATRACER_AUTH_ENABLED` (v3.0) — **cerrada 2026-09-18** | TASK-00 a TASK-23 |
 | **TASK-25** | [25-user-registration.md](25-user-registration.md) | Multi-usuario v3.1: first-run setup desde la UI, panel de admin de usuarios, invitaciones de un solo uso y registro desde Sign In — **cerrada 2026-09-21** | TASK-00 a TASK-24 |
-| **TASK-26** | [26-ui-redesign.md](26-ui-redesign.md) | Rediseño visual de la Web UI — **cerrada 2026-09-21**; cabeceras HTTP añadidas; Tailwind compilado y Alpine vendorizado en `/static` (CDN de scripts fuera) | TASK-00 a TASK-25 |
+| **TASK-26** | [26-ui-redesign.md](26-ui-redesign.md) | Rediseño visual de la Web UI — **cerrada 2026-09-21** (contrato original: tokens `.mt-*`, Tailwind offline). **Histórico:** esa entrega era Web V1 (Alpine en `/static`); T11/ADR-0016 retiró V1. Contrato visual vigente: `.aicontext/ui/design-system-v2.md` | TASK-00 a TASK-25 |
 | **TASK-27** | [27-security-hardening-p0.md](27-security-hardening-p0.md) | v3.2 P0: `trust_env=False`, auth obligatoria en bind público, HMAC real en webhooks, CSV anti-fórmula, tope pre-inflate de XMP — **cerrada 2026-10-03** | TASK-00 a TASK-26 |
 | **TASK-28** | [28-run-recovery-abort.md](28-run-recovery-abort.md) | v3.2 P1: recovery de runs huérfanos al arrancar + abort cooperativo (API, CLI, Web V2) — **cerrada 2026-10-03** | TASK-27 |
 | **TASK-29** | [29-agent-output-integrity.md](29-agent-output-integrity.md) | v3.2 P1: techo del guard respeta el feedback, guard de prosa LLM, escape en Markdown — **cerrada 2026-10-03** | TASK-27 |
@@ -107,6 +113,12 @@ Aplican a **todas** las tasks. Un PR que las viole no está done.
 | **TASK-33** | [33-backend-hygiene.md](33-backend-hygiene.md) | v3.2 P2: SSE tras evicción, retries de webhook, índices/N+1, lockout de login, import circular, `/api/ready` — **cerrada 2026-10-05** | TASK-28, TASK-31 |
 | **TASK-34** | [34-detector-precision.md](34-detector-precision.md) | v3.2 P2: falsos positivos de email/GPS/secretos, rutas, presupuesto y caché del agente — **cerrada 2026-10-03** | TASK-29 |
 | **TASK-35** | [35-ui-ux-improvements.md](35-ui-ux-improvements.md) | v3.2 UI/UX Web V2: arreglos de triage y paridad, cambios sin commit, filtros en URL, paleta y atajos, mapa GPS, tendencias, comparación de runs, abort/delete, pantallas Webhooks/Knowledge, TanStack Query + Zod, triage de findings (`false_positive`), light mode — **cerrada 2026-10-05** | TASK-26 (35.5: TASK-28, TASK-30) |
+| **TASK-36** | [36-investigations.md](36-investigations.md) | Fase 3: investigations + correlación; paridad CLI `investigation` + contrato SDD — **cerrada 2026-11-05** | TASK-35 |
+| **TASK-37** | [37-new-detectors.md](37-new-detectors.md) | Detectores `internal_endpoint`/`cloud_storage` + extractores OOXML/ODF — **cerrada 2026-11-05** | TASK-02, TASK-03, v3.2 |
+| **TASK-38** | [38-connectors.md](38-connectors.md) | Conectores de egreso (RDAP/Wayback/CC) — **cerrada 2026-11-05** | TASK-15 |
+| **TASK-39** | [39-export-redaction.md](39-export-redaction.md) | Redacción de exports (`export.redaction`) — **cerrada 2026-11-05** | TASK-04, TASK-18 |
+| **TASK-41** | [41-ops-hygiene.md](41-ops-hygiene.md) | Lock durable, resume abort, métricas, `/api/v1` — **cerrada 2026-11-05** | TASK-28, TASK-33 |
+| **TASK-43** | [43-ui-investigations.md](43-ui-investigations.md) | UI de investigations: listado y ficha en Web V2 — **cerrada 2026-11-05** | TASK-36 |
 
 `TASK-04` **no** depende de `TASK-05`: el motor de reportes debe funcionar con clasificaciones heurísticas (campos de explicación vacíos o plantilla). `TASK-05` rellena justificación, impacto, remediación y repro. `TASK-06` orquesta el pipeline completo.
 
@@ -174,8 +186,10 @@ Alineado con [Timeline y roadmap](../features/10-timeline-and-roadmap.md).
 | 21 | v3.0 | `TASK-23` | Eje B: PostgreSQL + asyncpg + Alembic + pgvector + concurrencia acotada — **cerrada 2026-09-17** |
 | 22 | v3.0 | `TASK-24` | Eje C: auth básica 1 usuario (cookie + CSRF + roles) — **cerrada 2026-09-18** |
 | 23 | v3.1 | `TASK-25` | Multi-usuario: first-run setup + panel admin + invitaciones + registro en Sign In — **cerrada 2026-09-21** |
-| 24 | v3.1 | `TASK-26` | Rediseño visual de la Web UI — **cerrada 2026-09-21**; cabeceras HTTP y assets de UI servidos desde `/static` |
+| 24 | v3.1 | `TASK-26` | Rediseño visual de la Web UI — **cerrada 2026-09-21** (V1 histórica; UI vigente = Web V2 en `web/`) |
 | 25 | v3.2 | `TASK-27` → `TASK-35` | Hardening post-[auditoría 2026-10-03](../audit-2026-10-03.md): P0 seguridad, recovery/abort, integridad del agente, retención, authz del API, higiene de core/backend, precisión de detectores y mejoras UI/UX de la Web V2 — **cerrada 2026-10-05**. Orden ejecutado: 27 → 28 → 31 → 29 → 30 → 34 → 32 → 33; TASK-35 en paralelo (35.1–35.3 sin dependencias de backend) |
+| 26 | v3.3 | `TASK-36` | Investigations + correlación: contrato SDD y CLI `metatracer investigation` (backend/API ya existían) |
+| 27 | v3.3 | `TASK-43` | UI de investigations: `/investigations` y ficha de grupo en Web V2 |
 
 Si hay que recortar, proteger los [criterios de éxito](../features/09-success-criteria.md) antes que pulido de UI.
 

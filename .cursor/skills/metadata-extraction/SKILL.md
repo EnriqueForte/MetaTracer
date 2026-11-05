@@ -1,6 +1,6 @@
 ---
 name: metadata-extraction
-description: Pipeline de ingesta y extracción de MetaTracer (crawler, allowlist por magic bytes, extractores PDF/imagen/HTML/JS/cabeceras HTTP, sanitización de valores y namespaces). Usar al tocar src/metatracer/extractors/ (ingest.py, crawler.py, sniff.py, targets.py, pdf.py, image.py, html.py, javascript.py, headers.py, xmp.py, sanitize.py, fields.py) o al diagnosticar por qué un asset se marca skipped/failed.
+description: Pipeline de ingesta y extracción de MetaTracer (crawler, allowlist por magic bytes, extractores PDF/imagen/HTML/JS/cabeceras HTTP/Office, sanitización de valores y namespaces). Usar al tocar src/metatracer/extractors/ (ingest.py, crawler.py, sniff.py, targets.py, pdf.py, image.py, html.py, javascript.py, headers.py, office.py, xmp.py, sanitize.py, fields.py) o al diagnosticar por qué un asset se marca skipped/failed.
 ---
 
 # Ingesta y extracción
@@ -25,6 +25,7 @@ Referencia: `.aicontext/tasks/01-metadata-extraction.md`, `09-source-expansion.m
 | PNG | `b"\x89PNG\r\n\x1a\n"` |
 | TIFF | `b"II*\x00"` (LE) o `b"MM\x00*"` (BE) |
 | WEBP | `b"RIFF"` … `header[8:12] == b"WEBP"` |
+| ZIP (oficina) | `b"PK\x03\x04"` / `PK\x05\x06` / `PK\x07\x08` **y** extensión/Content-Type de Office; un ZIP genérico no se parsea |
 
 Reglas de `classify_downloaded_asset`:
 

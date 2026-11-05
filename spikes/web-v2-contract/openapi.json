@@ -52,6 +52,23 @@
         }
       }
     },
+    "/api/metrics": {
+      "get": {
+        "summary": "Metrics",
+        "description": "Prometheus text exposition without a new dependency (TASK-41).",
+        "operationId": "metrics_api_metrics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/runs": {
       "get": {
         "tags": [
@@ -296,6 +313,49 @@
         }
       }
     },
+    "/api/runs/{run_id}/resume": {
+      "post": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Resume Run",
+        "description": "Start a new scan from an aborted run's stored targets and scope (TASK-41).\n\nThe original row stays ``aborted``. 404 if missing, 409 if not aborted or\nif every scan slot is busy.",
+        "operationId": "resume_run_api_runs__run_id__resume_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunCreatedResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/runs/{run_id}/stream": {
       "get": {
         "tags": [
@@ -453,6 +513,59 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FindingsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/findings/triage": {
+      "post": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Triage Findings Bulk",
+        "description": "Bulk operator triage (CSRF + operator via the router). Rule 6 holds.",
+        "operationId": "triage_findings_bulk_api_runs__run_id__findings_triage_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkTriageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkTriageResponse"
                 }
               }
             }
@@ -3024,6 +3137,75 @@
         ],
         "title": "AttachRunRequest"
       },
+      "BulkTriageRequest": {
+        "properties": {
+          "finding_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Finding Ids"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TriageStatus"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "finding_ids",
+          "status"
+        ],
+        "title": "BulkTriageRequest",
+        "description": "POST /api/runs/{run_id}/findings/triage (TASK-42).\n\nUnknown keys are a 422. ``severity`` must never be accepted."
+      },
+      "BulkTriageResponse": {
+        "properties": {
+          "updated": {
+            "type": "integer",
+            "title": "Updated"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing"
+          },
+          "triage_status": {
+            "$ref": "#/components/schemas/TriageStatus"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/TriageResponse"
+            },
+            "type": "array",
+            "title": "Findings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "updated",
+          "missing",
+          "triage_status",
+          "findings"
+        ],
+        "title": "BulkTriageResponse"
+      },
       "CommonCrawlHitResponse": {
         "properties": {
           "capture_date": {
@@ -3059,8 +3241,7 @@
             "title": "Domain"
           },
           "status": {
-            "type": "string",
-            "title": "Status"
+            "$ref": "#/components/schemas/ConnectorStatus"
           },
           "detail": {
             "anyOf": [
@@ -3228,6 +3409,9 @@
             "type": "boolean",
             "title": "Enabled"
           },
+          "status": {
+            "$ref": "#/components/schemas/ConnectorStatus"
+          },
           "sends": {
             "items": {
               "type": "string"
@@ -3253,6 +3437,7 @@
           "label",
           "kind",
           "enabled",
+          "status",
           "sends",
           "egress_hosts",
           "notice"
@@ -3274,6 +3459,17 @@
           "connectors"
         ],
         "title": "ConnectorListResponse"
+      },
+      "ConnectorStatus": {
+        "type": "string",
+        "enum": [
+          "disabled",
+          "available",
+          "degraded",
+          "error"
+        ],
+        "title": "ConnectorStatus",
+        "description": "Operational state of an external connector (TASK-38).\n\n``disabled`` means no socket. ``degraded`` is a provider 429 (or equivalent\nrate limit) and must not fail a scan. Catalogue cards use ``disabled`` /\n``available`` from the persisted toggle; lookup payloads may also be\n``degraded`` or ``error``."
       },
       "ConnectorToggle": {
         "properties": {
@@ -4626,8 +4822,7 @@
             "title": "Domain"
           },
           "status": {
-            "type": "string",
-            "title": "Status"
+            "$ref": "#/components/schemas/ConnectorStatus"
           },
           "detail": {
             "anyOf": [
@@ -5792,8 +5987,7 @@
             "title": "Domain"
           },
           "status": {
-            "type": "string",
-            "title": "Status"
+            "$ref": "#/components/schemas/ConnectorStatus"
           },
           "detail": {
             "anyOf": [

@@ -11,9 +11,16 @@ import { SEVERITY_LABEL, type Finding } from "./model";
 
 /** Above this many rows only the visible window is rendered. */
 export const VIRTUAL_THRESHOLD = 200;
-export const ROW_HEIGHT = 36;
+export const ROW_HEIGHT = 44;
 const VIEWPORT_HEIGHT = 640;
 const OVERSCAN = 8;
+
+function readRowHeight(): number {
+  if (typeof window === "undefined") return ROW_HEIGHT;
+  const raw = getComputedStyle(document.documentElement).getPropertyValue("--mt-row-h").trim();
+  const parsed = Number.parseFloat(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : ROW_HEIGHT;
+}
 
 type Props = {
   rows: Finding[];
@@ -21,32 +28,58 @@ type Props = {
   onActiveChange: (index: number) => void;
   onOpen: (finding: Finding) => void;
   extraColumn?: { header: string; cell: (finding: Finding) => ReactNode };
+  selectable?: boolean;
+  selectedIds?: ReadonlySet<string>;
+  onToggle?: (finding: Finding) => void;
+  onToggleAll?: () => void;
 };
 
-export function FindingsTable({ rows, activeIndex, onActiveChange, onOpen, extraColumn }: Props) {
+export function FindingsTable({
+  rows,
+  activeIndex,
+  onActiveChange,
+  onOpen,
+  extraColumn,
+  selectable = false,
+  selectedIds,
+  onToggle,
+  onToggleAll,
+}: Props) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
+  const [rowHeight, setRowHeight] = useState(ROW_HEIGHT);
   const virtual = rows.length > VIRTUAL_THRESHOLD;
 
-  const start = virtual ? Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN) : 0;
+  useEffect(() => {
+    const apply = () => setRowHeight(readRowHeight());
+    apply();
+    const root = document.documentElement;
+    const observer = new MutationObserver(apply);
+    observer.observe(root, { attributes: true, attributeFilter: ["data-density"] });
+    return () => observer.disconnect();
+  }, []);
+
+  const start = virtual ? Math.max(0, Math.floor(scrollTop / rowHeight) - OVERSCAN) : 0;
   const end = virtual
-    ? Math.min(rows.length, Math.ceil((scrollTop + VIEWPORT_HEIGHT) / ROW_HEIGHT) + OVERSCAN)
+    ? Math.min(rows.length, Math.ceil((scrollTop + VIEWPORT_HEIGHT) / rowHeight) + OVERSCAN)
     : rows.length;
   const visible = rows.slice(start, end);
+  const selectedCount = selectedIds ? rows.filter((row) => selectedIds.has(row.id)).length : 0;
+  const allSelected = selectable && rows.length > 0 && selectedCount === rows.length;
 
   useEffect(() => {
     if (activeIndex < 0) return;
     const viewport = viewportRef.current;
     if (virtual && viewport) {
-      const top = activeIndex * ROW_HEIGHT;
-      if (top < viewport.scrollTop || top + ROW_HEIGHT > viewport.scrollTop + VIEWPORT_HEIGHT) {
+      const top = activeIndex * rowHeight;
+      if (top < viewport.scrollTop || top + rowHeight > viewport.scrollTop + VIEWPORT_HEIGHT) {
         viewport.scrollTop = Math.max(0, top - VIEWPORT_HEIGHT / 2);
         setScrollTop(viewport.scrollTop);
       }
     }
     const row = viewport?.querySelector<HTMLElement>(`[data-index="${activeIndex}"]`);
     row?.focus();
-  }, [activeIndex, virtual]);
+  }, [activeIndex, virtual, rowHeight]);
 
   function onRowKey(event: KeyboardEvent<HTMLTableRowElement>, finding: Finding) {
     if (event.key === "Enter" || event.key === " ") {
@@ -55,12 +88,22 @@ export function FindingsTable({ rows, activeIndex, onActiveChange, onOpen, extra
     }
   }
 
-  const columns = extraColumn ? 5 : 4;
+  const columns = (extraColumn ? 5 : 4) + (selectable ? 1 : 0);
   const body = (
     <Table>
       <caption className="sr-only">Findings of this scan, in API order</caption>
       <TableHeader>
         <TableRow>
+          {selectable ? (
+            <TableHead className="w-8 px-2 py-1 font-medium tracking-normal normal-case">
+              <input
+                type="checkbox"
+                aria-label="Select all visible findings"
+                checked={allSelected}
+                onChange={() => onToggleAll?.()}
+              />
+            </TableHead>
+          ) : null}
           <TableHead className="px-2 py-1 font-medium tracking-normal normal-case">Severity</TableHead>
           <TableHead className="px-2 py-1 font-medium tracking-normal normal-case">Type</TableHead>
           <TableHead className="px-2 py-1 font-medium tracking-normal normal-case">Evidence</TableHead>
@@ -74,12 +117,13 @@ export function FindingsTable({ rows, activeIndex, onActiveChange, onOpen, extra
       </TableHeader>
       <TableBody>
         {virtual && start > 0 ? (
-          <tr aria-hidden="true" style={{ height: start * ROW_HEIGHT }}>
+          <tr aria-hidden="true" style={{ height: start * rowHeight }}>
             <td colSpan={columns} />
           </tr>
         ) : null}
         {visible.map((finding, offset) => {
           const index = start + offset;
+          const checked = Boolean(selectedIds?.has(finding.id));
           return (
             <TableRow
               key={finding.id}
@@ -87,7 +131,7 @@ export function FindingsTable({ rows, activeIndex, onActiveChange, onOpen, extra
               tabIndex={0}
               aria-selected={index === activeIndex}
               className="cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-mt-focus aria-selected:bg-mt-accent-soft"
-              style={virtual ? { height: ROW_HEIGHT } : undefined}
+              style={virtual ? { height: rowHeight } : undefined}
               onClick={() => {
                 onActiveChange(index);
                 onOpen(finding);
@@ -97,6 +141,16 @@ export function FindingsTable({ rows, activeIndex, onActiveChange, onOpen, extra
               }}
               onKeyDown={(event) => onRowKey(event, finding)}
             >
+              {selectable ? (
+                <TableCell className="px-2 py-1" onClick={(event) => event.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    aria-label={`Select finding ${finding.id}`}
+                    checked={checked}
+                    onChange={() => onToggle?.(finding)}
+                  />
+                </TableCell>
+              ) : null}
               <TableCell className="px-2 py-1">
                 <Badge variant={severityKey(finding.severity)}>
                   {SEVERITY_LABEL[severityKey(finding.severity)]}
@@ -110,7 +164,7 @@ export function FindingsTable({ rows, activeIndex, onActiveChange, onOpen, extra
           );
         })}
         {virtual && end < rows.length ? (
-          <tr aria-hidden="true" style={{ height: (rows.length - end) * ROW_HEIGHT }}>
+          <tr aria-hidden="true" style={{ height: (rows.length - end) * rowHeight }}>
             <td colSpan={columns} />
           </tr>
         ) : null}

@@ -47,6 +47,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Metrics
+         * @description Prometheus text exposition without a new dependency (TASK-41).
+         */
+        get: operations["metrics_api_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/runs": {
         parameters: {
             query?: never;
@@ -132,6 +152,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/runs/{run_id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume Run
+         * @description Start a new scan from an aborted run's stored targets and scope (TASK-41).
+         *
+         *     The original row stays ``aborted``. 404 if missing, 409 if not aborted or
+         *     if every scan slot is busy.
+         */
+        post: operations["resume_run_api_runs__run_id__resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/runs/{run_id}/stream": {
         parameters: {
             query?: never;
@@ -174,6 +217,26 @@ export interface paths {
         get: operations["list_findings_api_runs__run_id__findings_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/runs/{run_id}/findings/triage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Triage Findings Bulk
+         * @description Bulk operator triage (CSRF + operator via the router). Rule 6 holds.
+         */
+        post: operations["triage_findings_bulk_api_runs__run_id__findings_triage_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1155,6 +1218,29 @@ export interface components {
             /** Run Id */
             run_id: string;
         };
+        /**
+         * BulkTriageRequest
+         * @description POST /api/runs/{run_id}/findings/triage (TASK-42).
+         *
+         *     Unknown keys are a 422. ``severity`` must never be accepted.
+         */
+        BulkTriageRequest: {
+            /** Finding Ids */
+            finding_ids: string[];
+            status: components["schemas"]["TriageStatus"];
+            /** Note */
+            note?: string | null;
+        };
+        /** BulkTriageResponse */
+        BulkTriageResponse: {
+            /** Updated */
+            updated: number;
+            /** Missing */
+            missing: string[];
+            triage_status: components["schemas"]["TriageStatus"];
+            /** Findings */
+            findings: components["schemas"]["TriageResponse"][];
+        };
         /** CommonCrawlHitResponse */
         CommonCrawlHitResponse: {
             /** Capture Date */
@@ -1170,8 +1256,7 @@ export interface components {
         CommonCrawlSearchResponse: {
             /** Domain */
             domain: string;
-            /** Status */
-            status: string;
+            status: components["schemas"]["ConnectorStatus"];
             /** Detail */
             detail: string | null;
             /** Warc Fetched */
@@ -1231,6 +1316,7 @@ export interface components {
             kind: string;
             /** Enabled */
             enabled: boolean;
+            status: components["schemas"]["ConnectorStatus"];
             /** Sends */
             sends: string[];
             /** Egress Hosts */
@@ -1243,6 +1329,17 @@ export interface components {
             /** Connectors */
             connectors: components["schemas"]["ConnectorCard"][];
         };
+        /**
+         * ConnectorStatus
+         * @description Operational state of an external connector (TASK-38).
+         *
+         *     ``disabled`` means no socket. ``degraded`` is a provider 429 (or equivalent
+         *     rate limit) and must not fail a scan. Catalogue cards use ``disabled`` /
+         *     ``available`` from the persisted toggle; lookup payloads may also be
+         *     ``degraded`` or ``error``.
+         * @enum {string}
+         */
+        ConnectorStatus: "disabled" | "available" | "degraded" | "error";
         /** ConnectorToggle */
         ConnectorToggle: {
             /** Enabled */
@@ -1819,8 +1916,7 @@ export interface components {
         RdapLookupResponse: {
             /** Domain */
             domain: string;
-            /** Status */
-            status: string;
+            status: components["schemas"]["ConnectorStatus"];
             /** Detail */
             detail: string | null;
             /** Registrar */
@@ -2318,8 +2414,7 @@ export interface components {
         WaybackSearchResponse: {
             /** Domain */
             domain: string;
-            /** Status */
-            status: string;
+            status: components["schemas"]["ConnectorStatus"];
             /** Detail */
             detail: string | null;
             /** Replay Fetched */
@@ -2429,6 +2524,26 @@ export interface operations {
                     "application/json": {
                         [key: string]: string;
                     };
+                };
+            };
+        };
+    };
+    metrics_api_metrics_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };
@@ -2593,6 +2708,37 @@ export interface operations {
             };
         };
     };
+    resume_run_api_runs__run_id__resume_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunCreatedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     stream_run_api_runs__run_id__stream_get: {
         parameters: {
             query?: never;
@@ -2653,6 +2799,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FindingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    triage_findings_bulk_api_runs__run_id__findings_triage_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkTriageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkTriageResponse"];
                 };
             };
             /** @description Validation Error */

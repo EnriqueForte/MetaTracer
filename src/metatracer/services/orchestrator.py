@@ -74,6 +74,7 @@ from metatracer.core.exceptions import (
     MetaTracerError,
     RunNotAbortableError,
     RunNotFoundError,
+    RunNotResumableError,
     ScanAlreadyRunningError,
     ScopeNotConfirmedError,
     ScopeNotFoundError,
@@ -95,6 +96,7 @@ from metatracer.reports.html import HtmlReportExporter
 from metatracer.reports.json_exporter import JsonReportExporter
 from metatracer.reports.markdown import MarkdownReportExporter
 from metatracer.services.notifications import NotificationBus, NotificationEvent
+from metatracer.services.scan_lock import reject_if_at_capacity
 
 logger = logging.getLogger("metatracer.services.orchestrator")
 
@@ -444,11 +446,10 @@ class ScanOrchestratorService:
         Only rows with ``started_at`` strictly before this orchestrator booted
         are touched, and never a run this process is currently executing.
 
-        Multi-process limitation: with PostgreSQL and
-        ``METATRACER_MAX_CONCURRENT_RUNS>1``, concurrency slots are in-memory.
-        A second process that boots later will abort this process's runs that
-        started before the second boot. A run another process starts after
-        this boot is left alone. This is not a cross-process lock.
+        Recovery still only touches rows started before this process booted.
+        Starting a *new* scan also consults open rows in the database
+        (TASK-41 durable lock), so a second process cannot exceed
+        ``METATRACER_MAX_CONCURRENT_RUNS`` just because its semaphore is empty.
         """
         async with self._session_factory() as session:
             runs = await RunRepository(session).list_open_started_before(self._booted_at)
@@ -490,6 +491,44 @@ class ScanOrchestratorService:
         if fresh is None:  # pragma: no cover - the row existed above
             raise RunNotFoundError(run_id)
         return fresh
+
+    async def resume_scan(
+        self,
+        run_id: str,
+        *,
+        formats: ExportFormat = ExportFormat.all,
+        output_dir: str | Path = DEFAULT_REPORTS_DIR,
+        on_progress: Callable[[ProgressEvent], None] | None = None,
+    ) -> str:
+        """Re-queue an ``aborted`` run as a new scan. The original row stays aborted.
+
+        Pipeline state is not continued mid-ingestion: a new Run is created
+        from the stored targets and scope snapshot.
+        """
+        async with self._session_factory() as session:
+            run = await RunRepository(session).get(run_id)
+        if run is None:
+            raise RunNotFoundError(run_id)
+        if run.status is not RunStatus.aborted:
+            raise RunNotResumableError(run_id, run.status.value)
+        try:
+            targets = json.loads(run.target_input)
+            domains = json.loads(run.allowed_scope)
+        except json.JSONDecodeError as exc:
+            raise MetaTracerError("aborted run has corrupt target or scope JSON") from exc
+        if not isinstance(targets, list) or not targets:
+            raise MetaTracerError("aborted run has no targets to resume")
+        if not isinstance(domains, list) or not domains:
+            raise MetaTracerError("aborted run has no scope to resume")
+        request = ScanRequest(
+            targets=[str(item) for item in targets],
+            scope_domains=[str(item) for item in domains],
+            scope_confirmed=True,
+            reasoning_depth=run.reasoning_depth,
+        )
+        return await self.start_scan(
+            request, formats=formats, output_dir=output_dir, on_progress=on_progress
+        )
 
     async def export_report(
         self,
@@ -812,6 +851,7 @@ class ScanOrchestratorService:
             scope_domains = await self._resolve_scope_domains_many(request.scope_ids)
         budget = request.budget or CrawlBudget.from_settings(self._settings)
         async with self._session_factory() as session:
+            await reject_if_at_capacity(session, self._settings.max_concurrent_runs)
             return await RunRepository(session).create(
                 Run(
                     target_input=json.dumps(request.targets),

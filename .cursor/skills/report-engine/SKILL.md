@@ -76,6 +76,22 @@ El snippet lo escribió el target y puede contener backticks, saltos de línea,
 El slug se sanea a `[a-z0-9-]` y la escritura queda **confinada** al directorio
 de salida (amenaza 10: no escribir fuera de `reports/`).
 
+## Redacción (`export.redaction`, TASK-39)
+
+Solo el **fichero**. `apply_redaction` copia `ReportData`; no hay UPDATE a
+`Finding`. API `GET /api/runs/{id}/export?redact=` y CLI `report --redact`
+default **`none`**. La UI propone **`contacts`**.
+
+| Modo | Qué reescribe |
+| :--- | :--- |
+| `none` | Nada (marca el campo `redaction`) |
+| `contacts` | emails → `[redacted-email]` |
+| `coordinates` | GPS / pares lat-lon → `[redacted-coordinates]` |
+| `all` | ambos |
+
+El Markdown declara: stored findings were not modified. Prohibido borrar
+`evidence_snippet` en BD al exportar.
+
 ## Paridad entre exportadores (T4)
 
 `tests/unit/test_report_schema_parity.py` fija el mapa `ReportFinding` ↔
@@ -93,3 +109,4 @@ exports salvo inclusión explícita (`filter_findings`).
 - [ ] CSV: fórmula neutralizada; orden de `CSV_COLUMNS` intacto.
 - [ ] Campo nuevo ⇒ mapa de paridad y schema JSON actualizados.
 - [ ] Nombre de fichero saneado y dentro de `reports/`.
+- [ ] Redacción: copia del fichero; default API/CLI `none`; UI `contacts`.

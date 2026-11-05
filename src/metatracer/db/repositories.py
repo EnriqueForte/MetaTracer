@@ -500,6 +500,49 @@ class FindingRepository:
         await self._session.refresh(finding)
         return finding
 
+    async def set_triage_many(
+        self,
+        run_id: str,
+        finding_ids: list[str],
+        *,
+        status: TriageStatus,
+        note: str | None,
+        by: str,
+    ) -> tuple[list[Finding], list[str]]:
+        """Bulk operator triage. Severity and evidence are never touched."""
+        ordered: list[str] = []
+        seen: set[str] = set()
+        for finding_id in finding_ids:
+            if finding_id in seen:
+                continue
+            seen.add(finding_id)
+            ordered.append(finding_id)
+        if not ordered:
+            return [], []
+        result = await self._session.exec(
+            select(Finding).where(Finding.run_id == run_id).where(Finding.id.in_(ordered))
+        )
+        by_id = {finding.id: finding for finding in result.all()}
+        now = datetime.now(UTC)
+        updated: list[Finding] = []
+        missing: list[str] = []
+        for finding_id in ordered:
+            finding = by_id.get(finding_id)
+            if finding is None:
+                missing.append(finding_id)
+                continue
+            finding.triage_status = status
+            finding.triage_note = note or None
+            finding.triaged_by = by
+            finding.triaged_at = now
+            updated.append(finding)
+        if updated:
+            self._session.add_all(updated)
+            await self._session.commit()
+            for finding in updated:
+                await self._session.refresh(finding)
+        return updated, missing
+
     async def with_asset_url(self, run_ids: list[str]) -> list[tuple[Finding, str]]:
         """Findings of many runs with their asset's final URL, in one join (TASK-35)."""
         if not run_ids:

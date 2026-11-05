@@ -16,6 +16,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from metatracer.api.auth import CurrentUser, get_current_user
 from metatracer.api.schemas import (
+    BulkTriageRequest,
+    BulkTriageResponse,
     FindingResponse,
     FindingsResponse,
     RunCreatedResponse,
@@ -32,6 +34,7 @@ from metatracer.core.exceptions import (
     RunActiveError,
     RunNotAbortableError,
     RunNotFoundError,
+    RunNotResumableError,
     ScanAlreadyRunningError,
     ScopeNotConfirmedError,
     ScopeNotFoundError,
@@ -210,6 +213,33 @@ async def abort_run(run_id: str, request: Request) -> RunStatusResponse:
     )
 
 
+@router.post("/{run_id}/resume", status_code=202)
+async def resume_run(run_id: str, request: Request) -> RunCreatedResponse:
+    """Start a new scan from an aborted run's stored targets and scope (TASK-41).
+
+    The original row stays ``aborted``. 404 if missing, 409 if not aborted or
+    if every scan slot is busy.
+    """
+    orchestrator = request.app.state.orchestrator
+    bus = request.app.state.bus
+    try:
+        new_id = await orchestrator.resume_scan(
+            run_id,
+            formats=ExportFormat.all,
+            output_dir=request.app.state.reports_dir,
+            on_progress=bus.publish,
+        )
+    except RunNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="run not found") from exc
+    except RunNotResumableError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ScanAlreadyRunningError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except MetaTracerError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return RunCreatedResponse(run_id=new_id)
+
+
 @router.get("/{run_id}/stream")
 async def stream_run(run_id: str, request: Request) -> StreamingResponse:
     """Server-sent events stream of ProgressEvent (one JSON object per event).
@@ -337,6 +367,42 @@ async def list_findings(
                 for item in findings
             ]
     return FindingsResponse(run_id=run_id, total=len(findings), findings=findings)
+
+
+@router.post("/{run_id}/findings/triage", response_model=BulkTriageResponse)
+async def triage_findings_bulk(
+    run_id: str,
+    body: BulkTriageRequest,
+    request: Request,
+    user: Annotated[CurrentUser | None, Depends(get_current_user)],
+) -> BulkTriageResponse:
+    """Bulk operator triage (CSRF + operator via the router). Rule 6 holds."""
+    note = body.note.strip() if body.note else None
+    async with request.app.state.session_factory() as session:
+        updated, missing = await FindingRepository(session).set_triage_many(
+            run_id,
+            body.finding_ids,
+            status=body.status,
+            note=note,
+            by=user.id if user is not None else "local",
+        )
+    return BulkTriageResponse(
+        updated=len(updated),
+        missing=missing,
+        triage_status=body.status,
+        findings=[
+            TriageResponse(
+                finding_id=finding.id,
+                triage_status=finding.triage_status,
+                triage_note=finding.triage_note,
+                triaged_by=finding.triaged_by,
+                triaged_at=finding.triaged_at,
+                severity=finding.severity,
+                evidence_snippet=finding.evidence_snippet,
+            )
+            for finding in updated
+        ],
+    )
 
 
 @router.put("/{run_id}/findings/{finding_id}/triage", response_model=TriageResponse)

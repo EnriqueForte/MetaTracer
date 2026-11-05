@@ -4,9 +4,12 @@
 **Versión del documento:** 0.3  
 **Fecha:** 6 de septiembre de 2026  
 **Autor:** Enrique Forte  
-**Estado:** v1.0–v1.2 cerrados  
+**Estado:** histórico de producto hasta v3.2. **Trabajo activo:** [`MEMORY.md`](../MEMORY.md) y [`specs/`](../specs/README.md).  
 
 Índice del PRD. Cada archivo es una especificación: alcance, requisitos y criterios de aceptación donde aplica.
+
+> **v3.2 cerrado** (2026-10-05). Dashboard, Web V2 en origen, auth y watch `--interval` ya existen.
+> No implementar Fase 3–5 ni tipos reserved porque aparezcan en la tabla de contratos: hace falta spec `active` + TASK-36+.
 
 **Nota de convención:** los nombres de archivo y la carpeta `features/` se mantienen en **inglés**; el contenido de la documentación está en **español**. Los enlaces apuntan a las mismas rutas, así que no hay descuadre entre el índice y los specs.
 
@@ -29,7 +32,7 @@
 | 5 | Agentes de IA | [05-ai-agents.md](features/05-ai-agents.md) |
 | 6 | Interfaces (Web UI + CLI) | [06-interfaces.md](features/06-interfaces.md) |
 
-**Fuentes:** v1.0 documentos públicos (PDFs e imágenes). v1.2 añade HTML, cabeceras HTTP y comentarios JS. El dashboard de plataforma sigue en v2.0.
+**Fuentes:** v1.0 documentos públicos (PDFs e imágenes). v1.2 añade HTML, cabeceras HTTP y comentarios JS. El dashboard de plataforma se entregó en v2.0 (TASK-11).
 
 ## Post-MVP
 
@@ -50,5 +53,6 @@
 
 ## Backlog Técnico de Tareas
 
-- [Desglose de tareas a bajo nivel (Tasks Backlog)](tasks/README.md)
+- [Desglose de tareas a bajo nivel (Tasks Backlog)](tasks/README.md) — TASK-00–35 cerradas
+- [Specs activas / reserved](../specs/README.md) — v3.3+
 

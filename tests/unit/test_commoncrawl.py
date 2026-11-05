@@ -8,6 +8,7 @@ import pytest
 from metatracer.connectors.commoncrawl import ProvenanceError, search_domain
 from metatracer.connectors.egress import ProviderClient
 from metatracer.core.safety.guard import NetworkSafetyGuard
+from metatracer.db.models import ConnectorStatus
 
 COLLINFO = [
     {
@@ -46,6 +47,8 @@ async def test_disabled_common_crawl_does_not_touch_the_network(fake_public_dns)
 
     summary = await search_domain("example.com", client=_client(handler), enabled=False)
     assert summary.status == "disabled"
+    silent = await search_domain("example.com", client=None, enabled=False)
+    assert silent.status == "disabled"
     assert summary.warc_fetched is False
 
 
@@ -102,7 +105,7 @@ def test_a_hit_without_a_capture_date_cannot_pass_as_available() -> None:
 
     summary = CommonCrawlSummary(
         domain="example.com",
-        status="available",
+        status=ConnectorStatus.available,
         detail=None,
         hits=(IndexHit("yesterday", "http://example.com/", "200", "text/html"),),
         warc_fetched=False,

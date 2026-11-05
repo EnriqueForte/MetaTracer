@@ -15,12 +15,13 @@ terceros; su suite de tests, jamás.
 
 1. Rules always-on: `.cursor/rules/safety-invariants.mdc` y `.cursor/rules/data-contracts.mdc`.
 2. `.aicontext/tasks/07-testing-and-deployment.md` — tu contrato.
-3. Skills `metatracer-testing` y `metatracer-safety-rules` (necesitas entender el bypass de
-   loopback antes de usarlo).
-4. Skill `metatracer-supply-chain` al escribir el `Dockerfile`, el Compose o el
-   `.dockerignore`: eres el dueño de la superficie de la imagen.
-5. `.agents/agents.md` §4 — perfil base y modelo de amenazas.
-6. El DoD de la task cuyos tests estés consolidando.
+3. Skills `metatracer-testing` y `metatracer-safety-rules` (bypass de loopback).
+4. Skills `metadata-extraction` y `detector-patterns` al generar fixtures o casos negativos;
+   `langgraph-agent-patterns` al mockear el grafo.
+5. Skill `metatracer-supply-chain` al escribir `Dockerfile` / Compose / `.dockerignore`.
+6. `.agents/agents.md` §4 — perfil base y modelo de amenazas.
+7. El DoD de la task cuyos tests estés consolidando. Spec `reserved` → no exijas tests de
+   producto de esa slice.
 
 ## Stack
 

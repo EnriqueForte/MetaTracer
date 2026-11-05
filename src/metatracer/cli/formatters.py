@@ -19,7 +19,7 @@ from rich.table import Table
 from rich.text import Text
 
 from metatracer import __version__
-from metatracer.db.models import Run, RunStatus, Severity
+from metatracer.db.models import Investigation, InvestigationStatus, Run, RunStatus, Severity
 from metatracer.reports.builder import ReportData, run_id_short
 from metatracer.services.orchestrator import ProgressEvent
 
@@ -97,6 +97,26 @@ def runs_table(runs: list[Run]) -> Table:
             str(run.total_assets),
             str(run.total_findings),
             _as_utc(run.started_at).strftime("%Y-%m-%d %H:%M"),
+        )
+    return table
+
+
+def investigations_table(
+    rows: list[tuple[Investigation, int]],
+) -> Table:
+    """Named groups of runs. Status is grouping only, not tenancy."""
+    table = Table(title="Investigations")
+    table.add_column("Id", no_wrap=True)
+    table.add_column("Name")
+    table.add_column("Status", no_wrap=True)
+    table.add_column("Runs", justify="right")
+    for investigation, count in rows:
+        status = InvestigationStatus(investigation.status)
+        table.add_row(
+            investigation.id,
+            escape(_truncate(investigation.name, TARGET_MAX_CHARS)),
+            status.value,
+            str(count),
         )
     return table
 

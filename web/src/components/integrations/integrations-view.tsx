@@ -11,6 +11,7 @@ type ConnectorCard = {
   label: string;
   kind: string;
   enabled: boolean;
+  status: "disabled" | "available" | "degraded" | "error";
   sends: string[];
   egress_hosts: string[];
   notice: string;

@@ -205,6 +205,26 @@ class TriageResponse(BaseModel):
     evidence_snippet: str
 
 
+class BulkTriageRequest(BaseModel):
+    """POST /api/runs/{run_id}/findings/triage (TASK-42).
+
+    Unknown keys are a 422. ``severity`` must never be accepted.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    finding_ids: list[str] = Field(min_length=1, max_length=200)
+    status: TriageStatus
+    note: str | None = Field(default=None, max_length=500)
+
+
+class BulkTriageResponse(BaseModel):
+    updated: int
+    missing: list[str]
+    triage_status: TriageStatus
+    findings: list[TriageResponse]
+
+
 class FindingsResponse(BaseModel):
     """GET /api/runs/{run_id}/findings: the report-ordered list."""
 
