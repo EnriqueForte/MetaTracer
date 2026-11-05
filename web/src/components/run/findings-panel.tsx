@@ -187,7 +187,7 @@ export function FindingsPanel({ runId, totalAssets }: { runId: string; totalAsse
         canMutate={actor === "operator"}
         onClose={() => setSelected(null)}
         extra={(finding) => (
-          <TriageForm key={finding.id} runId={runId} finding={finding} canMutate={actor === "operator"} />
+          <TriageForm key={`triage:${finding.id}`} runId={runId} finding={finding} canMutate={actor === "operator"} />
         )}
       />
     </div>

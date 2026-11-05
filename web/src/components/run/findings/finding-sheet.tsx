@@ -99,7 +99,7 @@ export function FindingSheet({ finding, canMutate, onClose, extra }: Props) {
                 </div>
               ) : null}
             </section>
-            {canMutate ? <FeedbackForm key={finding.id} finding={finding} /> : null}
+            {canMutate ? <FeedbackForm key={`feedback:${finding.id}`} finding={finding} /> : null}
           </div>
         ) : null}
       </SheetContent>

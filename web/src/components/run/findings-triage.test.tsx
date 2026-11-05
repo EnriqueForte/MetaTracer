@@ -84,6 +84,19 @@ describe("Finding triage in Web V2 (TASK-35)", () => {
     expect(window.location.search).toContain("dismissed=1");
   });
 
+  it("opens a finding without giving triage and feedback the same React key", async () => {
+    stub("operator");
+    const errors: string[] = [];
+    const spy = vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
+      errors.push(args.map(String).join(" "));
+    });
+    render(<FindingsPanel runId="run-1" totalAssets={1} />);
+    fireEvent.click(await screen.findByText("real@acme.com"));
+    await screen.findByRole("region", { name: "Triage" });
+    expect(errors.some((line) => line.includes("same key"))).toBe(false);
+    spy.mockRestore();
+  });
+
   it("lets an operator mark a finding as false positive and updates the list", async () => {
     const puts = stub("operator");
     render(<FindingsPanel runId="run-1" totalAssets={1} />);
