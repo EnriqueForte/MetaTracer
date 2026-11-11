@@ -65,14 +65,14 @@ export function BulkTriageBar({ runId, selectedIds, onClear }: Props) {
     <div
       className="flex flex-wrap items-center gap-2 rounded-md border border-mt-border bg-mt-panel px-3 py-2"
       role="region"
-      aria-label="Bulk triage"
+      aria-label="Triaje masivo"
     >
       <p className="text-sm text-mt-fg">
-        {capped.length} selected
-        {selectedIds.length > BULK_TRIAGE_LIMIT ? ` (first ${BULK_TRIAGE_LIMIT})` : ""}
+        {capped.length} seleccionados
+        {selectedIds.length > BULK_TRIAGE_LIMIT ? ` (primeros ${BULK_TRIAGE_LIMIT})` : ""}
       </p>
       <label htmlFor="bulk-triage-status" className="text-xs font-semibold text-mt-muted">
-        Status
+        Estado
       </label>
       <select
         id="bulk-triage-status"
@@ -90,28 +90,28 @@ export function BulkTriageBar({ runId, selectedIds, onClear }: Props) {
         ))}
       </select>
       <Button variant="secondary" onClick={() => setConfirm(true)} disabled={save.isPending}>
-        Apply to selected
+        Aplicar a la selección
       </Button>
       <Button variant="ghost" onClick={onClear}>
-        Clear selection
+        Limpiar selección
       </Button>
       {save.isError ? (
         <p role="alert" className="text-xs text-mt-danger">
-          {errorMessage(save.error, "Bulk triage could not be saved")}
+          {errorMessage(save.error, "No se pudo guardar el triaje masivo")}
         </p>
       ) : null}
       <Dialog open={confirm} onOpenChange={setConfirm}>
         <DialogContent>
-          <DialogTitle>Apply triage to {capped.length} findings?</DialogTitle>
+          <DialogTitle>¿Aplicar el triaje a {capped.length} hallazgos?</DialogTitle>
           <DialogDescription>
-            Status becomes {TRIAGE_LABEL[status]}. Severity and evidence are not changed.
+            El estado pasa a {TRIAGE_LABEL[status]}. La severidad y la evidencia no cambian.
           </DialogDescription>
           <div className="mt-4 flex flex-wrap gap-2">
             <Button onClick={() => save.mutate()} disabled={save.isPending}>
-              Confirm
+              Confirmar
             </Button>
             <Button variant="secondary" onClick={() => setConfirm(false)}>
-              Cancel
+              Cancelar
             </Button>
           </div>
         </DialogContent>

@@ -16,12 +16,12 @@ import { useActor } from "@/lib/session";
 export const MAX_KB_BYTES = 5 * 1024 * 1024;
 
 export async function importKnowledgeFile(file: File): Promise<number> {
-  if (file.size > MAX_KB_BYTES) throw new Error("File too large: the limit is 5 MiB.");
+  if (file.size > MAX_KB_BYTES) throw new Error("El fichero es demasiado grande: el límite es 5 MiB.");
   const text = await file.text();
   try {
     JSON.parse(text);
   } catch {
-    throw new Error("The file is not valid JSON.");
+    throw new Error("El fichero no es JSON válido.");
   }
   let response: Response;
   try {
@@ -31,11 +31,11 @@ export async function importKnowledgeFile(file: File): Promise<number> {
       body: text,
     });
   } catch {
-    throw new Error("Network error: the API is unreachable.");
+    throw new Error("Error de red: la API no está accesible.");
   }
-  if (response.status === 413) throw new Error("File too large: the server rejected the upload.");
-  if (response.status === 403) throw new Error("Operator role required.");
-  if (!response.ok) throw new Error(`Import failed: ${(await readDetail(response)) || `HTTP ${response.status}`}`);
+  if (response.status === 413) throw new Error("El fichero es demasiado grande: el servidor rechazó la subida.");
+  if (response.status === 403) throw new Error("Se requiere el rol de operador.");
+  if (!response.ok) throw new Error(`La importación falló: ${(await readDetail(response)) || `HTTP ${response.status}`}`);
   const payload: unknown = await response.json().catch(() => null);
   const imported = payload && typeof payload === "object" ? (payload as { imported?: unknown }).imported : 0;
   return typeof imported === "number" ? imported : 0;
@@ -43,7 +43,7 @@ export async function importKnowledgeFile(file: File): Promise<number> {
 
 async function exportKnowledge(): Promise<void> {
   const response = await apiFetch("/api/knowledge/export", { method: "POST" });
-  if (!response.ok) throw new Error(response.status === 403 ? "Operator role required." : `Export failed (HTTP ${response.status}).`);
+  if (!response.ok) throw new Error(response.status === 403 ? "Se requiere el rol de operador." : `La exportación falló (HTTP ${response.status}).`);
   const blob = await response.blob();
   const href = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -64,7 +64,7 @@ export function KnowledgeView() {
   const exporter = useMutation({ mutationFn: exportKnowledge });
   const importer = useMutation({
     mutationFn: importKnowledgeFile,
-    onSuccess: (count) => setMessage(`Imported ${count} precedent(s). Already known rows were skipped.`),
+    onSuccess: (count) => setMessage(`Importados ${count} precedente(s). Las filas ya conocidas se omitieron.`),
   });
   const search = useQuery({
     queryKey: ["knowledge", "search", submitted],
@@ -76,8 +76,8 @@ export function KnowledgeView() {
   if (actor === "viewer") {
     return (
       <div className="flex flex-col gap-3">
-        <h1 className="mt-title">Knowledge</h1>
-        <p role="alert" className="text-sm text-mt-warning">Operator role required</p>
+        <h1 className="mt-title">Conocimiento</h1>
+        <p role="alert" className="text-sm text-mt-warning">Se requiere el rol de operador</p>
       </div>
     );
   }
@@ -85,25 +85,25 @@ export function KnowledgeView() {
   return (
     <div className="flex min-w-0 flex-col gap-6">
       <div>
-        <h1 className="mt-title">Knowledge</h1>
+        <h1 className="mt-title">Conocimiento</h1>
         <p className="text-sm text-mt-fg">
-          Historical precedents the agent may cite as background. The portable file carries finding type,
-          sanitized snippet, severity and title only — never run ids, raw metadata or file bytes.
+          Precedentes históricos que el agente puede citar como contexto. El fichero portable lleva tipo de
+          hallazgo, fragmento saneado, severidad y título — nunca ids de escaneo, metadatos crudos ni bytes.
         </p>
       </div>
-      <section className="flex flex-col gap-3 rounded-md border border-mt-border bg-mt-surface p-4" aria-label="Export and import">
+      <section className="flex flex-col gap-3 rounded-md border border-mt-border bg-mt-surface p-4" aria-label="Exportar e importar">
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="secondary" disabled={exporter.isPending} onClick={() => exporter.mutate()}>
-            {exporter.isPending ? "Exporting…" : "Export precedents"}
+            {exporter.isPending ? "Exportando…" : "Exportar precedentes"}
           </Button>
           {exporter.isError ? (
             <p role="alert" className="text-sm text-mt-danger">
-              {exporter.error instanceof Error ? exporter.error.message : "Export failed."}
+              {exporter.error instanceof Error ? exporter.error.message : "La exportación falló."}
             </p>
           ) : null}
         </div>
         <label htmlFor="kb-import-file" className="text-xs font-semibold text-mt-muted">
-          Import a portable knowledge file (JSON, up to 5 MiB)
+          Importar un fichero portable de conocimiento (JSON, hasta 5 MiB)
         </label>
         <input
           id="kb-import-file"
@@ -121,20 +121,20 @@ export function KnowledgeView() {
         {message ? <p role="status" className="text-xs text-mt-muted">{message}</p> : null}
         {importer.isError ? (
           <p role="alert" className="text-sm text-mt-danger">
-            {importer.error instanceof Error ? importer.error.message : "Import failed."}
+            {importer.error instanceof Error ? importer.error.message : "La importación falló."}
           </p>
         ) : null}
       </section>
-      <section className="flex flex-col gap-3" aria-label="Search precedents">
+      <section className="flex flex-col gap-3" aria-label="Buscar precedentes">
         <form className="flex flex-wrap items-end gap-2" onSubmit={(event) => { event.preventDefault(); setSubmitted(q.trim()); }}>
           <div className="flex min-w-[16rem] flex-1 flex-col gap-1">
-            <label htmlFor="kb-search" className="text-xs font-semibold text-mt-muted">Find similar precedents</label>
-            <Input id="kb-search" className="mt-tech" value={q} onChange={(event) => setQ(event.target.value)} placeholder="Evidence snippet or field source" />
+            <label htmlFor="kb-search" className="text-xs font-semibold text-mt-muted">Buscar precedentes similares</label>
+            <Input id="kb-search" className="mt-tech" value={q} onChange={(event) => setQ(event.target.value)} placeholder="Fragmento de evidencia o campo de origen" />
           </div>
-          <Button type="submit" variant="secondary" disabled={!q.trim()}>Search</Button>
+          <Button type="submit" variant="secondary" disabled={!q.trim()}>Buscar</Button>
         </form>
-        {search.isError ? <p role="alert" className="text-sm text-mt-danger">{errorMessage(search.error, "Search failed")}</p> : null}
-        {search.isSuccess && search.data.hits.length === 0 ? <EmptyState title="No precedents match" /> : null}
+        {search.isError ? <p role="alert" className="text-sm text-mt-danger">{errorMessage(search.error, "La búsqueda falló")}</p> : null}
+        {search.isSuccess && search.data.hits.length === 0 ? <EmptyState title="Ningún precedente coincide" /> : null}
         {search.isSuccess && search.data.hits.length > 0 ? (
           <ul className="flex flex-col gap-2">
             {search.data.hits.map((hit) => (
@@ -142,7 +142,7 @@ export function KnowledgeView() {
                 <p className="text-sm text-mt-fg">{hit.title || hit.finding_type}</p>
                 <p className="mt-tech">{hit.evidence_snippet}</p>
                 <p className="mt-meta">
-                  {hit.finding_type} · {hit.severity ?? "unclassified"} · score {hit.score}
+                  {hit.finding_type} · {hit.severity ?? "sin clasificar"} · puntuación {hit.score}
                 </p>
               </li>
             ))}

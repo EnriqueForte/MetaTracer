@@ -35,8 +35,8 @@ describe("Webhooks screen (TASK-35)", () => {
   it("is operator-only", async () => {
     stub("viewer");
     render(<WebhooksView />);
-    expect(await screen.findByText("Operator role required")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Create webhook" })).not.toBeInTheDocument();
+    expect(await screen.findByText("Se requiere el rol de operador")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Crear webhook" })).not.toBeInTheDocument();
   });
 
   it("never shows header values or the secret, and refuses plain HTTP", async () => {
@@ -55,21 +55,21 @@ describe("Webhooks screen (TASK-35)", () => {
     ]);
     render(<WebhooksView />);
     expect(await screen.findByText("<b>alerts</b>")).toBeInTheDocument();
-    expect(screen.getByText("Headers: Authorization (values hidden)")).toBeInTheDocument();
-    expect(screen.getByText("Signed (HMAC)")).toBeInTheDocument();
+    expect(screen.getByText("Cabeceras: Authorization (valores ocultos)")).toBeInTheDocument();
+    expect(screen.getByText("Firmado (HMAC)")).toBeInTheDocument();
     expect(document.querySelector("b")).toBeNull();
 
-    fireEvent.change(screen.getByLabelText("HTTPS URL"), { target: { value: "http://hooks.example.com/x" } });
-    fireEvent.click(screen.getByRole("button", { name: "Create webhook" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Webhook URLs must use HTTPS.");
+    fireEvent.change(screen.getByLabelText("URL HTTPS"), { target: { value: "http://hooks.example.com/x" } });
+    fireEvent.click(screen.getByRole("button", { name: "Crear webhook" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Las URL de webhook deben usar HTTPS.");
     expect(posts).toHaveLength(0);
 
-    fireEvent.change(screen.getByLabelText("HTTPS URL"), { target: { value: "https://hooks.example.com/x" } });
-    fireEvent.change(screen.getByLabelText("Signing secret (optional)"), { target: { value: "s3cret" } });
-    fireEvent.click(screen.getByRole("button", { name: "Create webhook" }));
+    fireEvent.change(screen.getByLabelText("URL HTTPS"), { target: { value: "https://hooks.example.com/x" } });
+    fireEvent.change(screen.getByLabelText("Secreto de firma (opcional)"), { target: { value: "s3cret" } });
+    fireEvent.click(screen.getByRole("button", { name: "Crear webhook" }));
     await waitFor(() => expect(posts).toHaveLength(1));
     expect(posts[0]).toMatchObject({ url: "https://hooks.example.com/x", signature_secret: "s3cret" });
-    await waitFor(() => expect(screen.getByLabelText("Signing secret (optional)")).toHaveValue(""));
+    await waitFor(() => expect(screen.getByLabelText("Secreto de firma (opcional)")).toHaveValue(""));
   });
 
   it("parses header lines strictly", () => {
@@ -83,8 +83,8 @@ describe("Knowledge screen (TASK-35)", () => {
   it("is operator-only", async () => {
     stub("viewer");
     render(<KnowledgeView />);
-    expect(await screen.findByText("Operator role required")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Export precedents" })).not.toBeInTheDocument();
+    expect(await screen.findByText("Se requiere el rol de operador")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Exportar precedentes" })).not.toBeInTheDocument();
   });
 
   it("checks size and JSON before uploading", async () => {
@@ -92,8 +92,8 @@ describe("Knowledge screen (TASK-35)", () => {
     vi.stubGlobal("fetch", fetchMock);
     const big = new File(["{}"], "kb.json");
     Object.defineProperty(big, "size", { value: MAX_KB_BYTES + 1 });
-    await expect(importKnowledgeFile(big)).rejects.toThrow("File too large");
-    await expect(importKnowledgeFile(new File(["nope"], "kb.json"))).rejects.toThrow("not valid JSON");
+    await expect(importKnowledgeFile(big)).rejects.toThrow("El fichero es demasiado grande");
+    await expect(importKnowledgeFile(new File(["nope"], "kb.json"))).rejects.toThrow("no es JSON válido");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

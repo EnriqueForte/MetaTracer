@@ -33,6 +33,7 @@ Estados: `reserved` \| `active` \| `closed`.
 | [42-ui-operator](42-ui-operator.md) | closed | TASK-35 OOS, design-system-v2 | [TASK-42](../.aicontext/tasks/42-ui-operator.md) | `metatracer-ui` | `v2-ui-engineer` |
 | [43-ui-investigations](43-ui-investigations.md) | closed | depende de 36 | [TASK-43](../.aicontext/tasks/43-ui-investigations.md) | `metatracer-ui` | `v2-ui-engineer` |
 | [44-watch-cron](44-watch-cron.md) | closed | `features/12-platform-v3.md` Eje A | [TASK-44](../.aicontext/tasks/44-watch-cron.md) | `metatracer-platform` | `pipeline-engineer` |
+| [45-ui-spanish](45-ui-spanish.md) | closed | contrato de idioma UI | [TASK-45](../.aicontext/tasks/45-ui-spanish.md) | `metatracer-ui` | `v2-ui-engineer` |
 
 ## Qué es histórico (no contrato)
 

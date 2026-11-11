@@ -16,16 +16,16 @@ import { InvestigationMembership } from "./investigation-membership";
 import { useWorkspace } from "./workspace-context";
 
 export const RUN_TABS = [
-  { segment: "", label: "Overview", hint: "Progress and the findings on this run" },
-  { segment: "assets", label: "Assets", hint: "Files this run actually fetched" },
-  { segment: "metadata", label: "Metadata", hint: "Original values, with a normalized reading when one exists" },
-  { segment: "findings", label: "Findings", hint: "Evidence, severity, and triage" },
-  { segment: "coverage", label: "Coverage", hint: "What the crawl did not fetch" },
+  { segment: "", label: "Resumen", hint: "Progreso y hallazgos de este escaneo" },
+  { segment: "assets", label: "Activos", hint: "Ficheros que este escaneo llegó a descargar" },
+  { segment: "metadata", label: "Metadatos", hint: "Valores originales, con lectura normalizada cuando existe" },
+  { segment: "findings", label: "Hallazgos", hint: "Evidencia, severidad y triaje" },
+  { segment: "coverage", label: "Cobertura", hint: "Lo que el rastreo no descargó" },
 ] as const;
 
 export function RunSectionNav({ runId, active }: { runId: string; active: string }) {
   return (
-    <nav aria-label="Run sections" className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
+    <nav aria-label="Secciones del escaneo" className="mt-tabs">
       {RUN_TABS.map((tab) => {
         const href = tab.segment ? `/runs/${runId}/${tab.segment}` : `/runs/${runId}`;
         const isActive = active === tab.segment;
@@ -34,7 +34,7 @@ export function RunSectionNav({ runId, active }: { runId: string; active: string
             key={tab.segment || "overview"}
             href={href}
             aria-current={isActive ? "page" : undefined}
-            className="mt-card flex flex-col gap-1 p-3 text-mt-muted aria-[current=page]:border-mt-accent aria-[current=page]:bg-mt-accent-soft aria-[current=page]:text-mt-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mt-focus"
+            className="mt-tab"
           >
             <span className="text-sm font-semibold text-mt-fg">{tab.label}</span>
             <span className="text-xs text-mt-muted">{tab.hint}</span>
@@ -65,28 +65,28 @@ export function RunHeader() {
   const active = currentTab(pathname, runId);
   const canMutate = actor === "operator";
 
-  if (!run) return <p className="text-sm text-mt-muted">Loading run…</p>;
+  if (!run) return <p className="text-sm text-mt-muted">Cargando escaneo…</p>;
 
   const live = isLive(run.status);
   const finished = run.status === "completed";
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-mt-border pb-3">
+      <div className="mt-page-head">
         <div className="min-w-0">
           <h1 className="mt-title">
-            Scan of <span className="mt-tech">{run.target}</span>
+            Escaneo de <span className="mt-tech">{run.target}</span>
           </h1>
           <p className="mt-tech text-xs text-mt-muted">{run.run_id}</p>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-mt-muted">
             <Badge variant={run.status}>{RUN_STATUS_LABEL[run.status]}</Badge>
-            <span>{run.total_assets} asset(s)</span>
+            <span>{run.total_assets} activo(s)</span>
             <span aria-hidden="true">·</span>
-            <span>{run.total_findings} finding(s)</span>
+            <span>{run.total_findings} hallazgo(s)</span>
             {run.completed_at ? (
               <>
                 <span aria-hidden="true">·</span>
-                <span>Completed {formatWhen(run.completed_at)}</span>
+                <span>Completado {formatWhen(run.completed_at)}</span>
               </>
             ) : null}
           </div>
@@ -96,7 +96,7 @@ export function RunHeader() {
           {live && canMutate ? <AbortRunButton runId={run.run_id} /> : null}
           {!live && canMutate ? (
             <Button variant="danger" onClick={() => setConfirmDelete(true)}>
-              Delete run
+              Eliminar escaneo
             </Button>
           ) : null}
         </div>

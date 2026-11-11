@@ -60,22 +60,22 @@ describe("DashboardView", () => {
   it("paints severity with its own color and keeps agent usage in a strip", async () => {
     stubStats(2);
     render(<DashboardView />);
-    expect(await screen.findByText("Completed 2 · Failed 0")).toBeInTheDocument();
-    expect(swatchClass("Critical")).toContain("bg-mt-sev-critical");
-    expect(swatchClass("High")).toContain("bg-mt-sev-high");
-    expect(swatchClass("Critical")).not.toContain("bg-mt-accent");
-    expect(barClass("Email")).toContain("bg-mt-chart-2");
-    expect(screen.getByRole("img", { name: "10 findings" })).toBeInTheDocument();
+    expect(await screen.findByText("Completados 2 · Fallidos 0")).toBeInTheDocument();
+    expect(swatchClass("Crítica")).toContain("bg-mt-sev-critical");
+    expect(swatchClass("Alta")).toContain("bg-mt-sev-high");
+    expect(swatchClass("Crítica")).not.toContain("bg-mt-accent");
+    expect(barClass("Correo")).toContain("bg-mt-chart-2");
+    expect(screen.getByRole("img", { name: "10 hallazgos" })).toBeInTheDocument();
     expect(screen.getByText("example.com")).toBeInTheDocument();
-    expect(screen.getByText("Findings still open")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open completed runs" })).toHaveAttribute(
+    expect(screen.getByText("Hallazgos aún abiertos")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Abrir escaneos completados" })).toHaveAttribute(
       "href",
       "/runs?status=completed",
     );
-    expect(screen.getByRole("link", { name: "Open compare" })).toHaveAttribute("href", "/runs/compare");
+    expect(screen.getByRole("link", { name: "Abrir comparación" })).toHaveAttribute("href", "/runs/compare");
     expect(screen.getByText("Latitude: 1")).toBeInTheDocument();
-    const agent = screen.getByRole("region", { name: "Agent usage" });
-    expect(agent).toHaveTextContent("Calls 1");
+    const agent = screen.getByRole("region", { name: "Uso del agente" });
+    expect(agent).toHaveTextContent("Llamadas 1");
     expect(agent.className).not.toContain("text-2xl");
   });
 
@@ -88,7 +88,7 @@ describe("DashboardView", () => {
       vi.fn(async () => new Response(JSON.stringify(payload), { status: 200 })),
     );
     render(<DashboardView />);
-    expect(await screen.findByRole("link", { name: "Review failed scans" })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: "Revisar escaneos fallidos" })).toHaveAttribute(
       "href",
       "/runs?status=failed",
     );
@@ -97,9 +97,9 @@ describe("DashboardView", () => {
   it("shows a single empty state when there are no runs", async () => {
     stubStats(0);
     render(<DashboardView />);
-    expect(await screen.findByText(/No data yet/)).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "New scan" })).toHaveLength(1);
-    expect(screen.queryByText("Completed 0 · Failed 0")).not.toBeInTheDocument();
+    expect(await screen.findByText(/Aún no hay datos/)).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Nuevo escaneo" })).toHaveLength(1);
+    expect(screen.queryByText("Completados 0 · Fallidos 0")).not.toBeInTheDocument();
   });
 
   it("renders hostile evidence and domains as text", async () => {

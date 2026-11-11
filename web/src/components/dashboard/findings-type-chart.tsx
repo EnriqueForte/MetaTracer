@@ -10,10 +10,10 @@ function FindingsTypeChart({ rows }: { rows: [string, number][] }) {
   return (
     <section className="mt-card flex min-w-0 flex-col gap-4 p-4" aria-labelledby="findings-type-title">
       <h2 id="findings-type-title" className="mt-section-title">
-        Findings by type
+        Hallazgos por tipo
       </h2>
       {rows.length === 0 ? (
-        <p className="mt-meta">No findings yet.</p>
+        <p className="mt-meta">Aún no hay hallazgos.</p>
       ) : (
         <div className="flex flex-col gap-3">
           {rows.map(([type, count]) => {

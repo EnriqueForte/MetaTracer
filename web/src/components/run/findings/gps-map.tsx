@@ -110,8 +110,8 @@ export function GpsMap({ findings, onOpen }: Props) {
   return (
     <details className="mt-card flex min-w-0 flex-col gap-3 p-4" open>
       <summary className="cursor-pointer">
-        <h2 className="mt-section-title inline">GPS map</h2>{" "}
-        <span className="mt-meta inline">({points.length} location(s), coordinates from the evidence only)</span>
+        <h2 className="mt-section-title inline">Mapa GPS</h2>{" "}
+        <span className="mt-meta inline">({points.length} ubicación(es), coordenadas solo de la evidencia)</span>
       </summary>
       <div
         className={
@@ -125,7 +125,7 @@ export function GpsMap({ findings, onOpen }: Props) {
           preserveAspectRatio="xMidYMid meet"
           className="h-56 min-h-0 w-full overflow-hidden rounded-md bg-mt-bg sm:h-full"
           role="group"
-          aria-label="GPS findings on a local land outline"
+          aria-label="Hallazgos GPS sobre un contorno terrestre local"
         >
           <rect x={0} y={0} width={WORLD_W} height={WORLD_H} className="fill-mt-bg" />
           {PATHS.map((d, index) => (
@@ -141,7 +141,7 @@ export function GpsMap({ findings, onOpen }: Props) {
           {points.map(({ finding, at }) => {
             const [x, y] = project(at.lat, at.lon);
             const level = severityKey(finding.severity);
-            const label = `${SEVERITY_LABEL[level]} GPS finding at ${at.lat.toFixed(4)}, ${at.lon.toFixed(4)}`;
+            const label = `Hallazgo GPS ${SEVERITY_LABEL[level]} en ${at.lat.toFixed(4)}, ${at.lon.toFixed(4)}`;
             return (
               <g
                 key={finding.id}
@@ -172,12 +172,12 @@ export function GpsMap({ findings, onOpen }: Props) {
         </svg>
         {zoomed ? (
           <div className="relative h-44 min-h-0 min-w-0 overflow-hidden rounded-md bg-mt-bg sm:h-full">
-            <p className="mt-kicker pointer-events-none absolute left-2 top-2 z-10">World</p>
+            <p className="mt-kicker pointer-events-none absolute left-2 top-2 z-10">Mundo</p>
             <svg
               viewBox={`0 0 ${WORLD_W} ${WORLD_H}`}
               preserveAspectRatio="xMidYMid slice"
               className="h-full w-full"
-              aria-label="World outline showing the framed region"
+              aria-label="Contorno mundial con la región enmarcada"
             >
               {PATHS.map((d, index) => (
                 <path key={index} d={d} fillRule="evenodd" className="fill-mt-elevated" />
@@ -199,8 +199,8 @@ export function GpsMap({ findings, onOpen }: Props) {
         ) : null}
       </div>
       <p className="mt-meta">
-        Coastline is a bundled Natural Earth outline, drawn locally. The frame follows the evidence.
-        No map tiles are loaded.
+        La costa es un contorno Natural Earth empaquetado, dibujado en local. El marco sigue la evidencia.
+        No se cargan teselas de mapa.
       </p>
     </details>
   );

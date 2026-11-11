@@ -15,7 +15,7 @@ import { TRIAGE_LABEL, TRIAGE_STATUSES, triageOf, type Finding } from "./model";
 
 const triageSchema = z.object({
   status: z.enum(TRIAGE_STATUSES),
-  note: z.string().trim().max(500, "Keep the note under 500 characters.").nullable(),
+  note: z.string().trim().max(500, "La nota no puede superar los 500 caracteres.").nullable(),
 });
 
 export function triageVariant(status: TriageStatus): "confidence" | "completed" | "aborted" | "pending" {
@@ -68,40 +68,40 @@ export function TriageForm({ runId, finding, canMutate }: { runId: string; findi
     setFormError("");
     const parsed = triageSchema.safeParse({ status, note: note.trim() || null });
     if (!parsed.success) {
-      setFormError(parsed.error.issues[0]?.message ?? "Check the triage form.");
+      setFormError(parsed.error.issues[0]?.message ?? "Revisa el formulario de triaje.");
       return;
     }
     save.mutate(parsed.data);
   }
 
   return (
-    <section className="flex flex-col gap-2 rounded-md border border-mt-border p-3" aria-label="Triage">
+    <section className="flex flex-col gap-2 rounded-md border border-mt-border p-3" aria-label="Triaje">
       <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-sm font-semibold text-mt-fg">Triage</h3>
+        <h3 className="text-sm font-semibold text-mt-fg">Triaje</h3>
         <Badge variant={triageVariant(current)}>{TRIAGE_LABEL[current]}</Badge>
         {finding.triaged_at ? (
           <span className="mt-meta">
-            by {finding.triaged_by ?? "unknown"} · {formatWhen(finding.triaged_at)} UTC
+            por {finding.triaged_by ?? "desconocido"} · {formatWhen(finding.triaged_at)} UTC
           </span>
         ) : null}
       </div>
       {finding.triage_suggestion ? (
         <p className="text-sm text-mt-fg">
-          Suggested from another run in this investigation:{" "}
-          {TRIAGE_LABEL[finding.triage_suggestion.status]}. Applying it does not change severity or
-          evidence.
+          Sugerido desde otro escaneo de esta investigación:{" "}
+          {TRIAGE_LABEL[finding.triage_suggestion.status]}. Aplicarlo no cambia la severidad ni la
+          evidencia.
         </p>
       ) : null}
       {finding.triage_note ? <p className="text-sm text-mt-fg">{finding.triage_note}</p> : null}
       <p className="text-xs text-mt-muted">
-        Triage never changes severity or evidence. False positives are left out of exports and
-        dashboard counts by default.
+        El triaje nunca cambia la severidad ni la evidencia. Los falsos positivos se omiten de las
+        exportaciones y de los recuentos del panel por defecto.
       </p>
       {canMutate ? (
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <label htmlFor="triage-status" className="text-xs font-semibold text-mt-muted">
-              Status
+              Estado
             </label>
             <select
               id="triage-status"
@@ -119,7 +119,7 @@ export function TriageForm({ runId, finding, canMutate }: { runId: string; findi
               ))}
             </select>
             <Button variant="secondary" disabled={save.isPending} onClick={submit}>
-              Save triage
+              Guardar triaje
             </Button>
             {finding.triage_suggestion && finding.triage_suggestion.status !== current ? (
               <Button
@@ -132,13 +132,13 @@ export function TriageForm({ runId, finding, canMutate }: { runId: string; findi
                   })
                 }
               >
-                Apply suggestion
+                Aplicar sugerencia
               </Button>
             ) : null}
-            {save.isSuccess ? <span role="status" className="text-xs text-mt-muted">Saved.</span> : null}
+            {save.isSuccess ? <span role="status" className="text-xs text-mt-muted">Guardado.</span> : null}
           </div>
           <label htmlFor="triage-note" className="text-xs font-semibold text-mt-muted">
-            Note (optional)
+            Nota (opcional)
           </label>
           <input
             id="triage-note"
@@ -146,12 +146,12 @@ export function TriageForm({ runId, finding, canMutate }: { runId: string; findi
             maxLength={500}
             value={note}
             onChange={(event) => setNote(event.target.value)}
-            placeholder="Why — e.g. vendor address, already rotated"
+            placeholder="Motivo — p. ej. dirección del proveedor, ya rotada"
             className="w-full rounded-md border border-mt-border-strong bg-mt-bg px-3 py-2 text-sm text-mt-fg placeholder:text-mt-faint"
           />
           {formError || save.isError ? (
             <p role="alert" className="text-xs text-mt-danger">
-              {formError || errorMessage(save.error, "Triage could not be saved")}
+              {formError || errorMessage(save.error, "No se pudo guardar el triaje")}
             </p>
           ) : null}
         </div>

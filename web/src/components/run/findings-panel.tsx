@@ -123,9 +123,9 @@ export function FindingsPanel({ runId, totalAssets }: { runId: string; totalAsse
   const error = query.isError
     ? query.error instanceof ApiError
       ? query.error.status === 200
-        ? "Findings unavailable."
-        : `Findings unavailable (HTTP ${query.error.status}).`
-      : "Network error: the API is unreachable."
+        ? "Hallazgos no disponibles."
+        : `Hallazgos no disponibles (HTTP ${query.error.status}).`
+      : "Error de red: la API no está accesible."
     : "";
 
   return (
@@ -145,14 +145,14 @@ export function FindingsPanel({ runId, totalAssets }: { runId: string; totalAsse
 
       {error ? (
         <div className="flex flex-col gap-1">
-          <p className="text-sm font-semibold text-mt-fg">Findings unavailable</p>
+          <p className="text-sm font-semibold text-mt-fg">Hallazgos no disponibles</p>
           <ErrorState message={error} onRetry={() => void query.refetch()} />
         </div>
       ) : null}
 
       {loaded && !error && findings.length === 0 ? (
-        <EmptyState title="No findings">
-          No sensitive metadata was identified in the {totalAssets} asset(s) analyzed.
+        <EmptyState title="Sin hallazgos">
+          No se identificó metadato sensible en el/los {totalAssets} activo(s) analizado(s).
         </EmptyState>
       ) : null}
 
@@ -199,18 +199,18 @@ export function FindingsPanel({ runId, totalAssets }: { runId: string; totalAsse
             })
           }
           extraColumn={{
-            header: "Triage",
+            header: "Triaje",
             cell: (finding) => {
               const status = triageOf(finding);
               if (status === "open" && finding.triage_suggestion) {
                 return (
                   <span className="text-xs text-mt-muted">
-                    Suggested: {TRIAGE_LABEL[finding.triage_suggestion.status]}
+                    Sugerido: {TRIAGE_LABEL[finding.triage_suggestion.status]}
                   </span>
                 );
               }
               return status === "open" ? (
-                <span className="text-xs text-mt-muted">Open</span>
+                <span className="text-xs text-mt-muted">Abierto</span>
               ) : (
                 <Badge variant={triageVariant(status)}>{TRIAGE_LABEL[status]}</Badge>
               );
@@ -219,10 +219,10 @@ export function FindingsPanel({ runId, totalAssets }: { runId: string; totalAsse
         />
       ) : null}
       {findings.length > 0 && filtered.length === 0 ? (
-        <EmptyState title="No findings match the current filters">
+        <EmptyState title="Ningún hallazgo coincide con los filtros actuales">
           {dismissed > 0 && !filters.dismissed
-            ? `Clear a filter or the search, or show the ${dismissed} dismissed finding(s).`
-            : "Clear a filter or the search to see more findings."}
+            ? `Quita un filtro o la búsqueda, o muestra el/los ${dismissed} hallazgo(s) descartado(s).`
+            : "Quita un filtro o la búsqueda para ver más hallazgos."}
         </EmptyState>
       ) : null}
 

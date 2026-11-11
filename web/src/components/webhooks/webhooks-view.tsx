@@ -39,21 +39,27 @@ type Delivery = {
 const EVENTS = ["completed", "failed", "aborted"] as const;
 
 const SIGNATURE_LABEL: Record<Webhook["signature_status"], string> = {
-  active: "Signed (HMAC)",
-  needs_secret: "Re-enter secret",
-  none: "Unsigned",
+  active: "Firmado (HMAC)",
+  needs_secret: "Vuelve a introducir el secreto",
+  none: "Sin firmar",
+};
+
+const EVENT_LABEL: Record<(typeof EVENTS)[number], string> = {
+  completed: "Completado",
+  failed: "Fallido",
+  aborted: "Abortado",
 };
 
 const webhookSchema = z.object({
-  name: z.string().trim().max(80, "Names are at most 80 characters."),
+  name: z.string().trim().max(80, "Los nombres tienen como máximo 80 caracteres."),
   url: z
     .string()
     .trim()
-    .url("Enter a full URL.")
-    .refine((value) => value.toLowerCase().startsWith("https://"), "Webhook URLs must use HTTPS."),
+    .url("Indica una URL completa.")
+    .refine((value) => value.toLowerCase().startsWith("https://"), "Las URL de webhook deben usar HTTPS."),
   event: z.enum(EVENTS),
-  max_retries: z.number().int().min(0, "At least 0 retries.").max(10, "At most 10 retries."),
-  signature_secret: z.string().max(256, "Secrets are at most 256 characters."),
+  max_retries: z.number().int().min(0, "Al menos 0 reintentos.").max(10, "Como máximo 10 reintentos."),
+  signature_secret: z.string().max(256, "Los secretos tienen como máximo 256 caracteres."),
   headers: z.record(z.string(), z.string()),
 });
 
@@ -64,9 +70,9 @@ export function parseHeaderLines(text: string): Record<string, string> | string 
     const line = raw.trim();
     if (!line) continue;
     const at = line.indexOf(":");
-    if (at <= 0) return `Header lines look like "Name: value" (got "${line.slice(0, 40)}").`;
+    if (at <= 0) return `Las cabeceras van como "Nombre: valor" (se recibió "${line.slice(0, 40)}").`;
     const name = line.slice(0, at).trim();
-    if (!/^[A-Za-z0-9-]+$/.test(name)) return `Header names use letters, digits and dashes (got "${name.slice(0, 40)}").`;
+    if (!/^[A-Za-z0-9-]+$/.test(name)) return `Los nombres de cabecera usan letras, dígitos y guiones (se recibió "${name.slice(0, 40)}").`;
     headers[name] = line.slice(at + 1).trim();
   }
   return headers;
@@ -81,19 +87,19 @@ function Deliveries({ webhookId }: { webhookId: string }) {
     queryKey: [...queryKeys.webhooks, webhookId, "deliveries"],
     queryFn: () => getJson<Delivery[]>(`/api/webhooks/${encodeURIComponent(webhookId)}/deliveries`, isWebhookList),
   });
-  if (query.isPending) return <p className="text-xs text-mt-muted">Loading deliveries…</p>;
-  if (query.isError) return <p className="text-xs text-mt-danger">{errorMessage(query.error, "Could not load deliveries")}</p>;
-  if (query.data.length === 0) return <p className="text-xs text-mt-muted">No deliveries yet.</p>;
+  if (query.isPending) return <p className="text-xs text-mt-muted">Cargando entregas…</p>;
+  if (query.isError) return <p className="text-xs text-mt-danger">{errorMessage(query.error, "No se pudieron cargar las entregas")}</p>;
+  if (query.data.length === 0) return <p className="text-xs text-mt-muted">Aún no hay entregas.</p>;
   return (
     <table className="w-full text-xs">
-      <caption className="sr-only">Deliveries</caption>
+      <caption className="sr-only">Entregas</caption>
       <thead>
         <tr className="text-left text-mt-muted">
-          <th className="py-1 font-medium">Status</th>
-          <th className="py-1 font-medium">Attempts</th>
+          <th className="py-1 font-medium">Estado</th>
+          <th className="py-1 font-medium">Intentos</th>
           <th className="py-1 font-medium">HTTP</th>
-          <th className="py-1 font-medium">Created (UTC)</th>
-          <th className="py-1 font-medium">Last error</th>
+          <th className="py-1 font-medium">Creado (UTC)</th>
+          <th className="py-1 font-medium">Último error</th>
         </tr>
       </thead>
       <tbody>
@@ -143,7 +149,7 @@ export function WebhooksView() {
       setRetries(3);
       void refresh();
     },
-    onError: (error) => setFormError(errorMessage(error, "Could not create the webhook")),
+    onError: (error) => setFormError(errorMessage(error, "No se pudo crear el webhook")),
   });
   const update = useMutation({
     mutationFn: ({ id, body }: { id: string; body: Record<string, unknown> }) =>
@@ -162,7 +168,7 @@ export function WebhooksView() {
     return (
       <div className="flex flex-col gap-3">
         <h1 className="mt-title">Webhooks</h1>
-        <p role="alert" className="text-sm text-mt-warning">Operator role required</p>
+        <p role="alert" className="text-sm text-mt-warning">Se requiere el rol de operador</p>
       </div>
     );
   }
@@ -176,7 +182,7 @@ export function WebhooksView() {
     }
     const parsed = webhookSchema.safeParse({ name, url, event, max_retries: retries, signature_secret: secret, headers });
     if (!parsed.success) {
-      setFormError(parsed.error.issues[0]?.message ?? "Check the form.");
+      setFormError(parsed.error.issues[0]?.message ?? "Revisa el formulario.");
       return;
     }
     const { signature_secret, name: label, ...rest } = parsed.data;
@@ -196,75 +202,75 @@ export function WebhooksView() {
       <div>
         <h1 className="mt-title">Webhooks</h1>
         <p className="text-sm text-mt-fg">
-          Outbound notifications when a scan ends. HTTPS only. Header values and the signing secret are
-          write-only: they are never shown again after saving.
+          Notificaciones de salida cuando termina un escaneo. Solo HTTPS. Los valores de cabecera y el
+          secreto de firma son de solo escritura: no se vuelven a mostrar después de guardar.
         </p>
       </div>
-      <section className="flex flex-col gap-3 rounded-md border border-mt-border bg-mt-surface p-4" aria-label="New webhook">
-        <h2 className="text-sm font-semibold">New webhook</h2>
+      <section className="flex flex-col gap-3 rounded-md border border-mt-border bg-mt-surface p-4" aria-label="Nuevo webhook">
+        <h2 className="text-sm font-semibold">Nuevo webhook</h2>
         <form className="grid grid-cols-1 gap-3 md:grid-cols-2" noValidate onSubmit={(e) => { e.preventDefault(); submit(); }}>
           <div className="flex flex-col gap-1">
-            <label htmlFor="hook-name" className="text-xs font-semibold text-mt-muted">Name (optional)</label>
+            <label htmlFor="hook-name" className="text-xs font-semibold text-mt-muted">Nombre (opcional)</label>
             <Input id="hook-name" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="flex flex-col gap-1">
-            <label htmlFor="hook-url" className="text-xs font-semibold text-mt-muted">HTTPS URL</label>
+            <label htmlFor="hook-url" className="text-xs font-semibold text-mt-muted">URL HTTPS</label>
             <Input id="hook-url" className="mt-tech" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://hooks.example.com/metatracer" />
           </div>
           <div className="flex flex-col gap-1">
-            <label htmlFor="hook-event" className="text-xs font-semibold text-mt-muted">Event</label>
+            <label htmlFor="hook-event" className="text-xs font-semibold text-mt-muted">Evento</label>
             <select id="hook-event" value={event} onChange={(e) => { const next = EVENTS.find((item) => item === e.target.value); if (next) setEvent(next); }} className="rounded-md border border-mt-border-strong bg-mt-bg px-3 py-2 text-sm">
-              {EVENTS.map((item) => <option key={item} value={item}>{item}</option>)}
+              {EVENTS.map((item) => <option key={item} value={item}>{EVENT_LABEL[item]}</option>)}
             </select>
           </div>
           <div className="flex flex-col gap-1">
-            <label htmlFor="hook-retries" className="text-xs font-semibold text-mt-muted">Max retries</label>
+            <label htmlFor="hook-retries" className="text-xs font-semibold text-mt-muted">Reintentos máximos</label>
             <Input id="hook-retries" type="number" min={0} max={10} value={retries} onChange={(e) => setRetries(Number(e.target.value))} />
           </div>
           <div className="flex flex-col gap-1">
-            <label htmlFor="hook-secret" className="text-xs font-semibold text-mt-muted">Signing secret (optional)</label>
+            <label htmlFor="hook-secret" className="text-xs font-semibold text-mt-muted">Secreto de firma (opcional)</label>
             <Input id="hook-secret" type="password" autoComplete="off" value={secret} onChange={(e) => setSecret(e.target.value)} />
           </div>
           <div className="flex flex-col gap-1">
-            <label htmlFor="hook-headers" className="text-xs font-semibold text-mt-muted">Extra headers (optional, one &quot;Name: value&quot; per line)</label>
+            <label htmlFor="hook-headers" className="text-xs font-semibold text-mt-muted">Cabeceras extra (opcional, una &quot;Nombre: valor&quot; por línea)</label>
             <textarea id="hook-headers" rows={2} value={headersText} onChange={(e) => setHeadersText(e.target.value)} className="mt-tech rounded-md border border-mt-border-strong bg-mt-bg px-3 py-2 text-sm" />
           </div>
           {formError ? <p role="alert" className="text-sm text-mt-danger md:col-span-2">{formError}</p> : null}
           <div className="md:col-span-2">
-            <Button type="submit" disabled={create.isPending}>Create webhook</Button>
+            <Button type="submit" disabled={create.isPending}>Crear webhook</Button>
           </div>
         </form>
       </section>
-      {actionError ? <p role="alert" className="text-sm text-mt-danger">{errorMessage(actionError, "Could not update the webhook")}</p> : null}
-      {list.isError ? <ErrorState message={errorMessage(list.error, "Could not load webhooks")} onRetry={() => void list.refetch()} /> : null}
-      {list.isSuccess && rows.length === 0 ? <EmptyState title="No webhooks yet">Create one to be notified when a scan ends.</EmptyState> : null}
+      {actionError ? <p role="alert" className="text-sm text-mt-danger">{errorMessage(actionError, "No se pudo actualizar el webhook")}</p> : null}
+      {list.isError ? <ErrorState message={errorMessage(list.error, "No se pudieron cargar los webhooks")} onRetry={() => void list.refetch()} /> : null}
+      {list.isSuccess && rows.length === 0 ? <EmptyState title="Aún no hay webhooks">Crea uno para recibir aviso cuando termine un escaneo.</EmptyState> : null}
       {rows.length > 0 ? (
         <ul className="flex flex-col gap-3">
           {rows.map((hook) => (
             <li key={hook.id} className="mt-card flex flex-col gap-2 p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-mt-fg">{hook.name || "Unnamed webhook"}</p>
+                  <p className="text-sm font-semibold text-mt-fg">{hook.name || "Webhook sin nombre"}</p>
                   <p className="mt-tech">{hook.url}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant={hook.active ? "completed" : "pending"}>{hook.active ? "Active" : "Paused"}</Badge>
-                  <Badge variant="confidence">on {hook.event}</Badge>
+                  <Badge variant={hook.active ? "completed" : "pending"}>{hook.active ? "Activo" : "En pausa"}</Badge>
+                  <Badge variant="confidence">en {EVENT_LABEL[hook.event]}</Badge>
                   <Badge variant={hook.signature_status === "needs_secret" ? "aborted" : "confidence"}>
                     {SIGNATURE_LABEL[hook.signature_status]}
                   </Badge>
                 </div>
               </div>
               {Object.keys(hook.headers).length > 0 ? (
-                <p className="text-xs text-mt-muted">Headers: {Object.keys(hook.headers).join(", ")} (values hidden)</p>
+                <p className="text-xs text-mt-muted">Cabeceras: {Object.keys(hook.headers).join(", ")} (valores ocultos)</p>
               ) : null}
               <div className="flex flex-wrap items-end gap-2">
                 <Button variant="secondary" className="px-2 py-1 text-xs" onClick={() => update.mutate({ id: hook.id, body: { active: !hook.active } })}>
-                  {hook.active ? "Pause" : "Resume"}
+                  {hook.active ? "Pausar" : "Reanudar"}
                 </Button>
                 <div className="flex items-end gap-2">
                   <div className="flex flex-col gap-1">
-                    <label htmlFor={`rotate-${hook.id}`} className="text-xs text-mt-muted">New signing secret</label>
+                    <label htmlFor={`rotate-${hook.id}`} className="text-xs text-mt-muted">Nuevo secreto de firma</label>
                     <Input id={`rotate-${hook.id}`} type="password" autoComplete="off" value={rotate[hook.id] ?? ""} onChange={(e) => setRotate((current) => ({ ...current, [hook.id]: e.target.value }))} />
                   </div>
                   <Button
@@ -273,20 +279,20 @@ export function WebhooksView() {
                     disabled={!(rotate[hook.id] ?? "").trim()}
                     onClick={() => update.mutate({ id: hook.id, body: { signature_secret: (rotate[hook.id] ?? "").trim() } })}
                   >
-                    Save secret
+                    Guardar secreto
                   </Button>
                 </div>
                 <Button variant="ghost" className="px-2 py-1 text-xs" aria-expanded={open === hook.id} onClick={() => setOpen((current) => (current === hook.id ? null : hook.id))}>
-                  {open === hook.id ? "Hide deliveries" : "Show deliveries"}
+                  {open === hook.id ? "Ocultar entregas" : "Mostrar entregas"}
                 </Button>
                 <Button
                   variant="danger"
                   className="px-2 py-1 text-xs"
                   onClick={() => {
-                    if (window.confirm("Delete this webhook? Its delivery history is removed too.")) remove.mutate(hook.id);
+                    if (window.confirm("¿Eliminar este webhook? También se borra su historial de entregas.")) remove.mutate(hook.id);
                   }}
                 >
-                  Delete
+                  Eliminar
                 </Button>
               </div>
               {open === hook.id ? <Deliveries webhookId={hook.id} /> : null}

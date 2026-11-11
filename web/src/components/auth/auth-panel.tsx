@@ -20,7 +20,7 @@ export function AuthPanel({
         note={note}
       >
         <div>
-          <p className="mt-kicker">Session</p>
+          <p className="mt-kicker">Sesión</p>
           <h1 className="mt-title">{title}</h1>
           <p className="text-sm text-mt-muted">{lede}</p>
         </div>

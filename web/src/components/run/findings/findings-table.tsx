@@ -91,23 +91,23 @@ export function FindingsTable({
   const columns = (extraColumn ? 5 : 4) + (selectable ? 1 : 0);
   const body = (
     <Table>
-      <caption className="sr-only">Findings of this scan, in API order</caption>
+      <caption className="sr-only">Hallazgos de este escaneo, en el orden de la API</caption>
       <TableHeader>
         <TableRow>
           {selectable ? (
             <TableHead className="w-8 px-2 py-1 font-medium tracking-normal normal-case">
               <input
                 type="checkbox"
-                aria-label="Select all visible findings"
+                aria-label="Seleccionar todos los hallazgos visibles"
                 checked={allSelected}
                 onChange={() => onToggleAll?.()}
               />
             </TableHead>
           ) : null}
-          <TableHead className="px-2 py-1 font-medium tracking-normal normal-case">Severity</TableHead>
-          <TableHead className="px-2 py-1 font-medium tracking-normal normal-case">Type</TableHead>
-          <TableHead className="px-2 py-1 font-medium tracking-normal normal-case">Evidence</TableHead>
-          <TableHead className="px-2 py-1 font-medium tracking-normal normal-case">Asset</TableHead>
+          <TableHead className="px-2 py-1 font-medium tracking-normal normal-case">Severidad</TableHead>
+          <TableHead className="px-2 py-1 font-medium tracking-normal normal-case">Tipo</TableHead>
+          <TableHead className="px-2 py-1 font-medium tracking-normal normal-case">Evidencia</TableHead>
+          <TableHead className="px-2 py-1 font-medium tracking-normal normal-case">Activo</TableHead>
           {extraColumn ? (
             <TableHead className="px-2 py-1 font-medium tracking-normal normal-case">
               {extraColumn.header}
@@ -145,7 +145,7 @@ export function FindingsTable({
                 <TableCell className="px-2 py-1" onClick={(event) => event.stopPropagation()}>
                   <input
                     type="checkbox"
-                    aria-label={`Select finding ${finding.id}`}
+                    aria-label={`Seleccionar hallazgo ${finding.id}`}
                     checked={checked}
                     onChange={() => onToggle?.(finding)}
                   />

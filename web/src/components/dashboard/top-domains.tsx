@@ -8,10 +8,10 @@ function TopDomains({ rows }: { rows: { domain: string; count: number }[] }) {
   return (
     <section className="mt-card flex min-w-0 flex-col gap-4 p-4" aria-labelledby="top-domains-title">
       <h2 id="top-domains-title" className="mt-section-title">
-        Top domains
+        Dominios principales
       </h2>
       {rows.length === 0 ? (
-        <p className="mt-meta">No scopes or assets scanned yet.</p>
+        <p className="mt-meta">Aún no hay alcances ni activos escaneados.</p>
       ) : (
         <ol className="flex flex-col gap-3">
           {rows.map((entry, index) => (

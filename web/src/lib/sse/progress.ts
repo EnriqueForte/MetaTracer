@@ -1,3 +1,5 @@
+import { STAGE_LABELS } from "@/lib/ui-copy";
+
 const STAGES = [
   "scope_validation",
   "discovery",
@@ -8,15 +10,7 @@ const STAGES = [
   "report_generation",
 ] as const;
 
-export const STAGE_LABELS: Record<(typeof STAGES)[number], string> = {
-  scope_validation: "Scope validation",
-  discovery: "Discovery",
-  downloading: "Downloading",
-  extraction: "Metadata extraction",
-  detection: "Detection",
-  ai_analysis: "Classification and AI analysis",
-  report_generation: "Report generation",
-};
+export { STAGE_LABELS };
 
 export type WorkStage = (typeof STAGES)[number];
 export type StageState = "pending" | "active" | "done" | "failed";

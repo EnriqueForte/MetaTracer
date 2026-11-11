@@ -18,7 +18,7 @@ import { formatWhen } from "@/lib/time";
 const STATUSES = ["all", "completed", "failed", "running", "pending", "aborted"] as const;
 type StatusFilter = (typeof STATUSES)[number];
 
-const FILTER_LABEL: Record<StatusFilter, string> = { all: "All", ...RUN_STATUS_LABEL };
+const FILTER_LABEL: Record<StatusFilter, string> = { all: "Todos", ...RUN_STATUS_LABEL };
 
 function isStatusFilter(value: string | null): value is StatusFilter {
   return value !== null && (STATUSES as readonly string[]).includes(value);
@@ -72,7 +72,7 @@ export function HistoryView() {
   const hasMore = page.data?.has_more === true;
   const nextCursor = page.data?.next_cursor ?? null;
   const loaded = page.isSuccess || page.isError;
-  const error = page.isError ? "Could not load the local history." : "";
+  const error = page.isError ? "No se pudo cargar el historial local." : "";
 
   function changeStatus(next: StatusFilter) {
     setStatusFilter(next);
@@ -96,35 +96,35 @@ export function HistoryView() {
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="mt-page-head">
         <div>
-          <h1 className="mt-title">Local history</h1>
+          <h1 className="mt-title">Historial local</h1>
           <p className="text-sm text-mt-fg">
-            Runs stored in this installation. Reopen a scan to review findings or re-export the report. This is not a multi-user dashboard.
+            Escaneos guardados en esta instalación. Reabre uno para revisar hallazgos o volver a exportar el informe. No es un panel multiusuario.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {compareHref ? (
             <Button variant="secondary" asChild>
-              <Link href={compareHref}>Compare selected</Link>
+              <Link href={compareHref}>Comparar selección</Link>
             </Button>
           ) : (
             <Button variant="secondary" disabled>
-              Compare selected
+              Comparar selección
             </Button>
           )}
           <Button variant="secondary" asChild>
-            <Link href="/">New scan</Link>
+            <Link href="/">Nuevo escaneo</Link>
           </Button>
         </div>
       </div>
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Status filter">
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Filtro de estado">
         {STATUSES.map((status) => (
           <Button
             key={status}
             variant="toggle"
             aria-pressed={statusFilter === status}
-            aria-label={`Filter by status ${status}`}
+            aria-label={`Filtrar por estado ${FILTER_LABEL[status]}`}
             onClick={() => changeStatus(status)}
           >
             {FILTER_LABEL[status]}
@@ -132,38 +132,39 @@ export function HistoryView() {
         ))}
       </div>
       <p className="text-xs text-mt-muted" aria-live="polite">
-        {loaded && !error ? `${totalRuns} ${totalRuns === 1 ? "run" : "runs"}` : ""}
-        {compare.length > 0 ? ` · ${compare.length} of 2 selected to compare` : ""}
+        {loaded && !error ? `${totalRuns} ${totalRuns === 1 ? "escaneo" : "escaneos"}` : ""}
+        {compare.length > 0 ? ` · ${compare.length} de 2 seleccionados para comparar` : ""}
       </p>
-      {!loaded ? <p className="text-sm text-mt-muted">Loading history…</p> : null}
+      {!loaded ? <p className="text-sm text-mt-muted">Cargando historial…</p> : null}
       {error ? <ErrorState message={error} onRetry={() => void page.refetch()} /> : null}
       {loaded && !error && runs.length === 0 ? (
-        <EmptyState title="No runs yet">Start a scan to build a local history.</EmptyState>
+        <EmptyState title="Aún no hay escaneos">Inicia un escaneo para construir un historial local.</EmptyState>
       ) : null}
       {runs.length > 0 ? (
-        <table className="w-full text-sm">
-          <caption className="sr-only">Local scan history</caption>
+        <div className="mt-card overflow-x-auto">
+        <table className="mt-table">
+          <caption className="sr-only">Historial local de escaneos</caption>
           <thead>
-            <tr className="text-left text-xs text-mt-muted">
+            <tr>
               <th className="py-1 font-medium">
-                <span className="sr-only">Compare</span>
+                <span className="sr-only">Comparar</span>
               </th>
-              <th className="py-1 font-medium">Status</th>
-              <th className="py-1 font-medium">Target</th>
-              <th className="py-1 text-right font-medium">Assets</th>
-              <th className="py-1 text-right font-medium">Findings</th>
-              <th className="py-1 font-medium">Started (UTC)</th>
-              {actor === "operator" ? <th className="py-1 font-medium">Actions</th> : null}
+              <th className="py-1 font-medium">Estado</th>
+              <th className="py-1 font-medium">Objetivo</th>
+              <th className="py-1 text-right font-medium">Recursos</th>
+              <th className="py-1 text-right font-medium">Hallazgos</th>
+              <th className="py-1 font-medium">Inicio (UTC)</th>
+              {actor === "operator" ? <th className="py-1 font-medium">Acciones</th> : null}
             </tr>
           </thead>
           <tbody>
             {runs.map((run) => (
-              <tr key={run.run_id} className="border-t border-mt-border">
+              <tr key={run.run_id} className="mt-row">
                 <td className="py-1.5 pr-2">
                   {run.status === "completed" ? (
                     <input
                       type="checkbox"
-                      aria-label={`Select ${run.target} to compare`}
+                      aria-label={`Seleccionar ${run.target} para comparar`}
                       checked={compare.includes(run.run_id)}
                       onChange={() => toggleCompare(run.run_id)}
                     />
@@ -189,7 +190,7 @@ export function HistoryView() {
                         className="px-2 py-1 text-xs"
                         onClick={() => setPendingDelete(run)}
                       >
-                        Delete run
+                        Eliminar escaneo
                       </Button>
                     )}
                   </td>
@@ -198,6 +199,7 @@ export function HistoryView() {
             ))}
           </tbody>
         </table>
+        </div>
       ) : null}
       {pendingDelete ? (
         <DeleteRunDialog
@@ -222,10 +224,10 @@ export function HistoryView() {
               setCursorStack((stack) => stack.slice(0, -1));
             }}
           >
-            Newer
+            Más recientes
           </Button>
           {page.isFetching && page.isPlaceholderData ? (
-            <span className="text-xs text-mt-muted">Loading more…</span>
+            <span className="text-xs text-mt-muted">Cargando más…</span>
           ) : null}
           <Button
             variant="secondary"
@@ -235,7 +237,7 @@ export function HistoryView() {
               setCursor(nextCursor);
             }}
           >
-            Older
+            Más antiguos
           </Button>
         </div>
       ) : null}

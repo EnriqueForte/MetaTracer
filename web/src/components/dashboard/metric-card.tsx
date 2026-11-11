@@ -17,8 +17,8 @@ function MetricCard({
   accentClass: string;
 }) {
   return (
-    <article className="mt-card mt-card-interactive relative flex min-w-0 flex-col gap-3 overflow-hidden p-4">
-      <span aria-hidden="true" className={cn("absolute inset-x-0 top-0 h-0.5", accentClass)} />
+    <article className="mt-card mt-card-interactive relative flex min-w-0 flex-col gap-3 overflow-hidden p-4 pl-5">
+      <span aria-hidden="true" className={cn("absolute inset-y-0 left-0 w-0.5", accentClass)} />
       <div className="flex items-start justify-between gap-3">
         <h2 className="mt-kicker">{label}</h2>
         <span

@@ -21,24 +21,24 @@ export function activityCopy(assets: number, findings: number, stageLabel: strin
   if (stageLabel) {
     return {
       title: stageLabel,
-      detail: "This is the step the scan just reported.",
+      detail: "Este es el paso que acaba de informar el escaneo.",
     };
   }
   if (findings > 0) {
     return {
-      title: "Classifying findings",
-      detail: "Documents are already stored. Severity is assigned from the evidence collected so far.",
+      title: "Clasificando hallazgos",
+      detail: "Los documentos ya están guardados. La severidad se asigna a partir de la evidencia recogida hasta ahora.",
     };
   }
   if (assets > 0) {
     return {
-      title: "Reading saved documents",
-      detail: "Files inside the scope are in. Metadata extraction and detection run on those files.",
+      title: "Leyendo documentos guardados",
+      detail: "Los ficheros del alcance ya están dentro. La extracción de metadatos y la detección corren sobre esos ficheros.",
     };
   }
   return {
-    title: "Searching the authorized scope",
-    detail: "The scan is confirming the scope and looking for public documents to download.",
+    title: "Buscando en el alcance autorizado",
+    detail: "El escaneo confirma el alcance y busca documentos públicos para descargar.",
   };
 }
 
@@ -78,14 +78,14 @@ export function LiveActivity({
   const percent = totalSteps > 0 ? Math.min(100, Math.round((currentStep / totalSteps) * 100)) : 0;
 
   return (
-    <section className="mt-live" aria-label="Scan activity" aria-live="polite">
+    <section className="mt-live" aria-label="Actividad del escaneo" aria-live="polite">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="mt-kicker">Live scan</p>
+          <p className="mt-kicker">Escaneo en vivo</p>
           <h2 className="text-base font-semibold text-mt-fg">{copy.title}</h2>
         </div>
         <p className="mt-tech text-lg text-mt-fg">
-          <span className="sr-only">Elapsed </span>
+          <span className="sr-only">Transcurrido </span>
           {formatElapsed(startedAt, now)}
         </p>
       </div>
@@ -93,32 +93,32 @@ export function LiveActivity({
       <div
         className="mt-live-sweep"
         role="progressbar"
-        aria-label="Scan progress"
+        aria-label="Progreso del escaneo"
         aria-valuemin={0}
         aria-valuemax={totalSteps}
         aria-valuenow={currentStep}
-        aria-valuetext={`Step ${currentStep} of ${totalSteps}`}
+        aria-valuetext={`Paso ${currentStep} de ${totalSteps}`}
       >
         <span style={{ width: `${percent}%` }} />
       </div>
       <p className="text-sm text-mt-muted">{copy.detail}</p>
       <dl className="mt-live-counts">
         <div>
-          <dt>Documents</dt>
+          <dt>Documentos</dt>
           <dd>{totalAssets}</dd>
         </div>
         <div>
-          <dt>Findings</dt>
+          <dt>Hallazgos</dt>
           <dd>{totalFindings}</dd>
         </div>
         <div>
-          <dt>Asset issues</dt>
+          <dt>Incidencias de activos</dt>
           <dd>{issueCount}</dd>
         </div>
       </dl>
       {message ? <p className="mt-tech whitespace-pre-wrap">{message}</p> : null}
       {currentAsset ? <p className="mt-tech break-all">{currentAsset}</p> : null}
-      {contractError ? <p className="text-xs text-mt-muted">A progress event could not be read.</p> : null}
+      {contractError ? <p className="text-xs text-mt-muted">No se pudo leer un evento de progreso.</p> : null}
     </section>
   );
 }

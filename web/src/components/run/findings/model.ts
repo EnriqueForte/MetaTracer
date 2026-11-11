@@ -1,5 +1,8 @@
 import type { Confidence, FindingResponse, Severity, SeverityKey, TriageStatus } from "@/lib/api/types";
 import { severityKey } from "@/lib/api/types";
+import { CONFIDENCE_LABEL, SEVERITY_LABEL, TRIAGE_LABEL } from "@/lib/ui-copy";
+
+export { CONFIDENCE_LABEL, SEVERITY_LABEL, TRIAGE_LABEL };
 
 export type Finding = FindingResponse;
 
@@ -17,29 +20,7 @@ export const CONFIDENCE_LEVELS = ["high", "medium", "low"] as const satisfies re
 /** Ascending order, used to decide the feedback vote direction. */
 export const SEVERITY_ASCENDING = ["info", "low", "medium", "high", "critical"] as const satisfies readonly Severity[];
 
-export const SEVERITY_LABEL: Record<SeverityKey, string> = {
-  critical: "Critical",
-  high: "High",
-  medium: "Medium",
-  low: "Low",
-  info: "Info",
-  unclassified: "Unclassified",
-};
-
-export const CONFIDENCE_LABEL: Record<Confidence, string> = {
-  high: "High",
-  medium: "Medium",
-  low: "Low",
-};
-
 export const TRIAGE_STATUSES = ["open", "confirmed", "fixed", "false_positive"] as const satisfies readonly TriageStatus[];
-
-export const TRIAGE_LABEL: Record<TriageStatus, string> = {
-  open: "Open",
-  confirmed: "Confirmed",
-  false_positive: "False positive",
-  fixed: "Fixed",
-};
 
 export type Filters = {
   severity: SeverityKey | "all";

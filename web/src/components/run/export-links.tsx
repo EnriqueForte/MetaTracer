@@ -12,17 +12,17 @@ export function ExportLinks({ runId }: { runId: string }) {
     <section className="mt-card flex flex-col gap-3 p-4" aria-labelledby={titleId}>
       <div>
         <h2 id={titleId} className="mt-section-title">
-          Download a report
+          Descargar un informe
         </h2>
         <p className="mt-1 text-sm text-mt-muted">
-          The file includes methodology, coverage, and limitations. Redaction changes this file
-          only. Archive indexes are not reported as current exposure.
+          El fichero incluye metodología, cobertura y limitaciones. La redacción cambia solo este
+          fichero. Los índices de archivo no se informan como exposición actual.
         </p>
       </div>
       <div className="flex flex-wrap items-end gap-2">
         <div className="flex flex-col gap-1">
           <label htmlFor={`redact-${runId}`} className="text-xs font-semibold text-mt-muted">
-            Redaction
+            Redacción
           </label>
           <select
             id={`redact-${runId}`}
@@ -45,7 +45,7 @@ export function ExportLinks({ runId }: { runId: string }) {
           </Button>
         ))}
       </div>
-      <p className="text-xs text-mt-muted">The report file is regenerated on the server.</p>
+      <p className="text-xs text-mt-muted">El fichero del informe se regenera en el servidor.</p>
     </section>
   );
 }

@@ -8,7 +8,7 @@ export function AssetIssues({ issues }: { issues: RunSnapshot["asset_issues"] })
   return (
     <details className="rounded-md border border-mt-warning-border bg-mt-warning-bg p-3">
       <summary className="cursor-pointer text-sm text-mt-fg">
-        Asset issues ({issues.length}) — failed or skipped documents that did not abort the run
+        Incidencias de activos ({issues.length}) — documentos fallidos u omitidos que no abortaron el escaneo
       </summary>
       <ul className="mt-3 flex flex-col gap-2">
         {issues.map((issue) => {

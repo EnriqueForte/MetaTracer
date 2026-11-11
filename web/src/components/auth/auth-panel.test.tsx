@@ -19,21 +19,21 @@ function stubAuth() {
 
 describe("Auth surfaces", () => {
   it.each([
-    [LoginForm, "Sign in"],
-    [RegisterForm, "Create your account"],
-    [SetupForm, "Initial setup"],
+    [LoginForm, "Iniciar sesión"],
+    [RegisterForm, "Crear tu cuenta"],
+    [SetupForm, "Configuración inicial"],
   ] as const)("keeps %s on one panel without a rail", (Form, title) => {
     stubAuth();
     render(<Form />);
     expect(screen.getByRole("heading", { name: title })).toBeInTheDocument();
     expect(document.querySelectorAll(".mt-auth-panel")).toHaveLength(1);
     expect(screen.queryByRole("navigation", { name: "Primary" })).not.toBeInTheDocument();
-    expect(screen.getByRole("complementary", { name: "How MetaTracer works" })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: /Capture pipeline/ })).toBeInTheDocument();
-    expect(screen.getByText("Confirmed scope")).toBeInTheDocument();
-    expect(screen.getByText("Bounty report")).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: "Cómo funciona MetaTracer" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /Canal de captura/ })).toBeInTheDocument();
+    expect(screen.getByText("Alcance confirmado")).toBeInTheDocument();
+    expect(screen.getByText("Informe bounty")).toBeInTheDocument();
     expect(screen.getByText("Enrique Forte")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "GitHub profile of Enrique Forte" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Perfil de GitHub de Enrique Forte" })).toHaveAttribute(
       "href",
       "https://github.com/enriqueforte",
     );

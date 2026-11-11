@@ -4,9 +4,9 @@ import { Button } from "@/components/ui/button";
 
 function EmptyState({ title, children }: { title: string; children?: ReactNode }) {
   return (
-    <div className="mt-card px-4 py-6">
+    <div className="mt-card px-5 py-8">
       <p className="mt-section-title">{title}</p>
-      {children ? <div className="mt-2 text-sm text-mt-muted">{children}</div> : null}
+      {children ? <div className="mt-2 max-w-prose text-sm text-mt-muted">{children}</div> : null}
     </div>
   );
 }
@@ -15,19 +15,19 @@ function ErrorState({ message, onRetry }: { message: string; onRetry?: () => voi
   return (
     <div
       role="alert"
-      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-mt-danger-border bg-mt-danger-bg p-3 text-sm text-mt-fg"
+      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-mt-danger-border bg-mt-danger-bg px-4 py-3 text-sm text-mt-fg"
     >
       <p>{message}</p>
       {onRetry ? (
         <Button variant="secondary" onClick={onRetry}>
-          Retry
+          Reintentar
         </Button>
       ) : null}
     </div>
   );
 }
 
-function LoadingState({ label = "Loading" }: { label?: string }) {
+function LoadingState({ label = "Cargando" }: { label?: string }) {
   return (
     <div role="status" aria-busy="true" className="flex flex-col gap-3">
       <span className="sr-only">{label}</span>

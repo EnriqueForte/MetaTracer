@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 function Table({ className, ...props }: HTMLAttributes<HTMLTableElement>) {
   return (
     <div className="w-full overflow-x-auto">
-      <table className={cn("w-full border-collapse text-left text-sm", className)} {...props} />
+      <table className={cn("mt-table", className)} {...props} />
     </div>
   );
 }
@@ -19,7 +19,7 @@ function TableBody({ className, ...props }: HTMLAttributes<HTMLTableSectionEleme
 }
 
 function TableRow({ className, ...props }: HTMLAttributes<HTMLTableRowElement>) {
-  return <tr className={cn("border-b border-mt-border", className)} {...props} />;
+  return <tr className={cn("mt-row", className)} {...props} />;
 }
 
 function TableHead({ className, ...props }: ThHTMLAttributes<HTMLTableCellElement>) {

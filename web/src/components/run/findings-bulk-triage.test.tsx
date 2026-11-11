@@ -86,10 +86,10 @@ describe("Bulk triage (TASK-42)", () => {
     const posts = stub("operator");
     render(<FindingsPanel runId="run-1" totalAssets={1} />);
     expect(await screen.findByText("one@acme.com")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Select finding one" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: "Select finding two" }));
-    fireEvent.click(screen.getByRole("button", { name: "Apply to selected" }));
-    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Seleccionar hallazgo one" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Seleccionar hallazgo two" }));
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar a la selección" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
     await waitFor(() => expect(posts).toHaveLength(1));
     expect(posts[0].url).toBe("/api/runs/run-1/findings/triage");
     expect(posts[0].body).toEqual({
@@ -104,8 +104,8 @@ describe("Bulk triage (TASK-42)", () => {
     stub("viewer");
     render(<FindingsPanel runId="run-1" totalAssets={1} />);
     expect(await screen.findByText("one@acme.com")).toBeInTheDocument();
-    expect(screen.queryByRole("checkbox", { name: "Select finding one" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "Bulk triage" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Seleccionar hallazgo one" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Triaje masivo" })).not.toBeInTheDocument();
   });
 
   it("selects the active row with x", async () => {
@@ -117,7 +117,7 @@ describe("Bulk triage (TASK-42)", () => {
       .filter((row) => row.hasAttribute("data-index"));
     fireEvent.focus(rows[0]);
     fireEvent.keyDown(document.body, { key: "x" });
-    expect(screen.getByRole("region", { name: "Bulk triage" })).toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: "Select finding one" })).toBeChecked();
+    expect(screen.getByRole("region", { name: "Triaje masivo" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Seleccionar hallazgo one" })).toBeChecked();
   });
 });

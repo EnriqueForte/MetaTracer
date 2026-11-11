@@ -3,11 +3,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 
+import { RUN_STATUS_LABEL } from "@/components/run/run-model";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { errorMessage, getJson, isObject, sendJson } from "@/lib/api/client";
-import type { InvestigationResponse } from "@/lib/api/types";
+import type { InvestigationResponse, RunStatus } from "@/lib/api/types";
 import { queryKeys } from "@/lib/query/keys";
 import { useActor } from "@/lib/session";
 import { formatWhen } from "@/lib/time";
@@ -43,11 +44,11 @@ export function InvestigationDetail({ investigationId }: { investigationId: stri
     },
   });
 
-  if (query.isPending) return <LoadingState label="Loading investigation" />;
+  if (query.isPending) return <LoadingState label="Cargando investigación" />;
   if (query.isError) {
     return (
       <ErrorState
-        message={errorMessage(query.error, "Could not load the investigation.")}
+        message={errorMessage(query.error, "No se pudo cargar la investigación.")}
         onRetry={() => void query.refetch()}
       />
     );
@@ -61,7 +62,7 @@ export function InvestigationDetail({ investigationId }: { investigationId: stri
     <div className="flex flex-col gap-4">
       <p className="text-xs text-mt-muted">
         <Link href="/investigations" className="underline-offset-2 hover:underline">
-          Investigations
+          Investigaciones
         </Link>
       </p>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -69,13 +70,13 @@ export function InvestigationDetail({ investigationId }: { investigationId: stri
           <h1 className="mt-title">{row.name}</h1>
           {row.description ? <p className="mt-2 max-w-2xl text-sm text-mt-muted">{row.description}</p> : null}
           <p className="mt-2 text-sm text-mt-muted">
-            Shared values appear on each run. Suggested triage is never applied by itself and does
-            not change severity or evidence.
+            Los valores compartidos aparecen en cada escaneo. El triaje sugerido nunca se aplica
+            solo y no cambia la severidad ni la evidencia.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant={row.status === "open" ? "running" : "aborted"}>
-            {row.status === "open" ? "Open" : "Closed"}
+            {row.status === "open" ? "Abierta" : "Cerrada"}
           </Badge>
           {canMutate && row.status === "open" ? (
             <Button
@@ -83,28 +84,28 @@ export function InvestigationDetail({ investigationId }: { investigationId: stri
               disabled={close.isPending}
               onClick={() => close.mutate(row)}
             >
-              Close investigation
+              Cerrar investigación
             </Button>
           ) : null}
         </div>
       </div>
       {close.isError ? (
         <p className="text-sm text-mt-danger" role="alert">
-          {errorMessage(close.error, "Could not close the investigation.")}
+          {errorMessage(close.error, "No se pudo cerrar la investigación.")}
         </p>
       ) : null}
 
       {runs.length === 0 ? (
-        <EmptyState title="No runs in this group">Attach a run from a scan workspace.</EmptyState>
+        <EmptyState title="No hay escaneos en este grupo">Adjunta un escaneo desde un espacio de trabajo.</EmptyState>
       ) : (
         <div className="mt-card overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-mt-border text-xs text-mt-muted">
-                <th className="px-3 py-1 font-semibold">Run</th>
-                <th className="px-3 py-1 font-semibold">Target</th>
-                <th className="px-3 py-1 font-semibold">Status</th>
-                <th className="px-3 py-1 font-semibold">Started</th>
+                <th className="px-3 py-1 font-semibold">Escaneo</th>
+                <th className="px-3 py-1 font-semibold">Objetivo</th>
+                <th className="px-3 py-1 font-semibold">Estado</th>
+                <th className="px-3 py-1 font-semibold">Inicio</th>
               </tr>
             </thead>
             <tbody>
@@ -119,7 +120,9 @@ export function InvestigationDetail({ investigationId }: { investigationId: stri
                     </Link>
                   </td>
                   <td className="px-3 py-2">{run.target}</td>
-                  <td className="px-3 py-2">{run.status}</td>
+                  <td className="px-3 py-2">
+                    {RUN_STATUS_LABEL[run.status as RunStatus] ?? run.status}
+                  </td>
                   <td className="px-3 py-2 mt-tech">{formatWhen(run.started_at)}</td>
                 </tr>
               ))}

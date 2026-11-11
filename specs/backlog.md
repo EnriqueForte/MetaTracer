@@ -15,5 +15,6 @@ Watch `--cron` está en spec 44 (closed). Deltas desaparecido/severity-up no.
 | 42 | [42-ui-operator](42-ui-operator.md) | Triage masivo, densidad, deuda de paneles | closed | 35 |
 | 43 | [43-ui-investigations](43-ui-investigations.md) | UI de correlación | closed | 36 |
 | 44 | [44-watch-cron](44-watch-cron.md) | Watch `--cron` UTC + unit systemd | closed | 22 |
+| 45 | [45-ui-spanish](45-ui-spanish.md) | Web UI en español | closed | 42/43 |
 
 Orden v3.3 + 44: **36 → 43 → 37 → 39 → 38 → 41 → 40 → 42 → 44**, todas **closed**.

@@ -42,17 +42,17 @@ export function CorrelationPanel({ runId }: { runId: string }) {
   if (query.isError) {
     return (
       <p className="text-sm text-mt-danger" role="alert">
-        {errorMessage(query.error, "Could not load shared values")}
+        {errorMessage(query.error, "No se pudieron cargar los valores compartidos")}
       </p>
     );
   }
 
   const groups = query.data?.groups ?? [];
   return (
-    <section className="mt-card flex flex-col gap-2 p-4" aria-label="Shared values">
-      <h2 className="mt-section-title">Shared values</h2>
+    <section className="mt-card flex flex-col gap-2 p-4" aria-label="Valores compartidos">
+      <h2 className="mt-section-title">Valores compartidos</h2>
       {groups.length === 0 ? (
-        <p className="text-sm text-mt-muted">No shared value links this run to another asset.</p>
+        <p className="text-sm text-mt-muted">Ningún valor compartido enlaza este escaneo con otro activo.</p>
       ) : (
         <ul className="flex flex-col gap-3">
           {groups.map((group) => (
@@ -69,7 +69,7 @@ export function CorrelationPanel({ runId }: { runId: string }) {
                 ))}
               </ul>
               {group.members_truncated ? (
-                <p className="text-xs text-mt-muted">Some assets are not listed.</p>
+                <p className="text-xs text-mt-muted">Algunos activos no aparecen en la lista.</p>
               ) : null}
             </li>
           ))}

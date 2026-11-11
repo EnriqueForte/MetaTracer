@@ -52,9 +52,9 @@ export function RegisterForm() {
       }
       const payload: unknown = await response.json().catch(() => null);
       const detail = payload && typeof payload === "object" ? (payload as { detail?: unknown }).detail : null;
-      setError(typeof detail === "string" ? detail : `Registration failed (HTTP ${response.status}).`);
+      setError(typeof detail === "string" ? detail : `El registro falló (HTTP ${response.status}).`);
     } catch {
-      setError("Could not reach the server.");
+      setError("No se pudo contactar con el servidor.");
     } finally {
       setBusy(false);
     }
@@ -62,24 +62,24 @@ export function RegisterForm() {
 
   return (
     <AuthPanel
-      title="Create your account"
-      lede="Redeem the invitation code you received."
+      title="Crear tu cuenta"
+      lede="Canjea el código de invitación que recibiste."
       note={
         <p>
-          Have an account already? <Link href="/login" className="text-mt-accent-hover underline">Back to sign in</Link>
+          ¿Ya tienes una cuenta? <Link href="/login" className="text-mt-accent-hover underline">Volver al inicio de sesión</Link>
         </p>
       }
     >
       {error ? <p role="alert" className="text-sm text-mt-danger">{error}</p> : null}
       <form className="flex flex-col gap-3" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-        <label htmlFor="code" className="text-xs text-mt-muted">Invitation code</label>
+        <label htmlFor="code" className="text-xs text-mt-muted">Código de invitación</label>
         <Input id="code" required autoComplete="off" value={code} onChange={(event) => setCode(event.target.value)} />
-        <label htmlFor="username" className="text-xs text-mt-muted">Username</label>
+        <label htmlFor="username" className="text-xs text-mt-muted">Usuario</label>
         <Input id="username" required autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} />
-        <label htmlFor="password" className="text-xs text-mt-muted">Password</label>
+        <label htmlFor="password" className="text-xs text-mt-muted">Contraseña</label>
         <Input id="password" type="password" required autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} />
-        <p className="text-xs text-mt-muted">Minimum 8 characters.</p>
-        <Button type="submit" className="w-full" disabled={busy}>{busy ? "Creating account…" : "Create account"}</Button>
+        <p className="text-xs text-mt-muted">Mínimo 8 caracteres.</p>
+        <Button type="submit" className="w-full" disabled={busy}>{busy ? "Creando cuenta…" : "Crear cuenta"}</Button>
       </form>
     </AuthPanel>
   );

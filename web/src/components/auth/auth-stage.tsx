@@ -47,7 +47,7 @@ export function AuthStage({ children, note }: { children: ReactNode; note?: Reac
 
   return (
     <div className="mt-auth-frame">
-      <aside className="mt-auth-brief" aria-label="How MetaTracer works">
+      <aside className="mt-auth-brief" aria-label="Cómo funciona MetaTracer">
         <CaptureDiagram svgRef={svgRef} sessionX={sessionX} />
       </aside>
       <div className="mt-auth-stack">

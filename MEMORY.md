@@ -3,7 +3,7 @@
 Memoria de trabajo para agentes. No es un PRD. Si un hecho no cabe aquí, vive en
 `specs/`, `.aicontext/` o el código.
 
-**Última actualización:** 2026-11-05 (TASK-44 closed)
+**Última actualización:** 2026-11-11 (TASK-45 closed: Web UI en español)
 
 ## Estado del producto
 
@@ -44,6 +44,7 @@ No hay specs reserved. Deltas watch “desaparecido / severity-up” siguen left
 | [42-ui-operator](specs/42-ui-operator.md) | closed |
 | [43-ui-investigations](specs/43-ui-investigations.md) | closed |
 | [44-watch-cron](specs/44-watch-cron.md) | closed |
+| [45-ui-spanish](specs/45-ui-spanish.md) | closed |
 
 ## Docs stale (no reintroducir como contrato)
 
@@ -74,3 +75,4 @@ Las 7 reglas de `safety-invariants.mdc`. Loopback bloqueado salvo `METATRACER_AL
 - 2026-11-05 — TASK-40: MiniLM ONNX local 384-d (extra `[onnx]`); fallback hashing-trick; sin descarga.
 - 2026-11-05 — TASK-42: triage masivo API/CLI/UI; densidad en findings; atajo `x`.
 - 2026-11-05 — TASK-44: `watch --cron` UTC 5 campos (stdlib); unit systemd; compose profile `watch`.
+- 2026-11-11 — TASK-45: Web UI en español; reportes exportados y CLI siguen en inglés.

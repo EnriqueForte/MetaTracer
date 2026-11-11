@@ -1,15 +1,7 @@
+import { SEVERITY_LABEL } from "@/lib/ui-copy";
 import { cn } from "@/lib/utils";
 
 const SEVERITIES = ["critical", "high", "medium", "low", "info", "unclassified"] as const;
-
-const SEVERITY_LABEL: Record<(typeof SEVERITIES)[number], string> = {
-  critical: "Critical",
-  high: "High",
-  medium: "Medium",
-  low: "Low",
-  info: "Info",
-  unclassified: "Unclassified",
-};
 
 const SEVERITY_FILL: Record<(typeof SEVERITIES)[number], string> = {
   critical: "bg-mt-sev-critical text-mt-sev-critical",
@@ -48,10 +40,10 @@ function SeverityOverview({
   return (
     <section className="mt-card flex min-w-0 flex-col gap-4 p-4" aria-labelledby="security-posture-title">
       <h2 id="security-posture-title" className="mt-section-title">
-        Security posture
+        Postura de seguridad
       </h2>
       <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-center">
-        <svg viewBox="0 0 120 120" className="h-40 w-40 shrink-0" role="img" aria-label={`${total} findings`}>
+        <svg viewBox="0 0 120 120" className="h-40 w-40 shrink-0" role="img" aria-label={`${total} hallazgos`}>
           <circle cx="60" cy="60" r={radius} fill="none" stroke="var(--mt-elevated)" strokeWidth="12" />
           {segments.map((segment) => (
             <circle
@@ -74,7 +66,7 @@ function SeverityOverview({
             {total}
           </text>
           <text x="60" y="74" textAnchor="middle" fill="var(--mt-muted)" fontSize="8" letterSpacing="0.08em">
-            FINDINGS
+            HALLAZGOS
           </text>
         </svg>
         <ul className="grid w-full min-w-0 gap-1.5">

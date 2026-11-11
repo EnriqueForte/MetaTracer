@@ -1,16 +1,11 @@
+import { SEVERITY_LABEL } from "@/lib/ui-copy";
+
 const LEVELS = ["critical", "high", "medium", "low", "info", "unclassified"] as const;
 type Level = (typeof LEVELS)[number];
 
 export type TrendPoint = { date: string } & Record<Level, number>;
 
-const LABEL: Record<Level, string> = {
-  critical: "Critical",
-  high: "High",
-  medium: "Medium",
-  low: "Low",
-  info: "Info",
-  unclassified: "Unclassified",
-};
+const LABEL: Record<Level, string> = SEVERITY_LABEL;
 
 const FILL: Record<Level, string> = {
   critical: "fill-mt-sev-critical",
@@ -62,27 +57,27 @@ export function SeverityTrend({ points }: { points: TrendPoint[] }) {
     <section className="mt-card flex min-w-0 flex-col gap-3 p-4" aria-labelledby="severity-trend-title">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 id="severity-trend-title" className="mt-section-title">
-          Findings per day
+          Hallazgos por día
         </h2>
         <p className="mt-meta">
           {first} → {last} (UTC)
         </p>
       </div>
       {sum === 0 ? (
-        <p className="text-sm text-mt-muted">No findings in the last {points.length} days.</p>
+        <p className="text-sm text-mt-muted">No hay hallazgos en los últimos {points.length} días.</p>
       ) : (
         <svg
           viewBox={`0 0 ${width} ${HEIGHT}`}
           preserveAspectRatio="none"
           className="h-24 w-full"
           role="img"
-          aria-label={`${sum} findings over the last ${points.length} days`}
+          aria-label={`${sum} hallazgos en los últimos ${points.length} días`}
         >
           {points.map((point, index) => {
             let y = HEIGHT;
             return (
               <g key={point.date}>
-                <title>{`${point.date}: ${total(point)} finding(s)`}</title>
+                <title>{`${point.date}: ${total(point)} hallazgo(s)`}</title>
                 {LEVELS.map((level) => {
                   const height = (point[level] / peak) * HEIGHT;
                   if (height <= 0) return null;
@@ -112,10 +107,10 @@ export function SeverityTrend({ points }: { points: TrendPoint[] }) {
         ))}
       </ul>
       <table className="sr-only">
-        <caption>Findings per day by severity</caption>
+        <caption>Hallazgos por día según severidad</caption>
         <thead>
           <tr>
-            <th>Date</th>
+            <th>Fecha</th>
             {LEVELS.map((level) => (
               <th key={level}>{LABEL[level]}</th>
             ))}

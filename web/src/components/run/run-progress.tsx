@@ -102,9 +102,9 @@ export function RunProgress({ runId }: { runId: string }) {
   if (deleted) {
     return (
       <div className="flex flex-col gap-2">
-        <p className="text-sm text-mt-fg">This run was deleted.</p>
+        <p className="text-sm text-mt-fg">Este escaneo se eliminó.</p>
         <Link href="/runs" className="self-start text-sm font-semibold text-mt-accent-hover">
-          Back to history
+          Volver al historial
         </Link>
       </div>
     );
@@ -113,23 +113,23 @@ export function RunProgress({ runId }: { runId: string }) {
   if (runQuery.isError && !run) {
     const missing = runQuery.error instanceof ApiError && runQuery.error.status === 404;
     const loadError = missing
-      ? "Run not found"
+      ? "Escaneo no encontrado"
       : runQuery.error instanceof ApiError
         ? runQuery.error.status === 200
-          ? "Could not load this run."
-          : `Could not load this run (HTTP ${runQuery.error.status}).`
-        : "Network error: the API is unreachable.";
+          ? "No se pudo cargar este escaneo."
+          : `No se pudo cargar este escaneo (HTTP ${runQuery.error.status}).`
+        : "Error de red: la API no está accesible.";
     return (
       <div role="alert" className="flex flex-col gap-2 rounded-md border border-mt-danger-border bg-mt-danger-bg p-4">
         <p className="text-base font-semibold text-mt-fg">{loadError}</p>
         {missing ? (
           <p className="text-sm text-mt-fg">
-            This run id does not exist in the local database. It may belong to another MetaTracer
-            installation or the database may have been reset.
+            Este id de escaneo no existe en la base local. Puede pertenecer a otra instalación de
+            MetaTracer o la base puede haberse restablecido.
           </p>
         ) : null}
         <Link href="/" className="self-start text-sm font-semibold text-mt-accent-hover">
-          Start a new scan
+          Iniciar un nuevo escaneo
         </Link>
       </div>
     );
@@ -139,7 +139,7 @@ export function RunProgress({ runId }: { runId: string }) {
     return (
       <p className="flex items-center gap-2 text-sm text-mt-muted" aria-live="polite">
         <span className="mt-spin" aria-hidden="true" />
-        Loading run…
+        Cargando escaneo…
       </p>
     );
   }
@@ -153,11 +153,11 @@ export function RunProgress({ runId }: { runId: string }) {
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-mt-border pb-3">
         <div className="min-w-0">
           <h1 className="mt-title">
-            Scan of <span className="mt-tech">{run.target}</span>
+            Escaneo de <span className="mt-tech">{run.target}</span>
           </h1>
           <p className="mt-tech">{run.run_id}</p>
           {run.completed_at ? (
-            <p className="text-xs text-mt-muted">Completed at {formatWhen(run.completed_at)}</p>
+            <p className="text-xs text-mt-muted">Completado a las {formatWhen(run.completed_at)}</p>
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -165,7 +165,7 @@ export function RunProgress({ runId }: { runId: string }) {
           {live && canMutate ? <AbortRunButton runId={run.run_id} /> : null}
           {!live && canMutate ? (
             <Button variant="danger" onClick={() => setConfirmDelete(true)}>
-              Delete run
+              Eliminar escaneo
             </Button>
           ) : null}
         </div>
@@ -176,13 +176,13 @@ export function RunProgress({ runId }: { runId: string }) {
           <ExportLinks runId={run.run_id} />
           <div className="flex flex-wrap gap-2">
             <Button variant="ghost" className="px-2 py-1 text-xs" asChild>
-              <Link href={`/runs/compare?b=${encodeURIComponent(run.run_id)}`}>Compare</Link>
+              <Link href={`/runs/compare?b=${encodeURIComponent(run.run_id)}`}>Comparar</Link>
             </Button>
             <Button variant="ghost" className="px-2 py-1 text-xs" asChild>
-              <Link href="/runs">History</Link>
+              <Link href="/runs">Historial</Link>
             </Button>
             <Button variant="secondary" className="px-2 py-1 text-xs" asChild>
-              <Link href="/">New scan</Link>
+              <Link href="/">Nuevo escaneo</Link>
             </Button>
           </div>
         </>
@@ -196,14 +196,14 @@ export function RunProgress({ runId }: { runId: string }) {
 
       {run.status === "failed" ? (
         <div role="alert" className="flex flex-col gap-1 rounded-md border border-mt-danger-border bg-mt-danger-bg p-3">
-          <p className="text-sm font-semibold text-mt-fg">Scan failed</p>
-          <p className="mt-tech whitespace-pre-wrap">{run.error_message || "unknown error"}</p>
+          <p className="text-sm font-semibold text-mt-fg">Escaneo fallido</p>
+          <p className="mt-tech whitespace-pre-wrap">{run.error_message || "error desconocido"}</p>
         </div>
       ) : null}
 
       {run.status === "aborted" ? (
         <div role="alert" className="flex flex-col gap-1 rounded-md border border-mt-warning-border bg-mt-warning-bg p-3">
-          <p className="text-sm font-semibold text-mt-fg">Scan aborted</p>
+          <p className="text-sm font-semibold text-mt-fg">Escaneo abortado</p>
           {run.error_message ? <p className="mt-tech whitespace-pre-wrap">{run.error_message}</p> : null}
         </div>
       ) : null}

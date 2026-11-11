@@ -4,15 +4,15 @@ import { Badge } from "@/components/ui/badge";
 export type ProvenanceLayer = "observed" | "inferred" | "external";
 
 const LAYER_LABEL: Record<ProvenanceLayer, string> = {
-  observed: "Observed",
-  inferred: "Inferred",
-  external: "External",
+  observed: "Observado",
+  inferred: "Inferido",
+  external: "Externo",
 };
 
 const LAYER_HINT: Record<ProvenanceLayer, string> = {
-  observed: "Read directly from the asset's metadata",
-  inferred: "Derived or interpreted from the observed data",
-  external: "Retrieved from a third-party source",
+  observed: "Leído directamente de los metadatos del activo",
+  inferred: "Derivado o interpretado a partir de los datos observados",
+  external: "Obtenido de una fuente de terceros",
 };
 
 /**

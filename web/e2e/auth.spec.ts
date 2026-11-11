@@ -32,13 +32,13 @@ test("login boots a session and mutations carry the CSRF token (MIN-01)", async 
   
   await page.goto("/login");
 
-  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Iniciar sesión" })).toBeVisible();
 
-  await page.getByLabel("Username").fill("operator");
-  await page.getByLabel("Password").fill(PASSWORD);
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.getByLabel("Usuario").fill("operator");
+  await page.getByLabel("Contraseña").fill(PASSWORD);
+  await page.getByRole("button", { name: "Iniciar sesión" }).click();
 
-  await expect(page.getByText(/Signed in as|Sign out/)).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText(/Cerrar sesión/)).toBeVisible({ timeout: 10_000 });
 
   // The real MIN-01 probe: an operator mutation (create a scope) must NOT get
   // 403 CSRF. Mirrors the UI: read the token from the in-page meta.
@@ -71,16 +71,16 @@ test("viewer cannot open admin controls nor mutate (T3)", async ({ browser }) =>
   // 2. Sign in as the viewer in a fresh page.
   const viewerPage = await browser.newPage();
   await viewerPage.goto("/login");
-  await viewerPage.getByLabel("Username").fill("viewer-t3");
-  await viewerPage.getByLabel("Password").fill("viewer-password-123");
-  await viewerPage.getByRole("button", { name: "Sign in" }).click();
-  await expect(viewerPage.getByText(/Signed in as|Sign out/)).toBeVisible({ timeout: 10_000 });
+  await viewerPage.getByLabel("Usuario").fill("viewer-t3");
+  await viewerPage.getByLabel("Contraseña").fill("viewer-password-123");
+  await viewerPage.getByRole("button", { name: "Iniciar sesión" }).click();
+  await expect(viewerPage.getByText(/Cerrar sesión/)).toBeVisible({ timeout: 10_000 });
 
   // 3. The Users admin screen must be gated: no tabs, no create buttons.
   await viewerPage.goto("/users");
-  await expect(viewerPage.getByText("Operator role required")).toBeVisible();
-  await expect(viewerPage.getByRole("tab", { name: "Users" })).toHaveCount(0);
-  await expect(viewerPage.getByRole("button", { name: "Create" })).toHaveCount(0);
+  await expect(viewerPage.getByText("Se requiere el rol de operador")).toBeVisible();
+  await expect(viewerPage.getByRole("tab", { name: "Usuarios" })).toHaveCount(0);
+  await expect(viewerPage.getByRole("button", { name: "Crear" })).toHaveCount(0);
 
   // 4. Even a raw mutation attempt stays rejected server-side.
   const attempt = await viewerPage.evaluate(async () => {

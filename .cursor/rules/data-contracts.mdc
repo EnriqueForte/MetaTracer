@@ -42,7 +42,8 @@ No añadir valores sin actualizar antes `.aicontext/tasks/README.md`.
 ## Idiomas por capa
 
 - Reportes exportados (Markdown/JSON): **inglés** (plataformas de bug bounty).
-- UI/CLI: **inglés** (audiencia internacional).
+- Web UI (`web/`): **español**.
+- CLI: **inglés**.
 - Documentación (`.aicontext/`): **español**.
 
 ## Persistencia

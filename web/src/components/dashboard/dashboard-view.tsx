@@ -43,7 +43,7 @@ function num(value: unknown): number | null {
 }
 
 function formatCount(value: number): string {
-  return value.toLocaleString("en-US");
+  return value.toLocaleString("es-ES");
 }
 
 function parseStats(value: unknown): Stats | null {
@@ -138,9 +138,9 @@ function parseStats(value: unknown): Stats | null {
 
 async function fetchStats(): Promise<Stats> {
   const response = await apiFetch("/api/stats");
-  if (!response.ok) throw new ApiError(response.status, "Could not load the dashboard data.");
+  if (!response.ok) throw new ApiError(response.status, "No se pudieron cargar los datos del panel.");
   const parsed = parseStats(await response.json());
-  if (!parsed) throw new ApiError(200, "Could not load the dashboard data.");
+  if (!parsed) throw new ApiError(200, "No se pudieron cargar los datos del panel.");
   return parsed;
 }
 
@@ -148,27 +148,27 @@ function Onboarding() {
   return (
     <section className="flex flex-col gap-3" aria-labelledby="onboarding-title">
       <h2 id="onboarding-title" className="mt-section-title">
-        No data yet
+        Aún no hay datos
       </h2>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <article className="mt-card flex flex-col gap-2 p-4">
           <p className="mt-kicker">1</p>
-          <h3 className="text-sm font-semibold text-mt-fg">Name the targets</h3>
-          <p className="text-sm text-mt-muted">Public documents you are authorized to request.</p>
+          <h3 className="text-sm font-semibold text-mt-fg">Nombra los objetivos</h3>
+          <p className="text-sm text-mt-muted">Documentos públicos que estás autorizado a pedir.</p>
         </article>
         <article className="mt-card flex flex-col gap-2 p-4">
           <p className="mt-kicker">2</p>
-          <h3 className="text-sm font-semibold text-mt-fg">Set the scope</h3>
-          <p className="text-sm text-mt-muted">Domains, or a saved scope. It is never guessed.</p>
+          <h3 className="text-sm font-semibold text-mt-fg">Define el alcance</h3>
+          <p className="text-sm text-mt-muted">Dominios, o un alcance guardado. Nunca se adivina.</p>
         </article>
         <article className="mt-card flex flex-col gap-2 p-4">
           <p className="mt-kicker">3</p>
-          <h3 className="text-sm font-semibold text-mt-fg">Confirm, then read</h3>
-          <p className="text-sm text-mt-muted">Nothing is downloaded before that confirmation.</p>
+          <h3 className="text-sm font-semibold text-mt-fg">Confirma, luego lee</h3>
+          <p className="text-sm text-mt-muted">No se descarga nada antes de esa confirmación.</p>
         </article>
       </div>
       <Button className="self-start" asChild>
-        <Link href="/">Start your first scan</Link>
+        <Link href="/">Iniciar el primer escaneo</Link>
       </Button>
     </section>
   );
@@ -179,38 +179,38 @@ function nextCards(stats: Stats): { title: string; body: string; href: string; a
   const cards = [
     stats.findings.unclassified > 0
       ? {
-          title: "Findings still open",
-          body: `${stats.findings.unclassified} finding(s) have no severity yet. Open a finished run and read the evidence before you export.`,
+          title: "Hallazgos aún abiertos",
+          body: `${stats.findings.unclassified} hallazgo(s) aún no tienen severidad. Abre un escaneo terminado y lee la evidencia antes de exportar.`,
           href: "/runs?status=completed",
-          action: "Open completed runs",
+          action: "Abrir escaneos completados",
         }
       : {
-          title: "Read a finished run",
-          body: "Assets, metadata, and findings live inside each run. Coverage says what that crawl did not fetch.",
+          title: "Leer un escaneo terminado",
+          body: "Activos, metadatos y hallazgos viven dentro de cada escaneo. La cobertura indica lo que ese rastreo no descargó.",
           href: "/runs?status=completed",
-          action: "Open completed runs",
+          action: "Abrir escaneos completados",
         },
   ];
   if (failed > 0) {
     cards.push({
-      title: "Scans that stopped",
-      body: `${failed} scan(s) did not finish. The run page keeps the error. A failed scan is not a clean target.`,
+      title: "Escaneos que se detuvieron",
+      body: `${failed} escaneo(s) no terminaron. La página del escaneo conserva el error. Un escaneo fallido no es un objetivo limpio.`,
       href: "/runs?status=failed",
-      action: "Review failed scans",
+      action: "Revisar escaneos fallidos",
     });
   } else {
     cards.push({
-      title: "Run another scan",
-      body: "Confirm the scope first. Only public documents on hosts you named are requested.",
+      title: "Lanzar otro escaneo",
+      body: "Confirma el alcance primero. Solo se piden documentos públicos en los hosts que nombraste.",
       href: "/",
-      action: "New scan",
+      action: "Nuevo escaneo",
     });
   }
   cards.push({
-    title: "Compare two scans",
-    body: "Pick two runs in history, or open compare and drop in the IDs. Same evidence across runs is a shared value, not an identity.",
+    title: "Comparar dos escaneos",
+    body: "Elige dos escaneos en el historial, o abre la comparación e introduce los ids. La misma evidencia entre escaneos es un valor compartido, no una identidad.",
     href: "/runs/compare",
-    action: "Open compare",
+    action: "Abrir comparación",
   });
   return cards.slice(0, 3);
 }
@@ -221,8 +221,8 @@ export function DashboardView() {
   const loading = query.isPending;
   const error = query.isError
     ? query.error instanceof ApiError
-      ? "Could not load the dashboard data."
-      : "Network error: the API is unreachable."
+      ? "No se pudieron cargar los datos del panel."
+      : "Error de red: la API no está accesible."
     : "";
   const load = () => query.refetch();
 
@@ -237,27 +237,27 @@ export function DashboardView() {
 
   return (
     <div className="flex min-w-0 flex-col gap-5">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex min-w-0 flex-col gap-1">
-          <h1 className="mt-page-title">Dashboard</h1>
-          <p className="mt-meta">Security overview of every scan stored in this installation.</p>
+      <div className="mt-page-head">
+        <div>
+          <h1 className="mt-page-title">Panel</h1>
+          <p className="mt-meta">Resumen de seguridad de cada escaneo guardado en esta instalación.</p>
         </div>
         <Button variant="secondary" asChild>
-          <Link href="/">New scan</Link>
+          <Link href="/">Nuevo escaneo</Link>
         </Button>
       </div>
-      {loading && !stats ? <LoadingState label="Loading dashboard" /> : null}
+      {loading && !stats ? <LoadingState label="Cargando el panel" /> : null}
       {error ? <ErrorState message={error} onRetry={() => void load()} /> : null}
       {stats && stats.runs.total === 0 ? <Onboarding /> : null}
       {stats && stats.runs.total > 0 ? (
         <div className="flex flex-col gap-5">
           <section className="flex flex-col gap-3" aria-labelledby="next-title">
             <h2 id="next-title" className="mt-section-title">
-              What to do next
+              Qué hacer ahora
             </h2>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               {nextCards(stats).map((card) => (
-                <article key={card.title} className="mt-card flex flex-col gap-2 p-4">
+                <article key={card.title} className="mt-card mt-card-interactive flex flex-col gap-2 p-4">
                   <h3 className="text-sm font-semibold text-mt-fg">{card.title}</h3>
                   <p className="text-sm text-mt-muted">{card.body}</p>
                   <Button variant="secondary" className="mt-auto self-start px-2 py-1 text-xs" asChild>
@@ -269,30 +269,30 @@ export function DashboardView() {
           </section>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard
-              label="Scans"
+              label="Escaneos"
               value={formatCount(stats.runs.total)}
-              detail={`Completed ${stats.runs.completed ?? 0} · Failed ${stats.runs.failed ?? 0}`}
+              detail={`Completados ${stats.runs.completed ?? 0} · Fallidos ${stats.runs.failed ?? 0}`}
               icon={ScanSearch}
               accentClass="bg-mt-secondary"
             />
             <MetricCard
-              label="Findings"
+              label="Hallazgos"
               value={formatCount(stats.findings.total)}
-              detail={`High ${stats.findings.severity_breakdown.high ?? 0} · Unclassified ${stats.findings.unclassified} · Dismissed ${stats.findings.dismissed}`}
+              detail={`Alta ${stats.findings.severity_breakdown.high ?? 0} · Sin clasificar ${stats.findings.unclassified} · Descartados ${stats.findings.dismissed}`}
               icon={ShieldAlert}
               accentClass="bg-mt-sev-high"
             />
             <MetricCard
-              label="Assets"
+              label="Activos"
               value={formatCount(stats.assets.total)}
-              detail={`With issues ${stats.assets.with_issues}`}
+              detail={`Con incidencias ${stats.assets.with_issues}`}
               icon={Files}
               accentClass="bg-mt-chart-3"
             />
             <MetricCard
-              label="AI usage"
+              label="Uso de IA"
               value={formatCount(stats.agent_usage.total_tokens)}
-              detail={`${formatCount(stats.agent_usage.calls)} calls`}
+              detail={`${formatCount(stats.agent_usage.calls)} llamadas`}
               icon={Sparkles}
               accentClass="bg-mt-accent"
             />
@@ -307,24 +307,24 @@ export function DashboardView() {
             <EvidenceTable rows={stats.top_evidence} />
           </div>
           <section
-            aria-label="Agent usage"
+            aria-label="Uso del agente"
             className="flex flex-wrap gap-x-5 gap-y-1 border-t border-mt-border pt-3 text-xs text-mt-muted"
           >
             <p>
-              Calls <span className="text-mt-fg tabular-nums">{stats.agent_usage.calls}</span>
+              Llamadas <span className="text-mt-fg tabular-nums">{stats.agent_usage.calls}</span>
             </p>
             <p>
-              Prompt tokens <span className="text-mt-fg tabular-nums">{stats.agent_usage.prompt_tokens}</span>
+              Tokens de prompt <span className="text-mt-fg tabular-nums">{stats.agent_usage.prompt_tokens}</span>
             </p>
             <p>
-              Completion tokens{" "}
+              Tokens de respuesta{" "}
               <span className="text-mt-fg tabular-nums">{stats.agent_usage.completion_tokens}</span>
             </p>
             <p>
-              Total tokens <span className="text-mt-fg tabular-nums">{stats.agent_usage.total_tokens}</span>
+              Tokens totales <span className="text-mt-fg tabular-nums">{stats.agent_usage.total_tokens}</span>
             </p>
             <p>
-              Latency (ms) <span className="text-mt-fg tabular-nums">{stats.agent_usage.latency_ms}</span>
+              Latencia (ms) <span className="text-mt-fg tabular-nums">{stats.agent_usage.latency_ms}</span>
             </p>
           </section>
         </div>

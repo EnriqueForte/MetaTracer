@@ -39,11 +39,11 @@ describe("HistoryView", () => {
     );
     render(<HistoryView />);
     expect(await screen.findByRole("link", { name: "example.com" })).toHaveAttribute("href", "/runs/run-1");
-    const status = screen.getByRole("columnheader", { name: "Status" });
+    const status = screen.getByRole("columnheader", { name: "Estado" });
     expect(status.className).not.toContain("uppercase");
     expect(status.className).toContain("py-1");
-    const table = screen.getByRole("table", { name: "Local scan history" });
-    expect(table).toHaveTextContent("Aborted");
+    const table = screen.getByRole("table", { name: "Historial local de escaneos" });
+    expect(table).toHaveTextContent("Abortado");
     expect(table.querySelector("td")?.className).toContain("py-1.5");
   });
 
@@ -59,7 +59,7 @@ describe("HistoryView", () => {
       ),
     );
     render(<HistoryView />);
-    expect(await screen.findByRole("button", { name: "Filter by status failed" })).toHaveAttribute(
+    expect(await screen.findByRole("button", { name: "Filtrar por estado Fallido" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
@@ -107,7 +107,7 @@ describe("HistoryView", () => {
       }),
     );
     render(<HistoryView />);
-    expect(await screen.findByRole("button", { name: "Delete run" })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Delete run" })).toHaveLength(1);
+    expect(await screen.findByRole("button", { name: "Eliminar escaneo" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Eliminar escaneo" })).toHaveLength(1);
   });
 });

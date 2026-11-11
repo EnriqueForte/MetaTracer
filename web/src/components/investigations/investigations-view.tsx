@@ -15,8 +15,8 @@ import { queryKeys } from "@/lib/query/keys";
 import { useActor } from "@/lib/session";
 
 const createSchema = z.object({
-  name: z.string().trim().min(1, "Name the investigation first.").max(80, "Names are at most 80 characters."),
-  description: z.string().trim().max(2000, "Descriptions are at most 2000 characters.").optional(),
+  name: z.string().trim().min(1, "Pon primero un nombre a la investigación.").max(80, "Los nombres tienen como máximo 80 caracteres."),
+  description: z.string().trim().max(2000, "Las descripciones tienen como máximo 2000 caracteres.").optional(),
 });
 
 export function InvestigationsView() {
@@ -40,14 +40,14 @@ export function InvestigationsView() {
       setFormError("");
       void queryClient.invalidateQueries({ queryKey: queryKeys.investigations });
     },
-    onError: (error) => setFormError(errorMessage(error, "Could not create the investigation.")),
+    onError: (error) => setFormError(errorMessage(error, "No se pudo crear la investigación.")),
   });
 
-  if (list.isPending) return <LoadingState label="Loading investigations" />;
+  if (list.isPending) return <LoadingState label="Cargando investigaciones" />;
   if (list.isError) {
     return (
       <ErrorState
-        message={errorMessage(list.error, "Could not load investigations.")}
+        message={errorMessage(list.error, "No se pudieron cargar las investigaciones.")}
         onRetry={() => void list.refetch()}
       />
     );
@@ -58,10 +58,10 @@ export function InvestigationsView() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="mt-title">Investigations</h1>
+        <h1 className="mt-title">Investigaciones</h1>
         <p className="mt-2 max-w-2xl text-sm text-mt-muted">
-          Groups of runs in this install. A shared value is not a shared identity. Triage from
-          another run is suggested on the finding, never applied by itself.
+          Grupos de escaneos en esta instalación. Un valor compartido no es una identidad compartida.
+          El triaje de otro escaneo se sugiere en el hallazgo, nunca se aplica solo.
         </p>
       </div>
 
@@ -72,23 +72,23 @@ export function InvestigationsView() {
             event.preventDefault();
             const parsed = createSchema.safeParse({ name });
             if (!parsed.success) {
-              setFormError(parsed.error.issues[0]?.message ?? "Name the investigation first.");
+              setFormError(parsed.error.issues[0]?.message ?? "Pon primero un nombre a la investigación.");
               return;
             }
             create.mutate(parsed.data);
           }}
         >
           <label className="flex min-w-48 flex-1 flex-col gap-1 text-xs font-semibold text-mt-muted">
-            New investigation
+            Nueva investigación
             <Input
               value={name}
               maxLength={80}
               onChange={(event) => setName(event.target.value)}
-              placeholder="Engagement name"
+              placeholder="Nombre del encargo"
             />
           </label>
           <Button type="submit" disabled={create.isPending}>
-            Create
+            Crear
           </Button>
           {formError ? (
             <p className="w-full text-sm text-mt-danger" role="alert">
@@ -99,19 +99,19 @@ export function InvestigationsView() {
       ) : null}
 
       {rows.length === 0 ? (
-        <EmptyState title="No investigations yet">
+        <EmptyState title="Aún no hay investigaciones">
           {canMutate
-            ? "Name a group, then attach runs from a scan."
-            : "When an operator groups runs, they appear here."}
+            ? "Nombra un grupo y luego adjunta escaneos desde un espacio de trabajo."
+            : "Cuando un operador agrupe escaneos, aparecerán aquí."}
         </EmptyState>
       ) : (
         <div className="mt-card overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-mt-border text-xs text-mt-muted">
-                <th className="px-3 py-1 font-semibold">Name</th>
-                <th className="px-3 py-1 font-semibold">Status</th>
-                <th className="px-3 py-1 font-semibold">Runs</th>
+                <th className="px-3 py-1 font-semibold">Nombre</th>
+                <th className="px-3 py-1 font-semibold">Estado</th>
+                <th className="px-3 py-1 font-semibold">Escaneos</th>
               </tr>
             </thead>
             <tbody>
@@ -127,7 +127,7 @@ export function InvestigationsView() {
                   </td>
                   <td className="px-3 py-2">
                     <Badge variant={row.status === "open" ? "running" : "aborted"}>
-                      {row.status === "open" ? "Open" : "Closed"}
+                      {row.status === "open" ? "Abierta" : "Cerrada"}
                     </Badge>
                   </td>
                   <td className="px-3 py-2 mt-tech">{row.run_count}</td>

@@ -18,7 +18,7 @@ type FeedbackRow = { vote: "up" | "down"; severity_after: Severity };
 const feedbackSchema = z.object({
   vote: z.enum(["up", "down"]),
   severity_after: z.enum(SEVERITY_ASCENDING),
-  reason: z.string().trim().max(500, "Keep the reason under 500 characters.").nullable(),
+  reason: z.string().trim().max(500, "El motivo no puede superar los 500 caracteres.").nullable(),
 });
 
 const feedbackKey = queryKeys.feedback;
@@ -56,7 +56,7 @@ export function FeedbackForm({ finding }: { finding: Finding }) {
   function submit() {
     setFormError("");
     if (severity === finding.severity) {
-      setFormError("Choose a different severity to save feedback.");
+      setFormError("Elige una severidad distinta para guardar la corrección.");
       return;
     }
     const before = finding.severity ? SEVERITY_ASCENDING.indexOf(finding.severity) : -1;
@@ -66,7 +66,7 @@ export function FeedbackForm({ finding }: { finding: Finding }) {
       reason: reason.trim() || null,
     });
     if (!parsed.success) {
-      setFormError(parsed.error.issues[0]?.message ?? "Feedback is not valid.");
+      setFormError(parsed.error.issues[0]?.message ?? "La corrección no es válida.");
       return;
     }
     save.mutate(parsed.data);
@@ -80,26 +80,26 @@ export function FeedbackForm({ finding }: { finding: Finding }) {
       ? mutationError instanceof ApiError && mutationError.detail
         ? mutationError.detail
         : save.error
-          ? "Feedback could not be saved"
-          : "Feedback could not be removed"
+          ? "No se pudo guardar la corrección"
+          : "No se pudo quitar la corrección"
       : "");
   const stored = current.data ?? null;
 
   return (
     <div className="flex flex-col gap-2 border-t border-mt-border pt-4">
-      <h3 className="text-sm font-semibold text-mt-fg">Feedback</h3>
+      <h3 className="text-sm font-semibold text-mt-fg">Corrección</h3>
       <p className="text-xs text-mt-muted">
-        Correct the severity if the model got it wrong. Your correction is stored locally and guides
-        future runs with similar findings.
+        Corrige la severidad si el modelo se equivocó. Tu corrección se guarda en local y orienta
+        escaneos futuros con hallazgos similares.
       </p>
       {stored ? (
         <p className="text-xs text-mt-muted">
-          Current feedback: {stored.vote} → {SEVERITY_LABEL[stored.severity_after]}
+          Corrección actual: {stored.vote} → {SEVERITY_LABEL[stored.severity_after]}
         </p>
       ) : null}
       <div className="flex flex-wrap items-center gap-2">
         <label htmlFor="feedback-severity" className="text-xs font-semibold text-mt-muted">
-          Corrected severity
+          Severidad corregida
         </label>
         <select
           id="feedback-severity"
@@ -117,14 +117,14 @@ export function FeedbackForm({ finding }: { finding: Finding }) {
           ))}
         </select>
         <Button variant="secondary" disabled={busy} onClick={submit}>
-          {stored ? "Update feedback" : "Save feedback"}
+          {stored ? "Actualizar corrección" : "Guardar corrección"}
         </Button>
         {stored ? (
           <Button variant="danger" disabled={busy} onClick={() => remove.mutate()}>
-            Remove
+            Quitar
           </Button>
         ) : null}
-        {busy ? <span className="text-xs text-mt-muted">Saving…</span> : null}
+        {busy ? <span className="text-xs text-mt-muted">Guardando…</span> : null}
         {errorText ? (
           <span role="alert" className="text-xs text-mt-danger">
             {errorText}
@@ -132,7 +132,7 @@ export function FeedbackForm({ finding }: { finding: Finding }) {
         ) : null}
       </div>
       <label htmlFor="feedback-reason" className="text-xs font-semibold text-mt-muted">
-        Reason (optional)
+        Motivo (opcional)
       </label>
       <input
         id="feedback-reason"
@@ -140,7 +140,7 @@ export function FeedbackForm({ finding }: { finding: Finding }) {
         value={reason}
         maxLength={500}
         onChange={(event) => setReason(event.target.value)}
-        placeholder="Optional: why (stored locally, never sent to the model)"
+        placeholder="Opcional: motivo (se guarda en local, nunca se envía al modelo)"
         className="w-full rounded-md border border-mt-border-strong bg-mt-bg px-3 py-2 text-sm text-mt-fg placeholder:text-mt-faint"
       />
     </div>

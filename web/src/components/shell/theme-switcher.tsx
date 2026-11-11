@@ -6,9 +6,9 @@ import { useEffect, useState } from "react";
 import { applyTheme, readTheme, type ThemeChoice } from "@/lib/theme";
 
 const OPTIONS: { value: ThemeChoice; label: string; icon: typeof Sun }[] = [
-  { value: "system", label: "System", icon: Monitor },
-  { value: "dark", label: "Dark", icon: Moon },
-  { value: "light", label: "Light", icon: Sun },
+  { value: "system", label: "Sistema", icon: Monitor },
+  { value: "dark", label: "Oscuro", icon: Moon },
+  { value: "light", label: "Claro", icon: Sun },
 ];
 
 export function ThemeSwitcher() {
@@ -19,7 +19,7 @@ export function ThemeSwitcher() {
   }, []);
 
   return (
-    <div role="radiogroup" aria-label="Theme" className="mt-theme-switch">
+    <div role="radiogroup" aria-label="Tema" className="mt-theme-switch">
       {OPTIONS.map((option) => {
         const Icon = option.icon;
         const selected = choice === option.value;

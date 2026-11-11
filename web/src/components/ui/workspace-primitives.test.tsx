@@ -29,7 +29,7 @@ describe("SplitPane", () => {
     );
     expect(screen.getByText("row one")).toBeInTheDocument();
     expect(screen.getByText("detail")).toBeInTheDocument();
-    expect(screen.getByRole("separator", { name: "Resize detail panel" })).toBeInTheDocument();
+    expect(screen.getByRole("separator", { name: "Redimensionar el panel de detalle" })).toBeInTheDocument();
     expect(screen.getByRole("complementary", { name: "Detail" })).toBeInTheDocument();
   });
 
@@ -73,16 +73,16 @@ describe("DensitySwitch", () => {
 
   it("defaults to comfortable and writes the attribute for CSS", () => {
     render(<DensitySwitch />);
-    expect(screen.getByRole("radio", { name: "Comfortable" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("radio", { name: "Cómoda" })).toHaveAttribute("aria-checked", "true");
     expect(document.documentElement.getAttribute("data-density")).toBe("comfortable");
   });
 
   it("persists the compact choice", () => {
     render(<DensitySwitch />);
-    fireEvent.click(screen.getByRole("radio", { name: "Compact" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Compacta" }));
     expect(document.documentElement.getAttribute("data-density")).toBe("compact");
     expect(window.localStorage.getItem("mt-density")).toBe("compact");
-    expect(screen.getByRole("radio", { name: "Compact" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("radio", { name: "Compacta" })).toHaveAttribute("aria-checked", "true");
   });
 });
 
@@ -90,7 +90,7 @@ describe("RawValue", () => {
   it("shows the stored value and flags truncation", () => {
     render(<RawValue value="Adobe InDesign[truncated]" truncated />);
     expect(screen.getByText("Adobe InDesign[truncated]")).toBeInTheDocument();
-    expect(screen.getByText("Truncated")).toBeInTheDocument();
+    expect(screen.getByText("Truncado")).toBeInTheDocument();
   });
 
   it("renders as text, never as markup", () => {
@@ -102,16 +102,16 @@ describe("RawValue", () => {
   it("collapses long values and expands them on demand", () => {
     const long = "x".repeat(400);
     render(<RawValue value={long} />);
-    const button = screen.getByRole("button", { name: "Show full value" });
+    const button = screen.getByRole("button", { name: "Mostrar valor completo" });
     expect(button).toBeInTheDocument();
     fireEvent.click(button);
-    expect(screen.getByRole("button", { name: "Show less" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mostrar menos" })).toBeInTheDocument();
   });
 
   it("shows the normalized form beside the original when present", () => {
     render(<RawValue value='["40/1", "24/1", "4635/100"]' normalized="40.410097" />);
     expect(screen.getByText('["40/1", "24/1", "4635/100"]')).toBeInTheDocument();
-    expect(screen.getByText("Normalized")).toBeInTheDocument();
+    expect(screen.getByText("Normalizado")).toBeInTheDocument();
     expect(screen.getByText("40.410097")).toBeInTheDocument();
   });
 });
@@ -125,9 +125,9 @@ describe("Provenance", () => {
         <LayerChip layer="external" />
       </>,
     );
-    expect(screen.getByText("Observed")).toBeInTheDocument();
-    expect(screen.getByText("Inferred")).toBeInTheDocument();
-    expect(screen.getByText("External")).toBeInTheDocument();
+    expect(screen.getByText("Observado")).toBeInTheDocument();
+    expect(screen.getByText("Inferido")).toBeInTheDocument();
+    expect(screen.getByText("Externo")).toBeInTheDocument();
   });
 
   it("keeps the extraction status readable as a word", () => {

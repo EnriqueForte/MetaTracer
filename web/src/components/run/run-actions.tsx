@@ -13,13 +13,13 @@ import { asRunSnapshot, runKey } from "./run-model";
 
 function failure(error: unknown, action: "abort" | "delete"): string {
   if (error instanceof ApiError) {
-    if (error.status === 403) return "Operator role required.";
-    if (error.status === 409) return action === "abort" ? "This scan already finished." : "This scan is still running.";
+    if (error.status === 403) return "Se requiere el rol de operador.";
+    if (error.status === 409) return action === "abort" ? "Este escaneo ya terminó." : "Este escaneo sigue en curso.";
     return action === "abort"
-      ? `Could not abort this scan (HTTP ${error.status}).`
-      : `Could not delete this run (HTTP ${error.status}).`;
+      ? `No se pudo abortar este escaneo (HTTP ${error.status}).`
+      : `No se pudo eliminar este escaneo (HTTP ${error.status}).`;
   }
-  return "Network error: the API is unreachable.";
+  return "Error de red: la API no está accesible.";
 }
 
 export function AbortRunButton({ runId }: { runId: string }) {
@@ -37,13 +37,13 @@ export function AbortRunButton({ runId }: { runId: string }) {
   return (
     <>
       <Button variant="danger" onClick={() => { abort.reset(); setOpen(true); }}>
-        Abort scan
+        Abortar escaneo
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
-          <DialogTitle>Abort this scan?</DialogTitle>
+          <DialogTitle>¿Abortar este escaneo?</DialogTitle>
           <DialogDescription>
-            The run stops and is marked aborted. Partial reports are not written.
+            El escaneo se detiene y queda marcado como abortado. No se escriben informes parciales.
           </DialogDescription>
           {abort.isError ? (
             <p role="alert" className="mt-3 text-sm text-mt-danger">
@@ -52,10 +52,10 @@ export function AbortRunButton({ runId }: { runId: string }) {
           ) : null}
           <div className="mt-4 flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setOpen(false)} disabled={abort.isPending}>
-              Keep scanning
+              Seguir escaneando
             </Button>
             <Button variant="danger" onClick={() => abort.mutate()} disabled={abort.isPending}>
-              Abort this scan
+              Abortar este escaneo
             </Button>
           </div>
         </DialogContent>
@@ -95,9 +95,9 @@ export function DeleteRunDialog({
       }}
     >
       <DialogContent>
-        <DialogTitle>Delete this run?</DialogTitle>
+        <DialogTitle>¿Eliminar este escaneo?</DialogTitle>
         <DialogDescription>
-          Findings, assets and exported reports for this run are removed. This cannot be undone.
+          Se eliminan los hallazgos, activos e informes exportados de este escaneo. No se puede deshacer.
         </DialogDescription>
         {remove.isError ? (
           <p role="alert" className="mt-3 text-sm text-mt-danger">
@@ -106,10 +106,10 @@ export function DeleteRunDialog({
         ) : null}
         <div className="mt-4 flex justify-end gap-2">
           <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={remove.isPending}>
-            Keep run
+            Conservar escaneo
           </Button>
           <Button variant="danger" onClick={() => remove.mutate()} disabled={remove.isPending}>
-            Delete this run
+            Eliminar este escaneo
           </Button>
         </div>
       </DialogContent>

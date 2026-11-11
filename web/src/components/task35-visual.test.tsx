@@ -58,17 +58,17 @@ describe("GPS map (TASK-35)", () => {
         onOpen={onOpen}
       />,
     );
-    const markers = screen.getAllByRole("button", { name: /GPS finding at/ });
+    const markers = screen.getAllByRole("button", { name: /Hallazgo GPS Alta en/ });
     expect(markers).toHaveLength(1);
     fireEvent.keyDown(markers[0], { key: "Enter" });
     expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: "ok" }));
     const map = container.querySelector('svg[role="group"]');
     expect(map?.getAttribute("viewBox")).not.toBe("0 0 360 180");
     expect(map?.querySelector("svg")).toBeNull();
-    expect(screen.getByLabelText("World outline showing the framed region")).toBeInTheDocument();
+    expect(screen.getByLabelText("Contorno mundial con la región enmarcada")).toBeInTheDocument();
     expect(container.querySelectorAll("path").length).toBeGreaterThan(20);
     expect(screen.getByText("40.42, -3.70")).toBeInTheDocument();
-    expect(screen.getByText(/No map tiles are loaded/)).toBeInTheDocument();
+    expect(screen.getByText(/No se cargan teselas de mapa/)).toBeInTheDocument();
     expect(container.querySelector("img")).toBeNull();
     expect(container.querySelector("image")).toBeNull();
   });
@@ -86,8 +86,8 @@ describe("Severity trend (TASK-35)", () => {
       { date: "2026-10-05", critical: 1, high: 0, medium: 2, low: 0, info: 0, unclassified: 1 },
     ];
     plainRender(<SeverityTrend points={points} />);
-    expect(screen.getByRole("img", { name: "5 findings over the last 2 days" })).toBeInTheDocument();
-    const table = screen.getByRole("table", { name: "Findings per day by severity" });
+    expect(screen.getByRole("img", { name: "5 hallazgos en los últimos 2 días" })).toBeInTheDocument();
+    const table = screen.getByRole("table", { name: "Hallazgos por día según severidad" });
     expect(within(table).getAllByRole("row")).toHaveLength(3);
   });
 });
@@ -117,12 +117,12 @@ describe("Compare runs (TASK-35)", () => {
       }),
     );
     render(<CompareView />);
-    const fresh = await screen.findByRole("region", { name: "New" });
+    const fresh = await screen.findByRole("region", { name: "Nuevos" });
     expect(within(fresh).getByText("<b>fresh</b>@acme.com")).toBeInTheDocument();
-    expect(within(screen.getByRole("region", { name: "Resolved" })).getByText("old@acme.com")).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Resueltos" })).getByText("old@acme.com")).toBeInTheDocument();
     expect(
-      within(screen.getByRole("region", { name: "Persistent" })).getByText(
-        "No finding appears in both runs with the same severity.",
+      within(screen.getByRole("region", { name: "Persistentes" })).getByText(
+        "Ningún hallazgo aparece en ambos escaneos con la misma severidad.",
       ),
     ).toBeInTheDocument();
     expect(document.querySelector("b")).toBeNull();

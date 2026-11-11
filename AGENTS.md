@@ -80,7 +80,7 @@ cobertura ≥ 85% en `core`/`detectors`/`extractors`/`reports`, y
   markdown-a-HTML; URLs solo por `safeUrl()`.
 - **Lista cerrada de dependencias.** Añadir una exige justificación y revisión
   de supply chain; `pyproject.toml` y `requirements.in` deben ir en lockstep.
-- **Idiomas:** reportes y UI en inglés; documentación en español.
+- **Idiomas:** reportes exportados y CLI en inglés; Web UI en español; documentación en español.
 - **SDD:** spec reserved ≠ permiso para implementar. Skill `metatracer-sdd`.
 
 ## Skills y subagentes

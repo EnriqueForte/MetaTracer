@@ -38,16 +38,16 @@ describe("ScanWizard scope source (TASK-35)", () => {
   it("disables manual domains while saved scopes are selected and sends only scope_ids", async () => {
     const calls = stub();
     render(<ScanWizard />);
-    fireEvent.change(screen.getByLabelText("Targets"), { target: { value: "acme.com" } });
-    fireEvent.change(screen.getByLabelText("Authorized scope domains"), { target: { value: "other.com" } });
-    fireEvent.change(screen.getByLabelText("Authorized scope domains"), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText("Objetivos"), { target: { value: "acme.com" } });
+    fireEvent.change(screen.getByLabelText("Dominios de alcance autorizado"), { target: { value: "other.com" } });
+    fireEvent.change(screen.getByLabelText("Dominios de alcance autorizado"), { target: { value: "" } });
     fireEvent.click(await screen.findByRole("checkbox", { name: /acme/ }));
-    expect(screen.getByLabelText("Authorized scope domains")).toBeDisabled();
-    expect(screen.getByText("Using saved scopes — manual domains are ignored.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Dominios de alcance autorizado")).toBeDisabled();
+    expect(screen.getByText("Usando alcances guardados: se ignoran los dominios escritos a mano.")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Start scan" }));
-    fireEvent.click(await screen.findByRole("checkbox", { name: /I confirm/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Confirm and start scan" }));
+    fireEvent.click(screen.getByRole("button", { name: "Iniciar escaneo" }));
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Confirmo/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar e iniciar escaneo" }));
     await waitFor(() => expect(calls).toHaveLength(1));
     const body = calls[0].body as Record<string, unknown>;
     expect(body.scope_ids).toEqual(["s1"]);
@@ -58,21 +58,21 @@ describe("ScanWizard scope source (TASK-35)", () => {
     stub();
     render(<ScanWizard />);
     const checkbox = await screen.findByRole("checkbox", { name: /acme/ });
-    fireEvent.change(screen.getByLabelText("Authorized scope domains"), { target: { value: "acme.com" } });
+    fireEvent.change(screen.getByLabelText("Dominios de alcance autorizado"), { target: { value: "acme.com" } });
     expect(checkbox).toBeDisabled();
-    expect(screen.getByText("Using manual domains — saved scopes are ignored.")).toBeInTheDocument();
+    expect(screen.getByText("Usando dominios manuales: se ignoran los alcances guardados.")).toBeInTheDocument();
   });
 
   it("keeps focus inside the scope dialog and returns it on Escape", async () => {
     stub();
     render(<ScanWizard />);
-    fireEvent.change(screen.getByLabelText("Targets"), { target: { value: "acme.com" } });
-    fireEvent.change(screen.getByLabelText("Authorized scope domains"), { target: { value: "acme.com" } });
-    const start = screen.getByRole("button", { name: "Start scan" });
+    fireEvent.change(screen.getByLabelText("Objetivos"), { target: { value: "acme.com" } });
+    fireEvent.change(screen.getByLabelText("Dominios de alcance autorizado"), { target: { value: "acme.com" } });
+    const start = screen.getByRole("button", { name: "Iniciar escaneo" });
     start.focus();
     fireEvent.click(start);
     const dialog = await screen.findByRole("dialog");
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Cancel" })));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Cancelar" })));
 
     // Focus leaving the dialog is pulled back in (focus trap).
     start.focus();
@@ -86,7 +86,7 @@ describe("ScanWizard scope source (TASK-35)", () => {
   it("tells a viewer that scans are operator-only", async () => {
     stub("viewer");
     render(<ScanWizard />);
-    expect(await screen.findByText(/Viewer accounts can review runs but cannot start scans/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Start scan" })).toBeDisabled();
+    expect(await screen.findByText(/Las cuentas de visor pueden revisar escaneos/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Iniciar escaneo" })).toBeDisabled();
   });
 });

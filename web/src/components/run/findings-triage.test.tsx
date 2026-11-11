@@ -78,9 +78,9 @@ describe("Finding triage in Web V2 (TASK-35)", () => {
     const table = await screen.findByRole("table");
     expect(within(table).getByText("real@acme.com")).toBeInTheDocument();
     expect(within(table).queryByText("noise@acme.com")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Show dismissed (1)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Mostrar descartados (1)" }));
     expect(within(screen.getByRole("table")).getByText("noise@acme.com")).toBeInTheDocument();
-    expect(within(screen.getByRole("table")).getByText("False positive")).toBeInTheDocument();
+    expect(within(screen.getByRole("table")).getByText("Falso positivo")).toBeInTheDocument();
     expect(window.location.search).toContain("dismissed=1");
   });
 
@@ -92,7 +92,7 @@ describe("Finding triage in Web V2 (TASK-35)", () => {
     });
     render(<FindingsPanel runId="run-1" totalAssets={1} />);
     fireEvent.click(await screen.findByText("real@acme.com"));
-    await screen.findByRole("region", { name: "Triage" });
+    await screen.findByRole("region", { name: "Triaje" });
     expect(errors.some((line) => line.includes("same key"))).toBe(false);
     spy.mockRestore();
   });
@@ -101,15 +101,15 @@ describe("Finding triage in Web V2 (TASK-35)", () => {
     const puts = stub("operator");
     render(<FindingsPanel runId="run-1" totalAssets={1} />);
     fireEvent.click(await screen.findByText("real@acme.com"));
-    const triage = await screen.findByRole("region", { name: "Triage" });
-    fireEvent.change(within(triage).getByLabelText("Status"), { target: { value: "false_positive" } });
-    fireEvent.change(within(triage).getByLabelText("Note (optional)"), { target: { value: "vendor" } });
-    fireEvent.click(within(triage).getByRole("button", { name: "Save triage" }));
+    const triage = await screen.findByRole("region", { name: "Triaje" });
+    fireEvent.change(within(triage).getByLabelText("Estado"), { target: { value: "false_positive" } });
+    fireEvent.change(within(triage).getByLabelText("Nota (opcional)"), { target: { value: "vendor" } });
+    fireEvent.click(within(triage).getByRole("button", { name: "Guardar triaje" }));
     await waitFor(() => expect(puts).toHaveLength(1));
     expect(puts[0].url).toBe("/api/runs/run-1/findings/real/triage");
     expect(puts[0].body).toEqual({ status: "false_positive", note: "vendor" });
     expect(puts[0].body).not.toHaveProperty("severity");
-    expect(await within(triage).findByText("False positive", { selector: "span" })).toBeInTheDocument();
+    expect(await within(triage).findByText("Falso positivo", { selector: "span" })).toBeInTheDocument();
   });
 
   it("offers another run's triage as a suggestion and applies it only on click", async () => {
@@ -153,12 +153,12 @@ describe("Finding triage in Web V2 (TASK-35)", () => {
       }),
     );
     render(<FindingsPanel runId="run-1" totalAssets={1} />);
-    expect(await screen.findByText("Suggested: Confirmed")).toBeInTheDocument();
+    expect(await screen.findByText("Sugerido: Confirmado")).toBeInTheDocument();
     fireEvent.click(screen.getByText("real@acme.com"));
-    const triage = await screen.findByRole("region", { name: "Triage" });
-    expect(within(triage).getByText(/Suggested from another run/i)).toBeInTheDocument();
-    expect(within(triage).getByText(/does not change severity or evidence/i)).toBeInTheDocument();
-    fireEvent.click(within(triage).getByRole("button", { name: "Apply suggestion" }));
+    const triage = await screen.findByRole("region", { name: "Triaje" });
+    expect(within(triage).getByText(/Sugerido desde otro escaneo/i)).toBeInTheDocument();
+    expect(within(triage).getByText(/no cambia la severidad ni la/i)).toBeInTheDocument();
+    fireEvent.click(within(triage).getByRole("button", { name: "Aplicar sugerencia" }));
     await waitFor(() => expect(puts).toHaveLength(1));
     expect(puts[0].body).toEqual({ status: "confirmed", note: "checked on the first run" });
     expect(puts[0].body).not.toHaveProperty("severity");
@@ -168,8 +168,8 @@ describe("Finding triage in Web V2 (TASK-35)", () => {
     stub("viewer");
     render(<FindingsPanel runId="run-1" totalAssets={1} />);
     fireEvent.click(await screen.findByText("real@acme.com"));
-    const triage = await screen.findByRole("region", { name: "Triage" });
-    expect(within(triage).getByText("Open")).toBeInTheDocument();
-    expect(within(triage).queryByRole("button", { name: "Save triage" })).not.toBeInTheDocument();
+    const triage = await screen.findByRole("region", { name: "Triaje" });
+    expect(within(triage).getByText("Abierto")).toBeInTheDocument();
+    expect(within(triage).queryByRole("button", { name: "Guardar triaje" })).not.toBeInTheDocument();
   });
 });

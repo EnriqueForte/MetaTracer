@@ -32,9 +32,9 @@ describe("ScopesView", () => {
       ),
     );
     render(<ScopesView />);
-    expect(await screen.findByRole("columnheader", { name: "Domains" })).toHaveClass("py-1");
+    expect(await screen.findByRole("columnheader", { name: "Dominios" })).toHaveClass("py-1");
     expect(screen.getByText("example.com").className).toContain("mt-tech");
-    expect(screen.getByText("1 domain(s)")).toBeInTheDocument();
+    expect(screen.getByText("1 dominio(s)")).toBeInTheDocument();
   });
 });
 
@@ -44,7 +44,7 @@ describe("importScopesFile errors (TASK-35)", () => {
     vi.stubGlobal("fetch", fetchMock);
     const file = new File(["{}"], "big.json");
     Object.defineProperty(file, "size", { value: MAX_IMPORT_BYTES + 1 });
-    await expect(importScopesFile(file)).rejects.toThrow("File too large: the limit is 5 MiB.");
+    await expect(importScopesFile(file)).rejects.toThrow("El fichero es demasiado grande: el límite es 5 MiB.");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -52,7 +52,7 @@ describe("importScopesFile errors (TASK-35)", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     await expect(importScopesFile(new File(["{nope"], "bad.json"))).rejects.toThrow(
-      "The file is not valid JSON.",
+      "El fichero no es JSON válido.",
     );
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -63,7 +63,7 @@ describe("importScopesFile errors (TASK-35)", () => {
       vi.fn(async () => new Response(JSON.stringify({ detail: "entry 0: 'name' must be 1..64 characters" }), { status: 422 })),
     );
     await expect(importScopesFile(new File(["{}"], "x.json"))).rejects.toThrow(
-      "Import failed: entry 0: 'name' must be 1..64 characters",
+      "La importación falló: entry 0: 'name' must be 1..64 characters",
     );
   });
 });

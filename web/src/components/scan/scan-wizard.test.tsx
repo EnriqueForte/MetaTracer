@@ -17,26 +17,26 @@ describe("ScanWizard scope gate", () => {
       vi.fn(async () => new Response(JSON.stringify({ scopes: [] }), { status: 200 })),
     );
     render(<ScanWizard />);
-    fireEvent.click(screen.getByRole("button", { name: "Start scan" }));
-    expect(screen.getByRole("alert")).toHaveTextContent("Enter at least one target.");
+    fireEvent.click(screen.getByRole("button", { name: "Iniciar escaneo" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Indica al menos un objetivo.");
 
-    fireEvent.change(screen.getByLabelText("Targets"), { target: { value: "example.com" } });
-    fireEvent.change(screen.getByLabelText("Authorized scope domains"), {
+    fireEvent.change(screen.getByLabelText("Objetivos"), { target: { value: "example.com" } });
+    fireEvent.change(screen.getByLabelText("Dominios de alcance autorizado"), {
       target: { value: "example.com" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Start scan" }));
+    fireEvent.click(screen.getByRole("button", { name: "Iniciar escaneo" }));
 
-    const confirm = screen.getByRole("button", { name: "Confirm and start scan" });
+    const confirm = screen.getByRole("button", { name: "Confirmar e iniciar escaneo" });
     expect(confirm).toBeDisabled();
     expect(screen.getByRole("checkbox")).not.toBeChecked();
-    expect(screen.getByRole("heading", { name: "Confirm authorized scope" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Confirmar alcance autorizado" })).toBeInTheDocument();
   });
 
   it.each([
-    [403, "The scope confirmation was rejected by the server."],
-    [404, "The selected saved scope no longer exists; choose or enter domains manually."],
-    [409, "Another scan is already running; wait for it to finish."],
-    [429, "Too many requests: the API asked us to slow down; retry in a few seconds."],
+    [403, "El servidor rechazó la confirmación de alcance."],
+    [404, "El alcance guardado ya no existe; elige otro o escribe los dominios."],
+    [409, "Ya hay otro escaneo en curso; espera a que termine."],
+    [429, "Demasiadas peticiones: espera unos segundos y reintenta."],
   ])("renders HTTP %s as text", async (status, message) => {
     vi.stubGlobal(
       "fetch",
@@ -47,13 +47,13 @@ describe("ScanWizard scope gate", () => {
       }),
     );
     render(<ScanWizard />);
-    fireEvent.change(screen.getByLabelText("Targets"), { target: { value: "example.com" } });
-    fireEvent.change(screen.getByLabelText("Authorized scope domains"), {
+    fireEvent.change(screen.getByLabelText("Objetivos"), { target: { value: "example.com" } });
+    fireEvent.change(screen.getByLabelText("Dominios de alcance autorizado"), {
       target: { value: "example.com" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Start scan" }));
+    fireEvent.click(screen.getByRole("button", { name: "Iniciar escaneo" }));
     fireEvent.click(screen.getByRole("checkbox"));
-    fireEvent.click(screen.getByRole("button", { name: "Confirm and start scan" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar e iniciar escaneo" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(message);
   });
 });

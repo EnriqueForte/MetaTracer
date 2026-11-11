@@ -49,9 +49,9 @@ export function DensitySwitch({ className }: { className?: string }) {
     <div
       className={cn("inline-flex items-center gap-1", className)}
       role="radiogroup"
-      aria-label="Table density"
+      aria-label="Densidad de la tabla"
     >
-      <span className="text-xs text-mt-muted">Density</span>
+      <span className="text-xs text-mt-muted">Densidad</span>
       {(["comfortable", "compact"] as const).map((option) => (
         <button
           key={option}
@@ -61,7 +61,7 @@ export function DensitySwitch({ className }: { className?: string }) {
           className="rounded-sm border border-mt-border-strong px-2 py-0.5 text-xs text-mt-muted aria-checked:border-mt-accent aria-checked:bg-mt-accent-soft aria-checked:text-mt-accent-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mt-focus"
           onClick={() => choose(option)}
         >
-          {option === "comfortable" ? "Comfortable" : "Compact"}
+          {option === "comfortable" ? "Cómoda" : "Compacta"}
         </button>
       ))}
     </div>

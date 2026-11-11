@@ -1,12 +1,6 @@
-const TYPE_LABELS: Record<string, string> = {
-  gps: "GPS",
-  email: "Email",
-  internal_path: "Internal path",
-  software_version: "Software version",
-  debug_comment: "Debug comment",
-  internal_endpoint: "Internal endpoint",
-  cloud_storage: "Cloud storage",
-};
+import { FINDING_TYPE_LABEL } from "@/lib/ui-copy";
+
+const TYPE_LABELS: Record<string, string> = FINDING_TYPE_LABEL;
 
 const TYPE_FILL: Record<string, string> = {
   gps: "bg-mt-chart-1",

@@ -47,10 +47,10 @@ function toSearch(filters: ExplorerFilters, base: string): string {
 }
 
 function timezoneCopy(status: string | null | undefined): string | null {
-  if (status === "known") return "Timezone stated";
-  if (status === "assumed_utc") return "Timezone not stated; treated as UTC";
-  if (status === "unzoned") return "Timezone not stated";
-  if (status === "invalid") return "Date could not be read";
+  if (status === "known") return "Zona horaria indicada";
+  if (status === "assumed_utc") return "Zona horaria no indicada; se trata como UTC";
+  if (status === "unzoned") return "Zona horaria no indicada";
+  if (status === "invalid") return "No se pudo leer la fecha";
   return null;
 }
 
@@ -58,22 +58,22 @@ function Summary({ item }: { item: MetadataItemResponse }) {
   return (
     <div className="flex flex-col gap-3 p-4">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="mt-section-title">Field</h2>
+        <h2 className="mt-section-title">Campo</h2>
         <LayerChip layer="observed" />
       </div>
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-        <dt className="text-mt-muted">Namespace</dt>
+        <dt className="text-mt-muted">Espacio de nombres</dt>
         <dd className="mt-tech">{item.namespace}</dd>
-        <dt className="text-mt-muted">Key</dt>
+        <dt className="text-mt-muted">Clave</dt>
         <dd className="mt-tech">{item.key}</dd>
-        <dt className="text-mt-muted">Asset</dt>
+        <dt className="text-mt-muted">Activo</dt>
         <dd className="mt-tech break-all">{item.asset_url}</dd>
       </dl>
       <p className="text-xs font-semibold text-mt-muted">Original</p>
       <RawValue value={item.value} truncated={item.truncated} />
       {item.value_normalized ? (
         <>
-          <p className="text-xs font-semibold text-mt-muted">Normalized</p>
+          <p className="text-xs font-semibold text-mt-muted">Normalizado</p>
           <RawValue value={item.value_normalized} truncated={false} />
         </>
       ) : null}
@@ -81,8 +81,8 @@ function Summary({ item }: { item: MetadataItemResponse }) {
         <p className="text-xs text-mt-muted">{timezoneCopy(item.timezone_status)}</p>
       ) : null}
       <p className="text-xs text-mt-muted">
-        The asset itself is never stored or served: this is the sanitized value the
-        extractor persisted.
+        El activo en sí nunca se almacena ni se sirve: este es el valor saneado que
+        persistió el extractor.
       </p>
     </div>
   );
@@ -165,14 +165,14 @@ export function MetadataExplorer() {
   return (
     <div className="flex min-w-0 flex-col gap-3">
       <CorrelationPanel runId={runId} />
-      <div className="flex flex-col gap-2" role="group" aria-label="Metadata filters">
+      <div className="flex flex-col gap-2" role="group" aria-label="Filtros de metadatos">
         <div className="flex flex-wrap items-center gap-1">
           <Button
             variant="toggle"
             aria-pressed={filters.namespace === ""}
             onClick={() => change({ namespace: "" })}
           >
-            All namespaces
+            Todos los espacios de nombres
           </Button>
           {namespaces.map(([name, count]) => (
             <Button
@@ -190,15 +190,15 @@ export function MetadataExplorer() {
         </div>
         {filters.asset ? (
           <div className="flex flex-wrap items-center gap-2 text-xs text-mt-muted">
-            <span>Asset</span>
+            <span>Activo</span>
             <span className="mt-tech break-all">{filters.asset}</span>
             <Button variant="ghost" className="py-0.5 text-xs" onClick={() => change({ asset: "" })}>
-              Clear asset filter
+              Quitar filtro de activo
             </Button>
           </div>
         ) : null}
         <label className="sr-only" htmlFor="metadata-search">
-          Search metadata by value or field name
+          Buscar metadatos por valor o nombre de campo
         </label>
         <input
           ref={searchRef}
@@ -206,38 +206,38 @@ export function MetadataExplorer() {
           type="search"
           value={filters.q}
           onChange={(event) => change({ q: event.target.value })}
-          placeholder="Search a value or a field name (press / to focus)"
+          placeholder="Busca un valor o un nombre de campo (pulsa / para enfocar)"
           className="w-full rounded-md border border-mt-border-strong bg-mt-bg px-3 py-2 text-sm text-mt-fg placeholder:text-mt-faint focus:border-mt-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mt-focus"
         />
       </div>
 
       <p className="text-xs text-mt-muted" aria-live="polite">
-        {loaded && query.data ? `${query.data.total} field(s) match` : ""}
+        {loaded && query.data ? `${query.data.total} campo(s) coinciden` : ""}
       </p>
 
       {query.isError ? (
-        <ErrorState message={errorMessage(query.error, "Could not load the metadata")} onRetry={() => void query.refetch()} />
+        <ErrorState message={errorMessage(query.error, "No se pudieron cargar los metadatos")} onRetry={() => void query.refetch()} />
       ) : null}
 
       {loaded && !query.isError && items.length === 0 ? (
-        <EmptyState title="No metadata fields">
+        <EmptyState title="No hay campos de metadatos">
           {filters.q || filters.namespace
-            ? "Clear a filter or the search to see more fields."
-            : "This run did not persist any metadata field."}
+            ? "Quita un filtro o la búsqueda para ver más campos."
+            : "Este escaneo no persistió ningún campo de metadatos."}
         </EmptyState>
       ) : null}
 
       {items.length > 0 ? (
-        <SplitPane panel={selected ? <Summary item={selected} /> : null} panelLabel="Field detail">
+        <SplitPane panel={selected ? <Summary item={selected} /> : null} panelLabel="Detalle del campo">
           <div className="overflow-x-auto">
             <table className="mt-table">
-              <caption className="sr-only">Metadata fields stored for this run</caption>
+              <caption className="sr-only">Campos de metadatos guardados de este escaneo</caption>
               <thead>
                 <tr>
-                  <th scope="col">Namespace</th>
-                  <th scope="col">Field</th>
-                  <th scope="col">Value</th>
-                  <th scope="col">Asset</th>
+                  <th scope="col">Espacio de nombres</th>
+                  <th scope="col">Campo</th>
+                  <th scope="col">Valor</th>
+                  <th scope="col">Activo</th>
                 </tr>
               </thead>
               <tbody>
@@ -266,13 +266,13 @@ export function MetadataExplorer() {
                           {item.value_normalized}
                         </span>
                       ) : null}
-                      {item.truncated ? <span className="text-xs text-mt-muted">(truncated)</span> : null}
+                      {item.truncated ? <span className="text-xs text-mt-muted">(truncado)</span> : null}
                     </td>
                     <td className="max-w-[18rem]">
                       <button
                         type="button"
                         className="mt-tech block truncate text-left underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mt-focus"
-                        title={`Only ${item.asset_url}`}
+                        title={`Solo ${item.asset_url}`}
                         onClick={(event) => {
                           event.stopPropagation();
                           change({ asset: item.asset_url });
@@ -296,7 +296,7 @@ export function MetadataExplorer() {
             disabled={query.isFetching}
             onClick={() => setCursor(query.data?.next_cursor ?? null)}
           >
-            Load more fields
+            Cargar más campos
           </Button>
         </div>
       ) : null}

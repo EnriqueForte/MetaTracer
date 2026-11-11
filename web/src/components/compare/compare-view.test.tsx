@@ -71,11 +71,11 @@ describe("CompareView", () => {
       }),
     );
     renderWithProviders(<CompareView />);
-    expect(await screen.findByRole("region", { name: "Reappeared" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Reaparecidos" })).toBeInTheDocument();
     expect(screen.getByText("back@acme.com")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Severity changed" })).toBeInTheDocument();
-    expect(screen.getByText(/Severity changed from Medium to High/i)).toBeInTheDocument();
-    expect(screen.getByText(/page cap/i)).toBeInTheDocument();
-    expect(screen.getByText(/may not have been requested/i)).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Severidad cambiada" })).toBeInTheDocument();
+    expect(screen.getByText(/La severidad cambió de Media a Alta/i)).toBeInTheDocument();
+    expect(screen.getByText(/tope de páginas/i)).toBeInTheDocument();
+    expect(screen.getByText(/puede no haberse pedido/i)).toBeInTheDocument();
   });
 });

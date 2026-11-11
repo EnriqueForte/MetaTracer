@@ -24,7 +24,7 @@ const PREVIEW_CHARS = 160;
  * replaced by the normalized form: the analyst must be able to quote what the
  * file actually contained.
  */
-export function RawValue({ value, normalized, truncated, label = "Value" }: Props) {
+export function RawValue({ value, normalized, truncated, label = "Valor" }: Props) {
   const [expanded, setExpanded] = useState(false);
   const long = value.length > PREVIEW_CHARS;
   const shown = expanded || !long ? value : `${value.slice(0, PREVIEW_CHARS)}…`;
@@ -34,20 +34,20 @@ export function RawValue({ value, normalized, truncated, label = "Value" }: Prop
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-semibold text-mt-muted">{label}</span>
         {truncated ? (
-          <span className="mt-layer-chip" data-layer="inferred" title="The extractor cut this value at its size ceiling">
-            Truncated
+          <span className="mt-layer-chip" data-layer="inferred" title="El extractor cortó este valor en su tope de tamaño">
+            Truncado
           </span>
         ) : null}
       </div>
       <pre className="mt-evidence border border-mt-border bg-mt-bg p-2">{shown}</pre>
       {long ? (
         <Button variant="ghost" className="self-start py-0.5 text-xs" onClick={() => setExpanded((open) => !open)}>
-          {expanded ? "Show less" : "Show full value"}
+          {expanded ? "Mostrar menos" : "Mostrar valor completo"}
         </Button>
       ) : null}
       {normalized ? (
         <div className="flex flex-col gap-1">
-          <span className="text-xs font-semibold text-mt-muted">Normalized</span>
+          <span className="text-xs font-semibold text-mt-muted">Normalizado</span>
           <p className="mt-tech">{normalized}</p>
         </div>
       ) : null}

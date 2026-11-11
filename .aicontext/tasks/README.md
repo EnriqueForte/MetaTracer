@@ -52,7 +52,8 @@ Valores **en minúsculas** en base de datos, JSON, API y Pydantic. La capa de pr
 | `timezone_status` | `known` \| `assumed_utc` \| `unzoned` \| `invalid` (NULL si el campo no es una fecha) |
 | Idioma de **reportes exportados** | Inglés (plataformas de bug bounty) |
 | Idioma de **documentación** (esta carpeta) | Español |
-| Idioma de **UI/CLI** | Inglés (audiencia internacional / portfolio) |
+| Idioma de **Web UI** (`web/`) | Español |
+| Idioma de **CLI** | Inglés |
 
 `severity` en un `Finding` es **nullable** hasta que corre el clasificador (heurístico o agente). Los detectores **nunca** asignan severidad.
 

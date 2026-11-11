@@ -172,10 +172,10 @@ describe("AssetsView", () => {
   it("lists every asset, including the successful ones", async () => {
     stubFetch();
     render(wrap(<AssetsView />));
-    const table = await screen.findByRole("table", { name: "Assets discovered in this run" });
+    const table = await screen.findByRole("table", { name: "Activos descubiertos en este escaneo" });
     expect(within(table).getAllByRole("row")).toHaveLength(4); // header + 3
-    expect(within(table).getAllByText("Extracted").length).toBeGreaterThan(0);
-    expect(within(table).queryByText("Duplicate content")).toBeNull();
+    expect(within(table).getAllByText("Extraído").length).toBeGreaterThan(0);
+    expect(within(table).queryByText("Contenido duplicado")).toBeNull();
   });
 
   it("opens a persistent detail pane with the asset metadata", async () => {
@@ -183,7 +183,7 @@ describe("AssetsView", () => {
     render(wrap(<AssetsView />));
     const row = await screen.findByText("https://acme.test/report.pdf");
     fireEvent.click(row);
-    const panel = await screen.findByRole("complementary", { name: "Asset detail" });
+    const panel = await screen.findByRole("complementary", { name: "Detalle del activo" });
     expect(within(panel).getByText("application/pdf")).toBeInTheDocument();
     expect(within(panel).getByText("2.0 KB")).toBeInTheDocument();
   });
@@ -191,9 +191,9 @@ describe("AssetsView", () => {
   it("shows an empty state that does not claim nothing exists", async () => {
     stubFetch({ assets: { ...assets, total: 0, assets: [] } });
     render(wrap(<AssetsView />));
-    expect(await screen.findByText("No assets")).toBeInTheDocument();
+    expect(await screen.findByText("No hay activos")).toBeInTheDocument();
     expect(
-      screen.getByText("This run did not record any asset with the current filter."),
+      screen.getByText("Este escaneo no registró ningún activo con el filtro actual."),
     ).toBeInTheDocument();
   });
 });
@@ -236,7 +236,7 @@ describe("MetadataExplorer", () => {
     stubFetch();
     render(wrap(<MetadataExplorer />));
     const table = await screen.findByRole("table", {
-      name: "Metadata fields stored for this run",
+      name: "Campos de metadatos guardados de este escaneo",
     });
     expect(within(table).getByText("Author")).toBeInTheDocument();
     expect(within(table).getByText("GPSLatitude")).toBeInTheDocument();
@@ -247,8 +247,8 @@ describe("MetadataExplorer", () => {
     stubFetch();
     render(wrap(<MetadataExplorer />));
     fireEvent.click(await screen.findByText("Author"));
-    const panel = await screen.findByRole("complementary", { name: "Field detail" });
-    expect(within(panel).getByText("Observed")).toBeInTheDocument();
+    const panel = await screen.findByRole("complementary", { name: "Detalle del campo" });
+    expect(within(panel).getByText("Observado")).toBeInTheDocument();
     expect(within(panel).getByText("jane@acme.test")).toBeInTheDocument();
     expect(within(panel).getByText("pdfinfo")).toBeInTheDocument();
   });
@@ -256,7 +256,7 @@ describe("MetadataExplorer", () => {
   it("writes the search into the URL so a view is shareable", async () => {
     stubFetch();
     render(wrap(<MetadataExplorer />));
-    const search = await screen.findByLabelText(/Search metadata by value or field name/i);
+    const search = await screen.findByLabelText(/Buscar metadatos por valor o nombre de campo/i);
     fireEvent.change(search, { target: { value: "canon" } });
     expect(window.location.search).toContain("q=canon");
   });
@@ -273,12 +273,12 @@ describe("CoverageView", () => {
   it("reports what was stored and refuses to invent discovery counters", async () => {
     stubFetch();
     render(wrap(<CoverageView />));
-    expect(await screen.findByText("Coverage of this run")).toBeInTheDocument();
-    expect(screen.getByText("Assets recorded")).toBeInTheDocument();
-    expect(screen.getByText("Unsupported type")).toBeInTheDocument();
+    expect(await screen.findByText("Cobertura de este escaneo")).toBeInTheDocument();
+    expect(screen.getByText("Activos registrados")).toBeInTheDocument();
+    expect(screen.getByText("Tipo no admitido")).toBeInTheDocument();
     // The honesty requirement: not-recorded must not read as zero.
-    expect(screen.getByText(/Discovery counters are/i)).toBeInTheDocument();
-    expect(screen.getByText(/The number of resources discovered but not attempted is unknown, not zero/i)).toBeInTheDocument();
+    expect(screen.getByText(/Los contadores de descubrimiento/i)).toBeInTheDocument();
+    expect(screen.getByText(/descubiertos pero no intentados es desconocido, no cero/i)).toBeInTheDocument();
     expect(screen.queryByText(/0 resources/i)).not.toBeInTheDocument();
   });
 
@@ -302,10 +302,10 @@ describe("CoverageView", () => {
       },
     });
     render(wrap(<CoverageView />));
-    expect(await screen.findByText(/Asset limit was reached/i)).toBeInTheDocument();
-    expect(screen.queryByText(/Discovery counters are/i)).not.toBeInTheDocument();
+    expect(await screen.findByText(/Límite de activos: se alcanzó/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Los contadores de descubrimiento/i)).not.toBeInTheDocument();
     // The applied budget is shown, so the analyst sees the ceiling that applied.
-    expect(screen.getByText("Crawl depth")).toBeInTheDocument();
+    expect(screen.getByText("Profundidad de rastreo")).toBeInTheDocument();
     expect(screen.getByText("2/3")).toBeInTheDocument(); // assets queued / max
   });
 
@@ -330,9 +330,9 @@ describe("CoverageView", () => {
       },
     });
     render(wrap(<CoverageView />));
-    expect(await screen.findByText(/robots.txt was consulted/i)).toBeInTheDocument();
-    expect(screen.getByText(/That is courtesy/i)).toBeInTheDocument();
-    expect(screen.getByText(/never widens/i)).toBeInTheDocument();
-    expect(screen.getByText(/stopped at its cap/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Se consultó robots.txt/i)).toBeInTheDocument();
+    expect(screen.getByText(/Es cortesía/i)).toBeInTheDocument();
+    expect(screen.getByText(/nunca amplía/i)).toBeInTheDocument();
+    expect(screen.getByText(/detuvo en su tope/i)).toBeInTheDocument();
   });
 });

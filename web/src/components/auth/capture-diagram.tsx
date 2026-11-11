@@ -6,14 +6,14 @@ const POINT_Y = CY - 16;
 const POINT_R = 6;
 
 const NODES = [
-  { kicker: "Gate", label: "Confirmed scope", x: 340, y: 78, delay: "0.05s" },
-  { kicker: "Capture", label: "In-scope GET", x: 92, y: 175, delay: "0.12s" },
-  { kicker: "Extract", label: "EXIF · PDF · JS", x: 92, y: 350, delay: "0.18s" },
-  { kicker: "Detect", label: "GPS", x: 92, y: 525, delay: "0.24s" },
-  { kicker: "Detect", label: "Email", x: 230, y: 640, delay: "0.3s" },
-  { kicker: "Detect", label: "Internal path", x: 430, y: 640, delay: "0.36s" },
-  { kicker: "Detect", label: "Version · debug", x: 575, y: 175, delay: "0.42s" },
-  { kicker: "Export", label: "Bounty report", x: 575, y: 525, delay: "0.48s" },
+  { kicker: "Puerta", label: "Alcance confirmado", x: 340, y: 78, delay: "0.05s" },
+  { kicker: "Captura", label: "GET in-scope", x: 92, y: 175, delay: "0.12s" },
+  { kicker: "Extrae", label: "EXIF · PDF · JS", x: 92, y: 350, delay: "0.18s" },
+  { kicker: "Detecta", label: "GPS", x: 92, y: 525, delay: "0.24s" },
+  { kicker: "Detecta", label: "Correo", x: 230, y: 640, delay: "0.3s" },
+  { kicker: "Detecta", label: "Ruta interna", x: 430, y: 640, delay: "0.36s" },
+  { kicker: "Detecta", label: "Versión · debug", x: 575, y: 175, delay: "0.42s" },
+  { kicker: "Exporta", label: "Informe bounty", x: 575, y: 525, delay: "0.48s" },
 ] as const;
 
 const FIELDS = [
@@ -47,9 +47,9 @@ export function CaptureDiagram({
       preserveAspectRatio="xMidYMid meet"
       className="mt-auth-diagram"
       role="img"
-      aria-label="Capture pipeline: confirmed scope, in-scope fetch, metadata extraction, detectors, bounty report"
+      aria-label="Canal de captura: alcance confirmado, petición in-scope, extracción de metadatos, detectores, informe bounty"
     >
-      <title>How MetaTracer captures metadata</title>
+      <title>Cómo captura metadatos MetaTracer</title>
       {FIELDS.map((field) => (
         <text
           key={field.text}
@@ -109,7 +109,7 @@ export function CaptureDiagram({
         MetaTracer
       </text>
       <text x={CX} y={CY + 50} textAnchor="middle" className="fill-mt-muted" fontSize={11}>
-        metadata capture
+        captura de metadatos
       </text>
       {NODES.map((node) => (
         <g

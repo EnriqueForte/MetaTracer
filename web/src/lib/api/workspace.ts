@@ -68,7 +68,7 @@ async function getJson<T>(path: string, guard: (value: unknown) => value is T): 
   const response = await apiFetch(path);
   if (!response.ok) {
     if (response.status === 404) {
-      throw new ApiError(404, "This run or asset does not exist.");
+      throw new ApiError(404, "Este escaneo o activo no existe.");
     }
     throw new ApiError(response.status, await readDetail(response));
   }
@@ -119,32 +119,32 @@ export function fetchCoverage(runId: string): Promise<CoverageResponse> {
 
 /** Human label for an extraction status (wire values stay lowercase). */
 export const EXTRACTION_LABEL: Record<string, string> = {
-  ok: "Extracted",
-  skipped: "Skipped",
-  failed: "Failed",
+  ok: "Extraído",
+  skipped: "Omitido",
+  failed: "Fallido",
 };
 
 /** Human label for a skip reason; unknown values fall back to the raw token. */
 export const SKIP_REASON_LABEL: Record<string, string> = {
-  unsupported_type: "Unsupported type",
-  too_large: "Too large",
-  out_of_scope: "Out of scope",
-  duplicate_hash: "Duplicate content",
-  empty_body: "Empty body",
-  robots_disallow: "Omitted by robots.txt",
+  unsupported_type: "Tipo no admitido",
+  too_large: "Demasiado grande",
+  out_of_scope: "Fuera de alcance",
+  duplicate_hash: "Contenido duplicado",
+  empty_body: "Cuerpo vacío",
+  robots_disallow: "Omitido por robots.txt",
 };
 
 /** Compact content type for the table (`image/jpeg` stays, long ones shorten). */
 export function shortType(contentType: string): string {
   const base = contentType.split(";", 1)[0]?.trim() ?? "";
-  if (!base) return "unknown";
+  if (!base) return "desconocido";
   const map: Record<string, string> = {
     "application/pdf": "PDF",
     "text/html": "HTML",
     "application/xhtml+xml": "HTML",
     "application/javascript": "JS",
     "text/javascript": "JS",
-    "application/octet-stream": "binary",
+    "application/octet-stream": "binario",
   };
   if (map[base]) return map[base];
   if (base.startsWith("image/")) return base.slice("image/".length).toUpperCase();

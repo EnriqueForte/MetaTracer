@@ -32,14 +32,14 @@ export function MaintainerCredit({ placement = "bar" }: { placement?: "bar" | "p
       <span className="font-semibold text-mt-fg">Enrique Forte</span>
       <span className="mt-tech text-mt-muted">@T3r0s3c</span>
       <span className={placement === "page" ? "text-mt-muted" : "hidden text-mt-faint xl:inline"}>
-        Developer & Maintainer
+        Desarrollador y responsable
       </span>
       {GITHUB ? (
         <a
           href={GITHUB}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label="GitHub profile of Enrique Forte"
+          aria-label="Perfil de GitHub de Enrique Forte"
           className="mt-credit-link"
         >
           <GitHubMark className={iconClass} />
@@ -50,7 +50,7 @@ export function MaintainerCredit({ placement = "bar" }: { placement?: "bar" | "p
           href={LINKEDIN}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label="LinkedIn profile of Enrique Forte"
+          aria-label="Perfil de LinkedIn de Enrique Forte"
           className="mt-credit-link"
         >
           <LinkedInMark className={iconClass} />

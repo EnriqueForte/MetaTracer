@@ -104,7 +104,7 @@ JSON, migraciones o campos de reportes.
   → agente (ajusta dentro de la rúbrica) → reportes (funcionan con cualquiera de los dos).
 - Dedup: fórmula `sha256(asset_id:finding_type:snippet.strip().lower())`, unique constraint,
   `field_source` concatenado con `" | "`.
-- Idiomas por capa: reportes y UI/CLI en inglés, documentación en español.
+- Idiomas por capa: reportes y CLI en inglés, Web UI en español, documentación en español.
 - **Ciclo de vida del dato personal** (amenaza 14): minimización en origen, `value` siempre
   texto, DB y reportes fuera de la imagen y del repo, sin envío a terceros, snippet (no campo
   completo) al LLM.

@@ -15,18 +15,18 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 export function baseCommands(actor: Actor): Command[] {
   const commands: Command[] = [
-    { id: "new-scan", label: "New scan", hint: "Targets and scope", href: "/" },
-    { id: "dashboard", label: "Dashboard", hint: "Overview", href: "/dashboard" },
-    { id: "history", label: "History", hint: "Local runs", href: "/runs" },
-    { id: "investigations", label: "Investigations", hint: "Grouped runs", href: "/investigations" },
-    { id: "compare", label: "Compare runs", hint: "New / resolved / persistent", href: "/runs/compare" },
-    { id: "scopes", label: "Scopes", hint: "Saved scopes", href: "/scopes" },
+    { id: "new-scan", label: "Nuevo escaneo", hint: "Objetivos y alcance", href: "/" },
+    { id: "dashboard", label: "Panel", hint: "Resumen", href: "/dashboard" },
+    { id: "history", label: "Historial", hint: "Escaneos locales", href: "/runs" },
+    { id: "investigations", label: "Investigaciones", hint: "Escaneos agrupados", href: "/investigations" },
+    { id: "compare", label: "Comparar escaneos", hint: "Nuevos / resueltos / persistentes", href: "/runs/compare" },
+    { id: "scopes", label: "Alcances", hint: "Alcances guardados", href: "/scopes" },
   ];
   if (actor === "operator") {
     commands.push(
-      { id: "users", label: "Users", hint: "Accounts and invitations", href: "/users" },
-      { id: "webhooks", label: "Webhooks", hint: "Outbound notifications", href: "/webhooks" },
-      { id: "knowledge", label: "Knowledge", hint: "Export / import precedents", href: "/knowledge" },
+      { id: "users", label: "Usuarios", hint: "Cuentas e invitaciones", href: "/users" },
+      { id: "webhooks", label: "Webhooks", hint: "Notificaciones de salida", href: "/webhooks" },
+      { id: "knowledge", label: "Conocimiento", hint: "Exportar / importar precedentes", href: "/knowledge" },
     );
   }
   return commands;
@@ -51,14 +51,14 @@ export function matchCommands(
         .slice(0, 6)
         .map((run) => ({
           id: `run-${run.run_id}`,
-          label: `Open run ${run.target}`,
+          label: `Abrir escaneo ${run.target}`,
           hint: run.run_id.slice(0, 8),
           href: `/runs/${encodeURIComponent(run.run_id)}`,
         }))
     : [];
   const direct =
     UUID_RE.test(text.trim()) && !runMatches.some((item) => item.id === `run-${text.trim()}`)
-      ? [{ id: "run-direct", label: `Open run ${text.trim()}`, hint: "Run id", href: `/runs/${encodeURIComponent(text.trim())}` }]
+      ? [{ id: "run-direct", label: `Abrir escaneo ${text.trim()}`, hint: "Id del escaneo", href: `/runs/${encodeURIComponent(text.trim())}` }]
       : [];
   return [...fixed, ...runMatches, ...direct];
 }
@@ -127,9 +127,9 @@ export function CommandPalette({ open, onOpenChange, actor, onNavigate }: Props)
           inputRef.current?.focus();
         }}
       >
-        <DialogTitle className="sr-only">Command palette</DialogTitle>
+        <DialogTitle className="sr-only">Paleta de comandos</DialogTitle>
         <DialogDescription className="sr-only">
-          Type to filter. Arrow keys move, Enter opens, Escape closes.
+          Escribe para filtrar. Las flechas mueven, Intro abre, Escape cierra.
         </DialogDescription>
         <input
           ref={inputRef}
@@ -137,19 +137,19 @@ export function CommandPalette({ open, onOpenChange, actor, onNavigate }: Props)
           aria-expanded="true"
           aria-controls={listId}
           aria-activedescendant={options[current] ? `${listId}-${options[current].id}` : undefined}
-          aria-label="Search commands or runs"
+          aria-label="Buscar comandos o escaneos"
           value={text}
           onChange={(event) => {
             setText(event.target.value);
             setActive(0);
           }}
           onKeyDown={onKey}
-          placeholder="Go to… (page, run id or target)"
+          placeholder="Ir a… (página, id de escaneo u objetivo)"
           className="w-full rounded-t-md border-b border-mt-border bg-transparent px-4 py-3 text-sm text-mt-fg placeholder:text-mt-faint focus:outline-none"
         />
-        <ul id={listId} role="listbox" aria-label="Commands" className="max-h-80 overflow-y-auto p-2">
+        <ul id={listId} role="listbox" aria-label="Comandos" className="max-h-80 overflow-y-auto p-2">
           {options.length === 0 ? (
-            <li className="px-3 py-2 text-sm text-mt-muted">No matching command.</li>
+            <li className="px-3 py-2 text-sm text-mt-muted">Ningún comando coincide.</li>
           ) : null}
           {options.map((option, index) => (
             <li
@@ -172,21 +172,21 @@ export function CommandPalette({ open, onOpenChange, actor, onNavigate }: Props)
 }
 
 export const SHORTCUTS: [string, string][] = [
-  ["Ctrl / ⌘ + K", "Open the command palette"],
-  ["/", "Focus the findings search"],
-  ["j / k", "Next / previous finding"],
-  ["x", "Select or unselect the active finding"],
-  ["Enter or Space", "Open the selected finding"],
-  ["Esc", "Close the open panel or dialog"],
-  ["?", "Show this help"],
+  ["Ctrl / ⌘ + K", "Abrir la paleta de comandos"],
+  ["/", "Enfocar la búsqueda de hallazgos"],
+  ["j / k", "Hallazgo siguiente / anterior"],
+  ["x", "Seleccionar o quitar el hallazgo activo"],
+  ["Intro o Espacio", "Abrir el hallazgo seleccionado"],
+  ["Esc", "Cerrar el panel o diálogo abierto"],
+  ["?", "Mostrar esta ayuda"],
 ];
 
 export function ShortcutsHelp({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogTitle>Keyboard shortcuts</DialogTitle>
-        <DialogDescription>Single-key shortcuts are off while you type in a field.</DialogDescription>
+        <DialogTitle>Atajos de teclado</DialogTitle>
+        <DialogDescription>Los atajos de una tecla se desactivan mientras escribes en un campo.</DialogDescription>
         <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
           {SHORTCUTS.map(([keys, label]) => (
             <div key={keys} className="contents">

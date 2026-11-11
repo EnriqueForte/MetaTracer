@@ -35,7 +35,7 @@ describe("FindingsPanel hostile content", () => {
       vi.fn(async () => new Response(JSON.stringify({ findings: [finding] }), { status: 200 })),
     );
     render(<FindingsPanel runId="run-1" totalAssets={1} />);
-    expect(await screen.findByText("Unclassified")).toBeInTheDocument();
+    expect(await screen.findByText("Sin clasificar")).toBeInTheDocument();
     fireEvent.click(screen.getByText("<script>alert(1)</script>"));
     expect(screen.getAllByText("<script>alert(1)</script>").length).toBeGreaterThan(0);
     expect(screen.getByText("<img src=x onerror=alert(1)>")).toBeInTheDocument();
@@ -55,14 +55,14 @@ describe("FindingsPanel hostile content", () => {
       vi.fn(async () => new Response(JSON.stringify({ findings: [finding] }), { status: 200 })),
     );
     render(<FindingsPanel runId="run-1" totalAssets={1} />);
-    expect(await screen.findByRole("heading", { name: "Assets with findings" })).toBeInTheDocument();
-    expect(screen.getByText("GPS · Unclassified")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Activos con hallazgos" })).toBeInTheDocument();
+    expect(screen.getByText("GPS · Sin clasificar")).toBeInTheDocument();
   });
 
   it("keeps a load error distinct from an empty result", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("nope", { status: 500 })));
     render(<FindingsPanel runId="run-2" totalAssets={0} />);
-    expect(await screen.findByText("Findings unavailable")).toBeInTheDocument();
-    expect(screen.queryByText("No findings")).not.toBeInTheDocument();
+    expect(await screen.findByText("Hallazgos no disponibles")).toBeInTheDocument();
+    expect(screen.queryByText("Sin hallazgos")).not.toBeInTheDocument();
   });
 });

@@ -123,7 +123,7 @@ export function SplitPane({
           <div
             role="separator"
             aria-orientation="vertical"
-            aria-label="Resize detail panel"
+            aria-label="Redimensionar el panel de detalle"
             aria-valuenow={width}
             aria-valuemin={min}
             aria-valuemax={max}

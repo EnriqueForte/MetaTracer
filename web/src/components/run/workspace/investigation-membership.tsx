@@ -52,7 +52,7 @@ export function InvestigationMembership({
       const created = await sendJson<InvestigationRow>("/api/investigations", "POST", {
         name: label,
       });
-      if (!created?.id) throw new Error("The investigation was not created.");
+      if (!created?.id) throw new Error("No se creó la investigación.");
       await sendJson(`/api/investigations/${encodeURIComponent(created.id)}/runs`, "POST", {
         run_id: run.run_id,
       });
@@ -62,7 +62,7 @@ export function InvestigationMembership({
       setName("");
       void refresh();
     },
-    onError: (error) => setFormError(errorMessage(error, "Could not update the investigation.")),
+    onError: (error) => setFormError(errorMessage(error, "No se pudo actualizar la investigación.")),
   });
 
   const join = useMutation({
@@ -74,7 +74,7 @@ export function InvestigationMembership({
       setFormError("");
       void refresh();
     },
-    onError: (error) => setFormError(errorMessage(error, "Could not update the investigation.")),
+    onError: (error) => setFormError(errorMessage(error, "No se pudo actualizar la investigación.")),
   });
 
   const leave = useMutation({
@@ -87,25 +87,25 @@ export function InvestigationMembership({
       setFormError("");
       void refresh();
     },
-    onError: (error) => setFormError(errorMessage(error, "Could not update the investigation.")),
+    onError: (error) => setFormError(errorMessage(error, "No se pudo actualizar la investigación.")),
   });
 
     if (run.investigation_id) {
     return (
       <div className="flex flex-wrap items-center gap-2 text-xs text-mt-muted">
         <p>
-          Investigation{" "}
+          Investigación{" "}
           <Link
             href={`/investigations/${encodeURIComponent(run.investigation_id)}`}
             className="text-mt-fg underline-offset-2 hover:underline"
           >
             {run.investigation_name ?? run.investigation_id}
           </Link>
-          . Triage from other runs in this group is suggested, not applied.
+          . El triaje de otros escaneos de este grupo se sugiere, no se aplica.
         </p>
         {canMutate ? (
           <Button variant="secondary" disabled={leave.isPending} onClick={() => leave.mutate()}>
-            Remove from investigation
+            Quitar de la investigación
           </Button>
         ) : null}
         {formError ? <span className="text-mt-danger">{formError}</span> : null}
@@ -124,35 +124,35 @@ export function InvestigationMembership({
         event.preventDefault();
         const label = name.trim();
         if (!label) {
-          setFormError("Name the investigation first.");
+          setFormError("Pon primero un nombre a la investigación.");
           return;
         }
         start.mutate(label);
       }}
     >
       <label htmlFor="investigation-name" className="text-xs font-semibold text-mt-muted">
-        Investigation
+        Investigación
       </label>
       <input
         id="investigation-name"
         value={name}
         maxLength={80}
         onChange={(event) => setName(event.target.value)}
-        placeholder="Name a new group"
+        placeholder="Nombra un grupo nuevo"
         className="rounded-md border border-mt-border-strong bg-mt-bg px-3 py-2 text-sm text-mt-fg"
       />
       <Button type="submit" variant="secondary" disabled={start.isPending}>
-        Start investigation
+        Iniciar investigación
       </Button>
       {openGroups.length > 0 ? (
         <>
           <select
-            aria-label="Existing investigation"
+            aria-label="Investigación existente"
             value={picked}
             onChange={(event) => setPicked(event.target.value)}
             className="rounded-md border border-mt-border-strong bg-mt-bg px-3 py-2 text-sm text-mt-fg"
           >
-            <option value="">Add to an existing group</option>
+            <option value="">Añadir a un grupo existente</option>
             {openGroups.map((row) => (
               <option key={row.id} value={row.id}>
                 {row.name}
@@ -165,7 +165,7 @@ export function InvestigationMembership({
             disabled={!picked || join.isPending}
             onClick={() => join.mutate(picked)}
           >
-            Add this run
+            Añadir este escaneo
           </Button>
         </>
       ) : null}

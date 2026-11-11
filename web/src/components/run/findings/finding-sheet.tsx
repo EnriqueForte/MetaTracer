@@ -43,46 +43,46 @@ export function FindingSheet({ finding, canMutate, onClose, extra }: Props) {
                 {SEVERITY_LABEL[severityKey(finding.severity)]}
               </Badge>
               <span className="text-sm text-mt-fg">{finding.type_label}</span>
-              <span className="text-xs text-mt-muted">Confidence</span>
+              <span className="text-xs text-mt-muted">Confianza</span>
               <Badge variant="confidence">{CONFIDENCE_LABEL[finding.confidence]}</Badge>
             </div>
             <section className="flex flex-col gap-2">
-              <h3 className="text-sm font-semibold text-mt-fg">Evidence</h3>
+              <h3 className="text-sm font-semibold text-mt-fg">Evidencia</h3>
               <pre className="mt-evidence border border-mt-border bg-mt-bg p-3">{finding.evidence_snippet}</pre>
-              <p className="text-xs font-semibold text-mt-muted">Field</p>
+              <p className="text-xs font-semibold text-mt-muted">Campo</p>
               <p className="mt-tech">{finding.field_source}</p>
-              <p className="text-xs font-semibold text-mt-muted">Source URL</p>
+              <p className="text-xs font-semibold text-mt-muted">URL de origen</p>
               <AssetLink url={finding.asset_source_url} />
-              <p className="text-xs font-semibold text-mt-muted">Final URL</p>
+              <p className="text-xs font-semibold text-mt-muted">URL final</p>
               <AssetLink url={finding.asset_final_url} />
-              <p className="text-xs font-semibold text-mt-muted">Content type</p>
+              <p className="text-xs font-semibold text-mt-muted">Tipo de contenido</p>
               <p className="mt-tech">{finding.asset_content_type}</p>
               <Button
                 variant="secondary"
                 className="self-start"
                 onClick={() => void copyEvidence(finding.evidence_snippet)}
               >
-                {copied ? "Copied" : "Copy"}
+                {copied ? "Copiado" : "Copiar"}
               </Button>
             </section>
             {extra ? extra(finding) : null}
             <section className="flex flex-col gap-3 rounded-md border border-mt-border-strong bg-mt-surface p-3">
-              <p className="text-xs font-semibold text-mt-muted">AI analysis — not evidence</p>
+              <p className="text-xs font-semibold text-mt-muted">Análisis de IA — no es evidencia</p>
               {finding.severity_justification ? (
                 <div>
-                  <h3 className="text-xs font-semibold text-mt-muted">Justification</h3>
+                  <h3 className="text-xs font-semibold text-mt-muted">Justificación</h3>
                   <p className="text-sm text-mt-fg">{finding.severity_justification}</p>
                 </div>
               ) : null}
               {finding.impact_analysis ? (
                 <div>
-                  <h3 className="text-xs font-semibold text-mt-muted">Impact</h3>
+                  <h3 className="text-xs font-semibold text-mt-muted">Impacto</h3>
                   <p className="text-sm text-mt-fg">{finding.impact_analysis}</p>
                 </div>
               ) : null}
               {finding.reproduction_steps.length > 0 ? (
                 <div>
-                  <h3 className="text-xs font-semibold text-mt-muted">Reproduction steps</h3>
+                  <h3 className="text-xs font-semibold text-mt-muted">Pasos de reproducción</h3>
                   <ol className="flex list-decimal flex-col gap-1 ps-5">
                     {finding.reproduction_steps.map((step, index) => (
                       <li key={index} className="text-sm text-mt-fg">
@@ -94,7 +94,7 @@ export function FindingSheet({ finding, canMutate, onClose, extra }: Props) {
               ) : null}
               {finding.remediation_advice ? (
                 <div>
-                  <h3 className="text-xs font-semibold text-mt-muted">Remediation</h3>
+                  <h3 className="text-xs font-semibold text-mt-muted">Remediación</h3>
                   <p className="text-sm text-mt-fg">{finding.remediation_advice}</p>
                 </div>
               ) : null}

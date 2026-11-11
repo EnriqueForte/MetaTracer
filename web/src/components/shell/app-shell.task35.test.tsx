@@ -85,12 +85,12 @@ describe("AppShell (TASK-35)", () => {
         <p>page</p>
       </AppShell>,
     );
-    fireEvent.click(await screen.findByRole("button", { name: "Notifications" }));
-    const panel = await screen.findByRole("region", { name: "Notifications panel" });
+    fireEvent.click(await screen.findByRole("button", { name: "Notificaciones" }));
+    const panel = await screen.findByRole("region", { name: "Panel de notificaciones" });
     const link = await within(panel).findByRole("link");
     expect(link).toHaveAttribute("href", "/runs/run-42");
-    expect(link).toHaveTextContent("5 min ago");
-    expect(within(panel).getByRole("button", { name: "Dismiss notification" })).toBeInTheDocument();
+    expect(link).toHaveTextContent("hace 5 min");
+    expect(within(panel).getByRole("button", { name: "Descartar notificación" })).toBeInTheDocument();
   });
 
   it("hides Dismiss from a viewer", async () => {
@@ -102,10 +102,10 @@ describe("AppShell (TASK-35)", () => {
       </AppShell>,
     );
     await screen.findByText("ada");
-    fireEvent.click(screen.getByRole("button", { name: "Notifications" }));
-    const panel = await screen.findByRole("region", { name: "Notifications panel" });
+    fireEvent.click(screen.getByRole("button", { name: "Notificaciones" }));
+    const panel = await screen.findByRole("region", { name: "Panel de notificaciones" });
     await within(panel).findByRole("link");
-    expect(within(panel).queryByRole("button", { name: "Dismiss notification" })).not.toBeInTheDocument();
+    expect(within(panel).queryByRole("button", { name: "Descartar notificación" })).not.toBeInTheDocument();
   });
 
   it("opens the palette with Ctrl+K and jumps to a run by id prefix", async () => {
@@ -118,10 +118,10 @@ describe("AppShell (TASK-35)", () => {
     );
     await screen.findByText("ada");
     fireEvent.keyDown(window, { key: "k", ctrlKey: true });
-    const input = await screen.findByRole("combobox", { name: "Search commands or runs" });
+    const input = await screen.findByRole("combobox", { name: "Buscar comandos o escaneos" });
     expect(document.activeElement).toBe(input);
     fireEvent.change(input, { target: { value: "abcdef12" } });
-    const option = await screen.findByRole("option", { name: /Open run acme.com/ });
+    const option = await screen.findByRole("option", { name: /Abrir escaneo acme.com/ });
     expect(option).toHaveAttribute("aria-selected", "true");
     fireEvent.keyDown(input, { key: "Enter" });
     expect(nav.push).toHaveBeenCalledWith("/runs/abcdef12-0000-4000-8000-000000000000");
@@ -137,9 +137,9 @@ describe("AppShell (TASK-35)", () => {
     );
     await screen.findByText("ada");
     fireEvent.keyDown(screen.getByLabelText("Page field"), { key: "?" });
-    expect(screen.queryByRole("heading", { name: "Keyboard shortcuts" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Atajos de teclado" })).not.toBeInTheDocument();
     fireEvent.keyDown(document.body, { key: "?" });
-    expect(await screen.findByRole("heading", { name: "Keyboard shortcuts" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Atajos de teclado" })).toBeInTheDocument();
   });
 
   it("expands the full ethical notice", async () => {
@@ -150,9 +150,9 @@ describe("AppShell (TASK-35)", () => {
         <p>page</p>
       </AppShell>,
     );
-    const pill = screen.getByRole("button", { name: "Authorized use only" });
+    const pill = screen.getByRole("button", { name: "Solo uso autorizado" });
     fireEvent.click(pill);
     expect(pill).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByText(/explicitly authorized to test/)).toBeInTheDocument();
+    expect(screen.getByText(/permiso explícito para probar/)).toBeInTheDocument();
   });
 });

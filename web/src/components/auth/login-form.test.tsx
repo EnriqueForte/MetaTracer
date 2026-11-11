@@ -25,11 +25,11 @@ describe("LoginForm", () => {
       }),
     );
     render(<LoginForm />);
-    expect(await screen.findByRole("link", { name: "Create the first account" })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: "Crear la primera cuenta" })).toHaveAttribute(
       "href",
       "/setup",
     );
-    expect(screen.queryByRole("link", { name: "Create your account" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Crear tu cuenta" })).not.toBeInTheDocument();
   });
 
   it("offers invitation registration when auth is on and setup is closed", async () => {
@@ -46,10 +46,10 @@ describe("LoginForm", () => {
       }),
     );
     render(<LoginForm />);
-    expect(await screen.findByRole("link", { name: "Create your account" })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: "Crear tu cuenta" })).toHaveAttribute(
       "href",
       "/register",
     );
-    expect(screen.queryByRole("link", { name: "Create the first account" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Crear la primera cuenta" })).not.toBeInTheDocument();
   });
 });

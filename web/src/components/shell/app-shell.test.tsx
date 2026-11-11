@@ -48,26 +48,26 @@ describe("AppShell coexistence", () => {
       </AppShell>,
     );
     expect(
-      await screen.findByText("Signing out ends this session on every surface."),
+      await screen.findByText("Cerrar sesión termina esta sesión en todas las superficies."),
     ).toBeInTheDocument();
-    expect(screen.getByText("Security Intelligence")).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("API reachable");
+    expect(screen.getByText("Inteligencia de seguridad")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("API accesible");
     expect(screen.queryByRole("link", { name: "Classic UI" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByText("Research")).toBeInTheDocument();
-    expect(screen.getByText("Administration")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "New scan" })).not.toHaveAttribute("aria-current");
-    expect(screen.getByRole("link", { name: "Investigations" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Panel" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByText("Investigación")).toBeInTheDocument();
+    expect(screen.getByText("Administración")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Nuevo escaneo" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", { name: "Investigaciones" })).toHaveAttribute(
       "href",
       "/investigations",
     );
     expect(screen.getByText("Enrique Forte")).toBeInTheDocument();
     expect(screen.getByText("@T3r0s3c")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "GitHub profile of Enrique Forte" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Perfil de GitHub de Enrique Forte" })).toHaveAttribute(
       "href",
       "https://github.com/enriqueforte",
     );
-    expect(screen.getByRole("link", { name: "LinkedIn profile of Enrique Forte" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Perfil de LinkedIn de Enrique Forte" })).toHaveAttribute(
       "href",
       "https://www.linkedin.com/in/enriqueforte",
     );
@@ -91,8 +91,8 @@ describe("AppShell coexistence", () => {
       </AppShell>,
     );
     expect(screen.queryByRole("link", { name: "Classic UI" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Sign out" })).not.toBeInTheDocument();
-    expect(screen.queryByText("Signing out ends this session on every surface.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cerrar sesión" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Cerrar sesión termina esta sesión en todas las superficies.")).not.toBeInTheDocument();
   });
 
   it("marks History while a run is open", async () => {
@@ -107,8 +107,8 @@ describe("AppShell coexistence", () => {
         <p>page</p>
       </AppShell>,
     );
-    expect(await screen.findByRole("link", { name: "History" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: "Dashboard" })).not.toHaveAttribute("aria-current");
-    expect(screen.getByRole("link", { name: "New scan" })).not.toHaveAttribute("aria-current");
+    expect(await screen.findByRole("link", { name: "Historial" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Panel" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", { name: "Nuevo escaneo" })).not.toHaveAttribute("aria-current");
   });
 });

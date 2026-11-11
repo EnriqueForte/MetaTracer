@@ -37,17 +37,17 @@ function domains(value: string): string[] {
  */
 const scanSchema = z
   .object({
-    targets: z.array(z.string()).min(1, "Enter at least one target."),
+    targets: z.array(z.string()).min(1, "Indica al menos un objetivo."),
     scope_domains: z.array(z.string()),
     scope_ids: z.array(z.string()),
     reasoning_depth: z.enum(DEPTHS),
   })
   .refine((value) => value.scope_domains.length > 0 || value.scope_ids.length > 0, {
     message:
-      "Enter at least one authorized scope domain or choose a saved scope; the scope is never inferred from the target.",
+      "Indica al menos un dominio de alcance autorizado o elige un alcance guardado; el alcance nunca se infiere del objetivo.",
   })
   .refine((value) => !(value.scope_domains.length > 0 && value.scope_ids.length > 0), {
-    message: "Use either saved scopes or manual domains, not both.",
+    message: "Usa alcances guardados o dominios manuales, no ambos.",
   });
 
 type ScanDraft = z.infer<typeof scanSchema>;
@@ -88,7 +88,7 @@ export function ScanWizard() {
       reasoning_depth: depth,
     });
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "Check the scan form.");
+      setError(parsed.error.issues[0]?.message ?? "Revisa el formulario del escaneo.");
       return;
     }
     setDraft(parsed.data);
@@ -120,7 +120,7 @@ export function ScanWizard() {
             ? (payload as { run_id: string }).run_id
             : "";
         if (!runId) {
-          setError("The scan could not be started (HTTP 202).");
+          setError("No se pudo iniciar el escaneo (HTTP 202).");
           setStarting(false);
           setModalOpen(false);
           return;
@@ -129,20 +129,20 @@ export function ScanWizard() {
         return;
       }
       if (response.status === 409) {
-        setError("Another scan is already running; wait for it to finish.");
+        setError("Ya hay otro escaneo en curso; espera a que termine.");
       } else if (response.status === 403) {
-        setError("The scope confirmation was rejected by the server.");
+        setError("El servidor rechazó la confirmación de alcance.");
       } else if (response.status === 404) {
-        setError("The selected saved scope no longer exists; choose or enter domains manually.");
+        setError("El alcance guardado ya no existe; elige otro o escribe los dominios.");
       } else if (response.status === 429) {
-        setError("Too many requests: the API asked us to slow down; retry in a few seconds.");
+        setError("Demasiadas peticiones: espera unos segundos y reintenta.");
       } else if (response.status >= 500) {
-        setError("The API failed internally; retry, or check the server logs.");
+        setError("La API falló internamente; reintenta o revisa los registros del servidor.");
       } else {
-        setError(`The scan could not be started (HTTP ${response.status}).`);
+        setError(`No se pudo iniciar el escaneo (HTTP ${response.status}).`);
       }
     } catch {
-      setError("Network error: the API is unreachable.");
+      setError("Error de red: la API no está accesible.");
     }
     setStarting(false);
     setModalOpen(false);
@@ -154,23 +154,25 @@ export function ScanWizard() {
       : (draft?.scope_domains ?? []).join(", ");
 
   return (
-    <div className="flex min-w-0 flex-col gap-3">
-      <div>
-        <h1 className="mt-title">New scan</h1>
-        <p className="text-sm text-mt-muted">
-          Discover sensitive metadata (GPS, emails, internal paths, software versions, debug comments)
-          in publicly available documents inside your authorized scope.
-        </p>
+    <div className="flex min-w-0 flex-col gap-4">
+      <div className="mt-page-head">
+        <div>
+          <h1 className="mt-title">Nuevo escaneo</h1>
+          <p className="text-sm text-mt-muted">
+            Descubre metadatos sensibles (GPS, correos, rutas internas, versiones de software, comentarios
+            de depuración) en documentos públicos dentro de tu alcance autorizado.
+          </p>
+        </div>
       </div>
 
       {viewer ? (
         <p role="status" className="rounded-md border border-mt-border-strong bg-mt-surface px-3 py-2 text-sm text-mt-fg">
-          Viewer accounts can review runs but cannot start scans. Ask an operator.
+          Las cuentas de visor pueden revisar escaneos, pero no iniciarlos. Pide a un operador.
         </p>
       ) : null}
 
       <form
-        className="grid grid-cols-1 gap-3"
+        className="mt-wizard-grid"
         noValidate
         onSubmit={(event) => {
           event.preventDefault();
@@ -178,15 +180,15 @@ export function ScanWizard() {
         }}
       >
         <section className="mt-card flex flex-col gap-3 p-4">
-          <p className="mt-kicker">Step 1</p>
-          <h2 className="mt-section-title">What to fetch</h2>
+          <p className="mt-kicker">Paso 1</p>
+          <h2 className="mt-section-title">Qué pedir</h2>
           <p className="text-sm text-mt-muted">
-            Public URLs or hostnames you are allowed to request. One target per line. Nothing is
-            downloaded until you confirm the scope.
+            URLs o nombres de host públicos que tienes permiso para solicitar. Un objetivo por línea.
+            No se descarga nada hasta que confirmes el alcance.
           </p>
           <div className="flex flex-col gap-1">
             <label htmlFor="targets" className="text-xs font-semibold text-mt-muted">
-              Targets
+              Objetivos
             </label>
             <textarea
               id="targets"
@@ -201,15 +203,15 @@ export function ScanWizard() {
         </section>
 
         <section className="mt-card flex flex-col gap-3 p-4">
-          <p className="mt-kicker">Step 2</p>
-          <h2 className="mt-section-title">Where you are allowed</h2>
+          <p className="mt-kicker">Paso 2</p>
+          <h2 className="mt-section-title">Dónde tienes permiso</h2>
           <p className="text-sm text-mt-muted">
-            The scope is a separate decision. The product never copies it from the targets. Use a
-            saved scope or type the domains.
+            El alcance es una decisión aparte. El producto nunca lo copia de los objetivos. Usa un
+            alcance guardado o escribe los dominios.
           </p>
           <div className="flex flex-col gap-1">
             <label htmlFor="scope" className="text-xs font-semibold text-mt-muted">
-              Authorized scope domains
+              Dominios de alcance autorizado
             </label>
             <Input
               id="scope"
@@ -223,7 +225,7 @@ export function ScanWizard() {
             />
           </div>
           <fieldset className="flex flex-col gap-2" disabled={viewer || usingManual}>
-            <legend className="text-xs font-semibold text-mt-muted">Saved scopes</legend>
+            <legend className="text-xs font-semibold text-mt-muted">Alcances guardados</legend>
             {savedScopes.length > 0 ? (
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 {savedScopes.map((scope) => (
@@ -247,14 +249,14 @@ export function ScanWizard() {
                   </label>
                 ))}
                 <a href={`${BASE_PATH}/scopes`} className="text-xs text-mt-muted underline">
-                  Manage scopes…
+                  Gestionar alcances…
                 </a>
               </div>
             ) : (
               <p className="text-xs text-mt-muted">
-                No saved scopes yet —{" "}
+                Aún no hay alcances guardados —{" "}
                 <a href={`${BASE_PATH}/scopes`} className="underline">
-                  create one
+                  crear uno
                 </a>
                 .
               </p>
@@ -262,16 +264,16 @@ export function ScanWizard() {
           </fieldset>
         </section>
 
-        <section className="mt-card flex flex-col gap-3 p-4">
-          <p className="mt-kicker">Step 3</p>
-          <h2 className="mt-section-title">How the write-up reads</h2>
+        <section className="mt-card mt-wizard-span flex flex-col gap-3 p-4">
+          <p className="mt-kicker">Paso 3</p>
+          <h2 className="mt-section-title">Cómo se lee el informe</h2>
           <p className="text-sm text-mt-muted">
-            Brief is a short card. Standard is the default. Detailed asks the analyst for a longer
-            explanation. Severity still comes from the rubric.
+            Breve es una ficha corta. Estándar es el valor por defecto. Detallado pide una explicación
+            más larga. La severidad sigue saliendo de la rúbrica.
           </p>
           <div className="flex flex-col gap-1 sm:max-w-xs">
             <label htmlFor="depth" className="text-xs font-semibold text-mt-muted">
-              Reasoning depth
+              Profundidad del razonamiento
             </label>
             <select
               id="depth"
@@ -285,36 +287,36 @@ export function ScanWizard() {
             >
               {DEPTHS.map((item) => (
                 <option key={item} value={item}>
-                  {item}
+                  {item === "brief" ? "Breve" : item === "detailed" ? "Detallado" : "Estándar"}
                 </option>
               ))}
             </select>
           </div>
           <Button type="submit" className="self-start" disabled={viewer}>
-            Start scan
+            Iniciar escaneo
           </Button>
         </section>
       </form>
       <p id="scope-source-note" className="text-xs text-mt-muted" aria-live="polite">
         {usingSaved
-          ? "Using saved scopes — manual domains are ignored."
+          ? "Usando alcances guardados: se ignoran los dominios escritos a mano."
           : usingManual
-            ? "Using manual domains — saved scopes are ignored."
-            : "Choose saved scopes or type domains. The scope is never inferred from the targets."}
+            ? "Usando dominios manuales: se ignoran los alcances guardados."
+            : "Elige alcances guardados o escribe dominios. El alcance nunca se infiere de los objetivos."}
       </p>
 
       <section className="mt-card flex flex-col gap-3 p-4" aria-labelledby="scan-pipeline-title">
         <div>
           <h2 id="scan-pipeline-title" className="mt-section-title">
-            Trace
+            Recorrido
           </h2>
           <p className="mt-meta mt-1">
-            After you start, the run page follows this chain live. A step lights only when the
-            server reports it. The model step classifies evidence already collected; it does not
-            open new targets.
+            Al iniciar, la página del escaneo sigue esta cadena en vivo. Un paso se enciende solo
+            cuando el servidor lo informa. El paso del modelo clasifica evidencia ya recogida; no
+            abre objetivos nuevos.
           </p>
         </div>
-        <ol className="mt-stages" aria-label="Scan pipeline">
+        <ol className="mt-stages" aria-label="Cadena del escaneo">
           {STAGES.map((key) => (
             <li key={key} className="mt-stage" data-state="pending" data-stage={key}>
               <span className="mt-stage-line" aria-hidden="true" />
@@ -341,12 +343,12 @@ export function ScanWizard() {
             cancelRef.current?.focus();
           }}
         >
-          <DialogTitle>Confirm authorized scope</DialogTitle>
+          <DialogTitle>Confirmar alcance autorizado</DialogTitle>
           <DialogDescription className="sr-only">
-            Review the targets and scope, then confirm explicit authorization.
+            Revisa los objetivos y el alcance, y confirma la autorización explícita.
           </DialogDescription>
           <div>
-            <p className="text-sm text-mt-fg">You are about to audit:</p>
+            <p className="text-sm text-mt-fg">Vas a auditar:</p>
             <ul className="mt-1 max-h-32 list-inside list-disc overflow-y-auto text-xs text-mt-muted">
               {(draft?.targets ?? []).map((target) => (
                 <li key={target}>{target}</li>
@@ -354,13 +356,13 @@ export function ScanWizard() {
             </ul>
           </div>
           <div>
-            <p className="text-sm text-mt-fg">Restricted to the authorized scope:</p>
+            <p className="text-sm text-mt-fg">Limitado al alcance autorizado:</p>
             <p className="mt-tech">{scopeSummary}</p>
           </div>
           <p className="text-xs text-mt-muted">
-            MetaTracer only downloads public documents on these domains, extracts their metadata
-            and never attempts exploitation. Scanning systems without explicit authorization may
-            be illegal in your jurisdiction.
+            MetaTracer solo descarga documentos públicos de estos dominios, extrae sus metadatos
+            y nunca intenta explotar. Escanear sistemas sin autorización explícita puede ser ilegal
+            en tu jurisdicción.
           </p>
           <label className="flex cursor-pointer items-start gap-2">
             <input
@@ -368,11 +370,11 @@ export function ScanWizard() {
               className="mt-1"
               checked={confirmed}
               onChange={(event) => setConfirmed(event.target.checked)}
-              aria-label="I confirm I have explicit authorization to audit these targets and that they are inside the stated scope"
+              aria-label="Confirmo que tengo autorización explícita para auditar estos objetivos y que están dentro del alcance indicado"
             />
             <span className="text-sm text-mt-fg">
-              I confirm I have explicit authorization to audit these targets and that they are
-              inside the stated scope.
+              Confirmo que tengo autorización explícita para auditar estos objetivos y que están
+              dentro del alcance indicado.
             </span>
           </label>
           <div className="flex gap-2">
@@ -383,10 +385,10 @@ export function ScanWizard() {
               className="flex-1"
               onClick={() => setModalOpen(false)}
             >
-              Cancel
+              Cancelar
             </Button>
             <Button className="flex-1" disabled={!confirmed || starting} onClick={() => void startScan()}>
-              {starting ? "Starting scan…" : "Confirm and start scan"}
+              {starting ? "Iniciando escaneo…" : "Confirmar e iniciar escaneo"}
             </Button>
           </div>
         </DialogContent>

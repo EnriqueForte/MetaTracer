@@ -12,11 +12,11 @@ import { useWorkspace } from "./workspace-context";
 
 /** Human label for a limit identifier; the wire value stays lowercase snake_case. */
 const LIMIT_LABEL: Record<string, string> = {
-  max_depth: "Crawl depth limit",
-  max_pages: "Page limit",
-  max_assets: "Asset limit",
-  max_total_bytes: "Byte limit",
-  max_seconds: "Time limit",
+  max_depth: "Límite de profundidad de rastreo",
+  max_pages: "Límite de páginas",
+  max_assets: "Límite de activos",
+  max_total_bytes: "Límite de bytes",
+  max_seconds: "Límite de tiempo",
 };
 
 function Figure({ label, value, detail }: { label: string; value: string; detail?: string }) {
@@ -47,14 +47,14 @@ export function CoverageView() {
   if (query.isError) {
     return (
       <ErrorState
-        message={errorMessage(query.error, "Could not load the coverage summary")}
+        message={errorMessage(query.error, "No se pudo cargar el resumen de cobertura")}
         onRetry={() => void query.refetch()}
       />
     );
   }
 
   if (query.isPending || !query.data) {
-    return <p className="text-sm text-mt-muted">Loading coverage…</p>;
+    return <p className="text-sm text-mt-muted">Cargando cobertura…</p>;
   }
 
   const coverage = query.data;
@@ -64,37 +64,37 @@ export function CoverageView() {
   return (
     <div className="flex min-w-0 flex-col gap-4">
       <div>
-        <h2 className="mt-section-title">Coverage of this run</h2>
+        <h2 className="mt-section-title">Cobertura de este escaneo</h2>
         <p className="mt-meta">
-          What the pipeline stored. This is not a measure of exposure: absence of findings is not
-          absence of metadata.
+          Lo que el pipeline guardó. No es una medida de exposición: la ausencia de hallazgos no es
+          ausencia de metadatos.
         </p>
       </div>
 
       <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
-        <Figure label="Assets recorded" value={String(coverage.total_assets)} />
-        <Figure label="Extracted" value={String(coverage.ok)} detail="Metadata read" />
-        <Figure label="Skipped" value={String(coverage.skipped)} detail="See reasons below" />
-        <Figure label="Failed" value={String(coverage.failed)} detail="Parser or transport" />
-        <Figure label="Bytes" value={formatBytes(coverage.bytes_downloaded)} detail="Bodies downloaded" />
+        <Figure label="Activos registrados" value={String(coverage.total_assets)} />
+        <Figure label="Extraídos" value={String(coverage.ok)} detail="Metadatos leídos" />
+        <Figure label="Omitidos" value={String(coverage.skipped)} detail="Ver motivos abajo" />
+        <Figure label="Fallidos" value={String(coverage.failed)} detail="Parser o transporte" />
+        <Figure label="Bytes" value={formatBytes(coverage.bytes_downloaded)} detail="Cuerpos descargados" />
       </dl>
 
       <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <Figure
-          label="Metadata fields"
+          label="Campos de metadatos"
           value={String(coverage.metadata_fields)}
-          detail="Stored as structured text, never as bytes"
+          detail="Guardados como texto estructurado, nunca como bytes"
         />
-        <Figure label="Findings" value={String(coverage.findings)} detail="Subset of fields that matched a detector" />
+        <Figure label="Hallazgos" value={String(coverage.findings)} detail="Subconjunto de campos que coincidió con un detector" />
       </dl>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <section className="mt-card flex flex-col gap-2 p-4" aria-labelledby="coverage-skip-title">
           <h3 id="coverage-skip-title" className="mt-section-title">
-            Why assets were skipped
+            Por qué se omitieron activos
           </h3>
           {skipReasons.length === 0 ? (
-            <p className="text-sm text-mt-muted">No asset was skipped in this run.</p>
+            <p className="text-sm text-mt-muted">Ningún activo se omitió en este escaneo.</p>
           ) : (
             <dl className="flex flex-col gap-1 text-sm">
               {skipReasons.map(([reason, count]) => (
@@ -111,10 +111,10 @@ export function CoverageView() {
 
         <section className="mt-card flex flex-col gap-2 p-4" aria-labelledby="coverage-namespace-title">
           <h3 id="coverage-namespace-title" className="mt-section-title">
-            Fields by namespace
+            Campos por espacio de nombres
           </h3>
           {namespaces.length === 0 ? (
-            <p className="text-sm text-mt-muted">No metadata field was stored.</p>
+            <p className="text-sm text-mt-muted">No se guardó ningún campo de metadatos.</p>
           ) : (
             <dl className="flex flex-col gap-1 text-sm">
               {namespaces.map(([namespace, count]) => (
@@ -133,81 +133,80 @@ export function CoverageView() {
         aria-labelledby="coverage-limits-title"
       >
         <h3 id="coverage-limits-title" className="text-sm font-semibold text-mt-fg">
-          Limits
+          Límites
         </h3>
         {coverage.counters_recorded ? (
           <>
             {coverage.limits_hit.length > 0 ? (
               <ul className="mt-1 flex list-disc flex-col gap-0.5 ps-5 text-sm text-mt-fg">
                 {coverage.limits_hit.map((limit) => (
-                  <li key={limit}>{LIMIT_LABEL[limit] ?? limit} was reached; the crawl stopped there.</li>
+                  <li key={limit}>{LIMIT_LABEL[limit] ?? limit}: se alcanzó; el rastreo se detuvo ahí.</li>
                 ))}
               </ul>
             ) : (
               <p className="mt-1 text-sm text-mt-fg">
-                No configured budget was reached in this run.
+                En este escaneo no se alcanzó ningún presupuesto configurado.
               </p>
             )}
             {Object.keys(coverage.budget).length > 0 ? (
               <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-mt-muted">
                 <div className="flex gap-1">
-                  <dt>Crawl depth</dt>
+                  <dt>Profundidad de rastreo</dt>
                   <dd className="m-0 text-mt-fg">{coverage.budget.depth}</dd>
                 </div>
                 <div className="flex gap-1">
-                  <dt>Pages</dt>
+                  <dt>Páginas</dt>
                   <dd className="m-0 text-mt-fg">
                     {coverage.pages_crawled}/{coverage.budget.max_pages}
                   </dd>
                 </div>
                 <div className="flex gap-1">
-                  <dt>Assets</dt>
+                  <dt>Activos</dt>
                   <dd className="m-0 text-mt-fg">
                     {coverage.assets_queued}/{coverage.budget.max_assets}
                   </dd>
                 </div>
                 <div className="flex gap-1">
-                  <dt>Byte budget</dt>
+                  <dt>Presupuesto de bytes</dt>
                   <dd className="m-0 text-mt-fg">{formatBytes(coverage.budget.max_total_bytes)}</dd>
                 </div>
                 <div className="flex gap-1">
-                  <dt>Time</dt>
+                  <dt>Tiempo</dt>
                   <dd className="m-0 text-mt-fg">{coverage.budget.max_seconds}s</dd>
                 </div>
                 <div className="flex gap-1">
-                  <dt>Concurrency</dt>
+                  <dt>Concurrencia</dt>
                   <dd className="m-0 text-mt-fg">{coverage.budget.max_concurrency}</dd>
                 </div>
               </dl>
             ) : null}
             {coverage.robots_checked ? (
               <p className="mt-2 text-sm text-mt-fg">
-                robots.txt was consulted. {coverage.robots_omitted ?? 0} URL(s) were omitted by
-                Disallow. That is courtesy: it does not authorize any host, and an omitted URL was
-                not requested.
+                Se consultó robots.txt. Se omitieron {coverage.robots_omitted ?? 0} URL(s) por
+                Disallow. Es cortesía: no autoriza ningún host, y una URL omitida no se pidió.
               </p>
             ) : null}
             {(coverage.sitemaps_ignored ?? 0) > 0 ? (
               <p className="mt-1 text-sm text-mt-fg">
-                {coverage.sitemaps_ignored} sitemap URL(s) were ignored because they are outside the
-                confirmed scope. A sitemap never widens what this run may request.
+                Se ignoraron {coverage.sitemaps_ignored} URL(s) de sitemap porque están fuera del
+                alcance confirmado. Un sitemap nunca amplía lo que este escaneo puede pedir.
               </p>
             ) : null}
             {coverage.sitemaps_truncated ? (
               <p className="mt-1 text-sm text-mt-fg">
-                Sitemap reading stopped at its cap. Locations past the cap were not requested.
+                La lectura del sitemap se detuvo en su tope. Las ubicaciones más allá no se pidieron.
               </p>
             ) : null}
           </>
         ) : (
           <>
             <p className="mt-1 text-sm text-mt-fg">
-              Discovery counters are <strong>not recorded</strong> for this run.
+              Los contadores de descubrimiento <strong>no están registrados</strong> para este escaneo.
             </p>
             <p className="mt-1 text-sm text-mt-muted">
-              This run predates the crawl budget, so the number of resources discovered but not
-              attempted is unknown, not zero. Treat the totals above as what was processed, not as
-              the whole of what exists on the target.
+              Este escaneo es anterior al presupuesto de rastreo, así que el número de recursos
+              descubiertos pero no intentados es desconocido, no cero. Trata los totales de arriba
+              como lo procesado, no como todo lo que existe en el objetivo.
             </p>
           </>
         )}

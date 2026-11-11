@@ -22,7 +22,7 @@ export function AssetFindings({ findings, activeAsset, onOpen, onFilterAsset }: 
     <details className="mt-card flex min-w-0 flex-col gap-3 p-4">
       <summary className="mt-section-title cursor-pointer">
         <h2 id="asset-findings-title" className="mt-section-title inline">
-          Assets with findings
+          Activos con hallazgos
         </h2>{" "}
         <span className="mt-meta inline">({groups.length})</span>
       </summary>
@@ -36,7 +36,7 @@ export function AssetFindings({ findings, activeAsset, onOpen, onFilterAsset }: 
                 aria-pressed={activeAsset === url}
                 onClick={() => onFilterAsset(activeAsset === url ? "" : url)}
               >
-                {activeAsset === url ? "Showing only this asset" : "Only this asset"}
+                {activeAsset === url ? "Mostrando solo este activo" : "Solo este activo"}
               </Button>
             </div>
             <div className="flex flex-wrap gap-1.5">

@@ -40,22 +40,25 @@ Los valores viven en `globals.css`. Tres bloques de tema deben permanecer sincro
 
 ### Superficies, líneas y texto
 
-| Token | Uso |
-| :--- | :--- |
-| `--mt-bg` | Fondo de la aplicación |
-| `--mt-surface` | Paneles, tablas, tarjetas |
-| `--mt-elevated` | Hover de fila, panel elevado, fondo de dialog |
-| `--mt-overlay` | Velo de modal y drawer |
-| `--mt-border` | Separadores de 1px |
-| `--mt-border-strong` | Bordes de input y de chip (≥ 3:1) |
-| `--mt-fg` | Texto principal |
-| `--mt-muted` | Texto secundario y labels |
-| `--mt-faint` | Metadata de baja jerarquía |
+Valores vigentes (CSS). Oscuro es el default; claro se declara dos veces (light y system-light).
+
+| Token | Oscuro | Claro | Uso |
+| :--- | :--- | :--- | :--- |
+| `--mt-bg` | `#06080c` | `#f4f6f9` | Fondo de la aplicación |
+| `--mt-surface` | `#0c1118` | `#ffffff` | Paneles, tablas, tarjetas, sidebar, topbar |
+| `--mt-elevated` | `#131a24` | `#e8eef4` | Hover de fila, panel elevado, fondo de dialog |
+| `--mt-overlay` | `rgba(6, 8, 12, 0.82)` | `rgba(13, 21, 32, 0.48)` | Velo de modal y drawer |
+| `--mt-border` | `#1c2430` | `#d4dde8` | Separadores de 1px |
+| `--mt-border-strong` | `#5c6e84` | `#6f8196` | Bordes de input y de chip (≥ 3:1) |
+| `--mt-fg` | `#eaeff6` | `#0d1520` | Texto principal |
+| `--mt-muted` | `#9aa9bb` | `#445566` | Texto secundario y labels |
+| `--mt-faint` | `#8b9aab` | `#536274` | Metadata de baja jerarquía |
 
 ### Acento y foco
 
-`--mt-accent`, `--mt-accent-hover`, `--mt-accent-fg`, `--mt-accent-soft`, `--mt-focus`.
-El acento es **acción y foco**, nunca severidad ni éxito.
+Oscuro: `--mt-accent` `#3cc4dc`, `--mt-accent-hover` `#6ad6ea`, `--mt-accent-fg` `#041218`, `--mt-focus` `#8ee4f2`.
+Claro: `--mt-accent` `#0c6f86`, `--mt-accent-hover` `#0a5870`, `--mt-accent-fg` `#ffffff`, `--mt-focus` `#0a5870`.
+El acento es **acción y foco**, nunca severidad ni éxito. Cian de instrumento, no verde neón.
 
 ### Severidad (presentación)
 
@@ -108,11 +111,18 @@ re-renderiza React y las tablas siguen el cambio solas.
 
 ## 3. Tipografía
 
-Sin CDN de fuentes. `--mt-font-sans` para prosa, `--mt-font-mono` para todo lo técnico.
+Sin CDN de fuentes. Solo caras del SO:
+
+- `--mt-font-sans`: Segoe UI Variable / Inter / IBM Plex Sans / system-ui
+- `--mt-font-mono`: Cascadia Code / IBM Plex Mono / JetBrains Mono / ui-monospace
+
+El `body` usa `font-optical-sizing: auto`, antialiasing y `letter-spacing: -0.011em`.
+`.mt-tech` y `.mt-evidence` desactivan ligaduras (`liga`/`calt`) para hashes y evidencia.
 
 | Rol | Clase | Uso |
 | :--- | :--- | :--- |
 | Page title | `.mt-page-title` / `.mt-title` | Un `h1` por página |
+| Page head | `.mt-page-head` | Título + acciones, con regla inferior |
 | Section title | `.mt-section-title` | `h2` de bloque |
 | Kicker | `.mt-kicker` | Etiqueta superior de un panel |
 | Metadata | `.mt-meta` | Contadores, fechas |
@@ -131,8 +141,14 @@ Escala de 4px (`--mt-space-1` … `--mt-space-7`). Página: `--mt-space-5`. Entr
 Bordes de 1px en paneles y tablas; input en reposo con `--mt-border-strong`; foco de input con
 borde `--mt-accent` **más** `outline: 2px solid var(--mt-focus)` con `outline-offset: 2px`.
 
-Radios: `--mt-radius-sm` (badges y chips), `--mt-radius-md` (inputs, botones, paneles),
-`--mt-radius-lg` (contenedores de página). Nunca `rounded-full` en badges.
+Radios: `--mt-radius-sm` (3px, badges y chips), `--mt-radius-md` (6px, inputs, botones),
+`--mt-radius-lg` (8px, tarjetas). Nunca `rounded-full` en badges.
+
+Cromo: sidebar y topbar sticky usan `--mt-surface` sobre `--mt-bg`. `.mt-card` lleva
+`--mt-shadow-card` (inset 1px + sombra corta). `.mt-brand-mark` es un recuadro de 16px
+con riel de acento a la izquierda. El wizard de escaneo usa `.mt-wizard-grid` (dos
+columnas ≥ 960px). Las pestañas del run son `.mt-tabs` / `.mt-tab` (subrayado de acento,
+no tarjetas). Checkboxes usan `accent-color: var(--mt-accent)`.
 
 ---
 

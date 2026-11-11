@@ -64,7 +64,7 @@ Unique constraint `(asset_id, dedup_signature)`. Insertar ignorando conflictos; 
 ## Idiomas por capa
 
 - Reportes exportados (Markdown/JSON): **inglés**.
-- UI/CLI: **inglés**.
+- Web UI: **español**. CLI: **inglés**.
 - Documentación (`.aicontext/`): **español**.
 
 ## Repositorios

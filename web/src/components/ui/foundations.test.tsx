@@ -13,10 +13,10 @@ afterEach(() => {
 describe("analytics foundations", () => {
   it("keeps the palette in CSS variables instead of a steel accent", () => {
     const css = readFileSync(path.join(process.cwd(), "src/app/globals.css"), "utf8");
-    expect(css).toContain("--mt-bg: #070b11");
-    expect(css).toContain("--mt-surface: #0d1420");
-    expect(css).toContain("--mt-accent: #2bb8d6");
-    expect(css).toContain("--mt-sev-critical: #ff5c6c");
+    expect(css).toContain("--mt-bg: #06080c");
+    expect(css).toContain("--mt-surface: #0c1118");
+    expect(css).toContain("--mt-accent: #3cc4dc");
+    expect(css).toContain("--mt-sev-critical: #ff6a76");
     expect(css).toContain("--mt-sev-high: #ff9a4a");
     expect(css).toContain("--mt-sev-low: #9ec5ff");
     expect(css).not.toContain("#6e8aa3");

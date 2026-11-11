@@ -72,21 +72,21 @@ describe("InvestigationsView", () => {
     render(<InvestigationsView />);
     const link = await screen.findByRole("link", { name: "Acme 2026" });
     expect(link).toHaveAttribute("href", "/investigations/inv-1");
-    expect(screen.getByText("Open")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Create" })).toBeInTheDocument();
+    expect(screen.getByText("Abierta")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Crear" })).toBeInTheDocument();
   });
 
   it("hides create for viewers", async () => {
     stubFetch("viewer");
     render(<InvestigationsView />);
     expect(await screen.findByRole("link", { name: "Acme 2026" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Create" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Crear" })).not.toBeInTheDocument();
   });
 
   it("shows an empty state", async () => {
     stubFetch("operator", []);
     render(<InvestigationsView />);
-    expect(await screen.findByText("No investigations yet")).toBeInTheDocument();
+    expect(await screen.findByText("Aún no hay investigaciones")).toBeInTheDocument();
   });
 });
 
@@ -96,16 +96,16 @@ describe("InvestigationDetail", () => {
     render(<InvestigationDetail investigationId="inv-1" />);
     const runLink = await screen.findByRole("link", { name: "aabbccdd" });
     expect(runLink).toHaveAttribute("href", "/runs/run-aa");
-    expect(screen.getByText(/never applied/i)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Close investigation" }));
-    expect(await screen.findByText("Closed")).toBeInTheDocument();
+    expect(screen.getByText(/nunca se aplica/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar investigación" }));
+    expect(await screen.findByText("Cerrada")).toBeInTheDocument();
   });
 
   it("hides close for viewers", async () => {
     stubFetch("viewer");
     render(<InvestigationDetail investigationId="inv-1" />);
     expect(await screen.findByRole("link", { name: "aabbccdd" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Close investigation" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cerrar investigación" })).not.toBeInTheDocument();
   });
 });
 

@@ -47,10 +47,10 @@ export async function sendJson<T = unknown>(
 
 export function errorMessage(error: unknown, fallback: string): string {
   if (error instanceof ApiError) {
-    if (error.status === 403) return "Operator role required.";
+    if (error.status === 403) return "Se requiere el rol de operador.";
     return error.detail && error.detail !== "unexpected response"
       ? `${fallback} (${error.detail})`
       : `${fallback} (HTTP ${error.status}).`;
   }
-  return "Network error: the API is unreachable.";
+  return "Error de red: la API no está accesible.";
 }

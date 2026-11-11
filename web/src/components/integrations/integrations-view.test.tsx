@@ -39,11 +39,11 @@ describe("IntegrationsView", () => {
     );
     renderWithProviders(<IntegrationsView />);
     const rdap = await screen.findByRole("region", { name: "RDAP" });
-    expect(rdap).toHaveTextContent("disabled");
+    expect(rdap).toHaveTextContent("desactivado");
     expect(screen.getByText(/does not add the domain to a scan scope/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Test connection" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Probar conexión" })).toBeDisabled();
     expect(screen.getByText(/not current exposure/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Search captures" })).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "Enable RDAP" }));
+    expect(screen.getByRole("button", { name: "Buscar capturas" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Activar RDAP" }));
   });
 });

@@ -75,13 +75,13 @@ export function LoginForm() {
       }
       setError(
         response.status === 401
-          ? "Invalid username or password."
+          ? "Usuario o contraseña no válidos."
           : response.status === 429
-            ? "Too many attempts; wait a moment and retry."
-            : `Login failed (HTTP ${response.status}).`,
+            ? "Demasiados intentos; espera un momento y reintenta."
+            : `El inicio de sesión falló (HTTP ${response.status}).`,
       );
     } catch {
-      setError("Could not reach the server.");
+      setError("No se pudo contactar con el servidor.");
     } finally {
       setBusy(false);
     }
@@ -89,10 +89,10 @@ export function LoginForm() {
 
   return (
     <AuthPanel
-      title="Sign in"
-      lede="Control panel for authorized metadata discovery. A scan still requires a confirmed scope."
+      title="Iniciar sesión"
+      lede="Panel de control para el descubrimiento autorizado de metadatos. Un escaneo sigue exigiendo un alcance confirmado."
       note={
-        <p>Authentication protects the Web UI and API. The CLI on localhost does not require login.</p>
+        <p>La autenticación protege la interfaz web y la API. La CLI en localhost no requiere inicio de sesión.</p>
       }
     >
       {error ? (
@@ -105,24 +105,24 @@ export function LoginForm() {
           void submit();
         }}
       >
-        <label htmlFor="username" className="text-xs text-mt-muted">Username</label>
+        <label htmlFor="username" className="text-xs text-mt-muted">Usuario</label>
         <Input id="username" name="username" autoComplete="username" required value={username} onChange={(event) => setUsername(event.target.value)} />
-        <label htmlFor="password" className="text-xs text-mt-muted">Password</label>
+        <label htmlFor="password" className="text-xs text-mt-muted">Contraseña</label>
         <Input id="password" name="password" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} />
-        <Button type="submit" className="w-full" disabled={busy}>{busy ? "Checking…" : "Sign in"}</Button>
+        <Button type="submit" className="w-full" disabled={busy}>{busy ? "Comprobando…" : "Iniciar sesión"}</Button>
       </form>
       {setupOpen ? (
         <p className="text-xs text-mt-muted">
-          This installation has no operator yet.{" "}
+          Esta instalación aún no tiene operador.{" "}
           <Link href="/setup" className="text-mt-accent-hover underline">
-            Create the first account
+            Crear la primera cuenta
           </Link>
         </p>
       ) : null}
       {authOn && !setupOpen ? (
         <p className="text-xs text-mt-muted">
-          Have an invitation code?{" "}
-          <Link href="/register" className="text-mt-accent-hover underline">Create your account</Link>
+          ¿Tienes un código de invitación?{" "}
+          <Link href="/register" className="text-mt-accent-hover underline">Crear tu cuenta</Link>
         </p>
       ) : null}
     </AuthPanel>

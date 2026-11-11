@@ -58,7 +58,7 @@ describe("FindingsPanel triage ergonomics (TASK-35)", () => {
   it("filters to unclassified findings only", async () => {
     stub([finding("a"), finding("b", { severity: null, evidence_snippet: "unclassified-evidence" })]);
     render(<FindingsPanel runId="run-1" totalAssets={2} />);
-    const chip = await screen.findByRole("button", { name: "Unclassified (1)" });
+    const chip = await screen.findByRole("button", { name: "Sin clasificar (1)" });
     fireEvent.click(chip);
     expect(chip).toHaveAttribute("aria-pressed", "true");
     const table = screen.getByRole("table");
@@ -69,13 +69,13 @@ describe("FindingsPanel triage ergonomics (TASK-35)", () => {
   it("writes filters to the URL and restores them on reload", async () => {
     stub([finding("a"), finding("b", { severity: "low", evidence_snippet: "low-evidence" })]);
     const first = render(<FindingsPanel runId="run-1" totalAssets={2} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Low (1)" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Baja (1)" }));
     expect(window.location.search).toBe("?severity=low");
     first.unmount();
 
     render(<FindingsPanel runId="run-1" totalAssets={2} />);
     const table = await screen.findByRole("table");
-    expect(screen.getByRole("button", { name: "Low (1)" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Baja (1)" })).toHaveAttribute("aria-pressed", "true");
     expect(within(table).getByText("low-evidence")).toBeInTheDocument();
     expect(within(table).queryByText("user-a@acme.com")).not.toBeInTheDocument();
   });
@@ -83,10 +83,10 @@ describe("FindingsPanel triage ergonomics (TASK-35)", () => {
   it("groups only the filtered findings by asset and opens a badge in the sheet", async () => {
     stub([finding("a"), finding("b", { severity: "low" })]);
     render(<FindingsPanel runId="run-1" totalAssets={2} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Low (1)" }));
-    const assets = screen.getByText("Assets with findings").closest("details") as HTMLElement;
+    fireEvent.click(await screen.findByRole("button", { name: "Baja (1)" }));
+    const assets = screen.getByText("Activos con hallazgos").closest("details") as HTMLElement;
     expect(within(assets).queryByText("https://acme.com/a.pdf")).not.toBeInTheDocument();
-    fireEvent.click(within(assets).getByRole("button", { name: "Email · Low" }));
+    fireEvent.click(within(assets).getByRole("button", { name: "Email · Baja" }));
     expect(await screen.findByRole("heading", { name: "Finding b" })).toBeInTheDocument();
   });
 
@@ -103,7 +103,7 @@ describe("FindingsPanel triage ergonomics (TASK-35)", () => {
     render(<FindingsPanel runId="run-1" totalAssets={1} />);
     fireEvent.click(await screen.findByText("user-a@acme.com"));
     expect(await screen.findByRole("heading", { name: "Finding a" })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Feedback" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Corrección" })).not.toBeInTheDocument();
   });
 
   it("shows the feedback form to an operator", async () => {
@@ -114,7 +114,7 @@ describe("FindingsPanel triage ergonomics (TASK-35)", () => {
       await Promise.resolve();
     });
     fireEvent.click(screen.getByText("user-a@acme.com"));
-    expect(await screen.findByRole("heading", { name: "Feedback" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Corrección" })).toBeInTheDocument();
   });
 
   it("focuses search with / and moves rows with j/k, but not inside inputs", async () => {
@@ -130,7 +130,7 @@ describe("FindingsPanel triage ergonomics (TASK-35)", () => {
     expect(rows[0]).toHaveAttribute("aria-selected", "true");
 
     fireEvent.keyDown(document.body, { key: "/" });
-    const search = screen.getByLabelText("Search findings");
+    const search = screen.getByLabelText("Buscar hallazgos");
     expect(document.activeElement).toBe(search);
     fireEvent.keyDown(search, { key: "j" });
     expect(rows[0]).toHaveAttribute("aria-selected", "true");

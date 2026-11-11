@@ -14,25 +14,7 @@ import type { ComparedFindingResponse, RunComparisonResponse, RunListResponse } 
 import { severityKey } from "@/lib/api/types";
 import { queryKeys } from "@/lib/query/keys";
 import { formatWhen } from "@/lib/time";
-
-const SEVERITY_LABEL: Record<string, string> = {
-  critical: "Critical",
-  high: "High",
-  medium: "Medium",
-  low: "Low",
-  info: "Info",
-  unclassified: "Unclassified",
-};
-
-const TYPE_LABEL: Record<string, string> = {
-  gps: "GPS / Coordinates",
-  email: "Email",
-  internal_path: "Internal Path",
-  software_version: "Software Version",
-  debug_comment: "Debug Comment",
-  internal_endpoint: "Internal Endpoint",
-  cloud_storage: "Cloud Storage",
-};
+import { FINDING_TYPE_LABEL, SEVERITY_LABEL } from "@/lib/ui-copy";
 
 function readParams(): { a: string; b: string } {
   if (typeof window === "undefined") return { a: "", b: "" };
@@ -51,11 +33,11 @@ function writeParams(a: string, b: string) {
 }
 
 const LIMIT_LABEL: Record<string, string> = {
-  max_depth: "crawl depth",
-  max_pages: "page cap",
-  max_assets: "asset cap",
-  max_total_bytes: "byte budget",
-  max_seconds: "time budget",
+  max_depth: "profundidad de rastreo",
+  max_pages: "tope de páginas",
+  max_assets: "tope de activos",
+  max_total_bytes: "presupuesto de bytes",
+  max_seconds: "presupuesto de tiempo",
 };
 
 function Section({
@@ -82,7 +64,7 @@ function Section({
             <li key={`${item.run_id}-${item.finding_id}`} className="flex min-w-0 flex-col gap-1 border-t border-mt-border pt-2 first:border-t-0 first:pt-0">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant={severityKey(item.severity)}>{SEVERITY_LABEL[severityKey(item.severity)]}</Badge>
-                <span className="text-xs text-mt-muted">{TYPE_LABEL[item.finding_type] ?? item.finding_type}</span>
+                <span className="text-xs text-mt-muted">{FINDING_TYPE_LABEL[item.finding_type] ?? item.finding_type}</span>
                 {item.triage_status && item.triage_status !== "open" ? (
                   <Badge variant={triageVariant(item.triage_status)}>{TRIAGE_LABEL[item.triage_status]}</Badge>
                 ) : null}
@@ -96,8 +78,8 @@ function Section({
               <p className="mt-tech text-mt-muted">{truncate(item.asset_url, 100)}</p>
               {showSeverityChange ? (
                 <p className="text-xs text-mt-muted">
-                  Severity changed from {SEVERITY_LABEL[severityKey(item.previous_severity)]} to{" "}
-                  {SEVERITY_LABEL[severityKey(item.severity)]}. Evidence is unchanged.
+                  La severidad cambió de {SEVERITY_LABEL[severityKey(item.previous_severity)]} a{" "}
+                  {SEVERITY_LABEL[severityKey(item.severity)]}. La evidencia no cambia.
                 </p>
               ) : null}
             </li>
@@ -149,7 +131,7 @@ export function CompareView() {
         onChange={(event) => choose(side, event.target.value)}
         className="rounded-md border border-mt-border-strong bg-mt-bg px-3 py-2 text-sm text-mt-fg"
       >
-        <option value="">Choose a completed run</option>
+        <option value="">Elige un escaneo completado</option>
         {value && !options.some((run) => run.run_id === value) ? <option value={value}>{value}</option> : null}
         {options.map((run) => (
           <option key={run.run_id} value={run.run_id}>
@@ -163,21 +145,21 @@ export function CompareView() {
   return (
     <div className="flex min-w-0 flex-col gap-5">
       <div>
-        <h1 className="mt-title">Compare runs</h1>
+        <h1 className="mt-title">Comparar escaneos</h1>
         <p className="text-sm text-mt-muted">
-          Findings are matched by asset URL, type and evidence. The baseline is the earlier run; the
-          other run is the one you are reviewing.
+          Los hallazgos se emparejan por URL de activo, tipo y evidencia. La línea base es el
+          escaneo anterior; el otro es el que estás revisando.
         </p>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {select("a", "Baseline run", a)}
-        {select("b", "Run to review", b)}
+        {select("a", "Escaneo de línea base", a)}
+        {select("b", "Escaneo a revisar", b)}
       </div>
-      {!a || !b ? <EmptyState title="Choose two runs">Pick a baseline and a run to review.</EmptyState> : null}
-      {a && b && a === b ? <EmptyState title="Same run twice">Choose two different runs.</EmptyState> : null}
-      {comparison.isPending && comparison.fetchStatus === "fetching" ? <LoadingState label="Comparing runs" /> : null}
+      {!a || !b ? <EmptyState title="Elige dos escaneos">Escoge una línea base y un escaneo a revisar.</EmptyState> : null}
+      {a && b && a === b ? <EmptyState title="El mismo escaneo dos veces">Elige dos escaneos distintos.</EmptyState> : null}
+      {comparison.isPending && comparison.fetchStatus === "fetching" ? <LoadingState label="Comparando escaneos" /> : null}
       {comparison.isError ? (
-        <ErrorState message={errorMessage(comparison.error, "Could not compare these runs")} onRetry={() => void comparison.refetch()} />
+        <ErrorState message={errorMessage(comparison.error, "No se pudieron comparar estos escaneos")} onRetry={() => void comparison.refetch()} />
       ) : null}
       {comparison.data ? (
         <div className="flex flex-col gap-3">
@@ -187,32 +169,32 @@ export function CompareView() {
           </p>
           {!comparison.data.coverage_recorded_b ? (
             <p className="text-sm text-mt-fg">
-              Discovery counters were not recorded for the reviewed run. A finding listed as resolved
-              was absent from that run, which is not proof it is gone.
+              Los contadores de descubrimiento no se registraron en el escaneo revisado. Un hallazgo
+              listado como resuelto estuvo ausente de ese escaneo, lo que no prueba que haya desaparecido.
             </p>
           ) : (comparison.data.limits_hit_b ?? []).length > 0 ? (
             <p className="text-sm text-mt-fg">
-              The reviewed run stopped because a crawl limit was reached (
+              El escaneo revisado se detuvo porque se alcanzó un límite de rastreo (
               {(comparison.data.limits_hit_b ?? [])
                 .map((limit) => LIMIT_LABEL[limit] ?? limit)
                 .join(", ")}
-              ). A resolved finding may not have been requested.
+              ). Un hallazgo resuelto puede no haberse pedido.
             </p>
           ) : null}
-          <Section title="New" items={comparison.data.new} empty="Nothing new in the reviewed run." />
+          <Section title="Nuevos" items={comparison.data.new} empty="Nada nuevo en el escaneo revisado." />
           <Section
-            title="Reappeared"
+            title="Reaparecidos"
             items={comparison.data.reappeared ?? []}
-            empty="Nothing from an earlier run in this investigation came back."
+            empty="Nada de un escaneo anterior de esta investigación volvió a aparecer."
           />
           <Section
-            title="Severity changed"
+            title="Severidad cambiada"
             items={comparison.data.severity_changed ?? []}
-            empty="No shared finding changed severity."
+            empty="Ningún hallazgo compartido cambió de severidad."
             showSeverityChange
           />
-          <Section title="Resolved" items={comparison.data.resolved} empty="Nothing from the baseline went away." />
-          <Section title="Persistent" items={comparison.data.persistent} empty="No finding appears in both runs with the same severity." />
+          <Section title="Resueltos" items={comparison.data.resolved} empty="Nada de la línea base desapareció." />
+          <Section title="Persistentes" items={comparison.data.persistent} empty="Ningún hallazgo aparece en ambos escaneos con la misma severidad." />
         </div>
       ) : null}
     </div>

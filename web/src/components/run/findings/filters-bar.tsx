@@ -29,14 +29,14 @@ type Props = {
 export function FiltersBar({ filters, onChange, total, counts, types, dismissed, searchRef }: Props) {
   const set = (patch: Partial<Filters>) => onChange({ ...filters, ...patch });
   return (
-    <div className="flex flex-col gap-2" role="group" aria-label="Finding filters">
+    <div className="flex flex-col gap-2" role="group" aria-label="Filtros de hallazgos">
       <div className="flex flex-wrap gap-2">
         <Button
           variant="toggle"
           aria-pressed={filters.severity === "all"}
           onClick={() => set({ severity: "all" })}
         >
-          All ({total})
+          Todos ({total})
         </Button>
         {SEVERITY_FILTERS.map((severity) => (
           <Button
@@ -51,7 +51,7 @@ export function FiltersBar({ filters, onChange, total, counts, types, dismissed,
       </div>
       <div className="flex flex-wrap gap-2">
         <Button variant="toggle" aria-pressed={filters.type === "all"} onClick={() => set({ type: "all" })}>
-          All types
+          Todos los tipos
         </Button>
         {types.map((type) => (
           <Button
@@ -70,7 +70,7 @@ export function FiltersBar({ filters, onChange, total, counts, types, dismissed,
           aria-pressed={filters.confidence === "all"}
           onClick={() => set({ confidence: "all" })}
         >
-          All confidence
+          Toda confianza
         </Button>
         {CONFIDENCE_LEVELS.map((level) => (
           <Button
@@ -83,13 +83,13 @@ export function FiltersBar({ filters, onChange, total, counts, types, dismissed,
           </Button>
         ))}
       </div>
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Triage filter">
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Filtro de triaje">
         <Button
           variant="toggle"
           aria-pressed={filters.triage === "any"}
           onClick={() => set({ triage: "any" })}
         >
-          Any status
+          Cualquier estado
         </Button>
         {TRIAGE_STATUSES.map((status) => (
           <Button
@@ -107,20 +107,20 @@ export function FiltersBar({ filters, onChange, total, counts, types, dismissed,
           disabled={filters.triage !== "any"}
           onClick={() => set({ dismissed: !filters.dismissed })}
         >
-          Show dismissed ({dismissed})
+          Mostrar descartados ({dismissed})
         </Button>
       </div>
       {filters.asset ? (
         <div className="flex flex-wrap items-center gap-2 text-xs text-mt-muted">
-          <span>Asset</span>
+          <span>Activo</span>
           <span className="mt-tech">{truncate(filters.asset, 80)}</span>
           <Button variant="ghost" className="py-0.5 text-xs" onClick={() => set({ asset: "" })}>
-            Clear asset filter
+            Quitar filtro de activo
           </Button>
         </div>
       ) : null}
       <label className="sr-only" htmlFor="findings-search">
-        Search findings
+        Buscar hallazgos
       </label>
       <input
         ref={searchRef}
@@ -128,7 +128,7 @@ export function FiltersBar({ filters, onChange, total, counts, types, dismissed,
         type="search"
         value={filters.q}
         onChange={(event) => set({ q: event.target.value })}
-        placeholder="Search evidence, title, field or URL (press / to focus)"
+        placeholder="Buscar evidencia, título, campo o URL (pulsa / para enfocar)"
         className="w-full rounded-md border border-mt-border-strong bg-mt-bg px-3 py-2 text-sm text-mt-fg placeholder:text-mt-faint focus:border-mt-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mt-focus"
       />
     </div>

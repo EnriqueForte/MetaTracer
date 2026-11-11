@@ -51,9 +51,9 @@ export function SetupForm() {
       }
       const payload: unknown = await response.json().catch(() => null);
       const detail = payload && typeof payload === "object" ? (payload as { detail?: unknown }).detail : null;
-      setError(typeof detail === "string" ? detail : `Setup failed (HTTP ${response.status}).`);
+      setError(typeof detail === "string" ? detail : `La configuración inicial falló (HTTP ${response.status}).`);
     } catch {
-      setError("Could not reach the server.");
+      setError("No se pudo contactar con el servidor.");
     } finally {
       setBusy(false);
     }
@@ -61,19 +61,19 @@ export function SetupForm() {
 
   return (
     <AuthPanel
-      title="Initial setup"
-      lede="Create the first operator with the setup token from the server log."
+      title="Configuración inicial"
+      lede="Crea el primer operador con el token de configuración del registro del servidor."
     >
       {error ? <p role="alert" className="text-sm text-mt-danger">{error}</p> : null}
       <form className="flex flex-col gap-3" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-        <label htmlFor="setup-token" className="text-xs text-mt-muted">Setup token</label>
+        <label htmlFor="setup-token" className="text-xs text-mt-muted">Token de configuración</label>
         <Input id="setup-token" type="password" required autoComplete="off" value={setupToken} onChange={(event) => setSetupToken(event.target.value)} />
-        <label htmlFor="username" className="text-xs text-mt-muted">Username</label>
+        <label htmlFor="username" className="text-xs text-mt-muted">Usuario</label>
         <Input id="username" required autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} />
-        <label htmlFor="password" className="text-xs text-mt-muted">Password</label>
+        <label htmlFor="password" className="text-xs text-mt-muted">Contraseña</label>
         <Input id="password" type="password" required autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} />
-        <p className="text-xs text-mt-muted">Minimum 8 characters.</p>
-        <Button type="submit" className="w-full" disabled={busy}>{busy ? "Creating…" : "Create operator"}</Button>
+        <p className="text-xs text-mt-muted">Mínimo 8 caracteres.</p>
+        <Button type="submit" className="w-full" disabled={busy}>{busy ? "Creando…" : "Crear operador"}</Button>
       </form>
     </AuthPanel>
   );

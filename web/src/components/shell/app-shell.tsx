@@ -20,30 +20,30 @@ import { actorOf, useSession, useSessionQuery } from "@/lib/session";
 import { formatRelative } from "@/lib/time";
 
 const NAV = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/", label: "New scan", icon: Radar },
-  { href: "/runs", label: "History", icon: History },
-  { href: "/investigations", label: "Investigations", icon: Layers },
-  { href: "/scopes", label: "Scopes", icon: Shield },
+  { href: "/dashboard", label: "Panel", icon: LayoutDashboard },
+  { href: "/", label: "Nuevo escaneo", icon: Radar },
+  { href: "/runs", label: "Historial", icon: History },
+  { href: "/investigations", label: "Investigaciones", icon: Layers },
+  { href: "/scopes", label: "Alcances", icon: Shield },
 ] as const;
 
 /** Visible to operators (and with auth off); the API rejects viewers anyway. */
 const OPERATOR_NAV = [
-  { href: "/users", label: "Users", icon: Users },
+  { href: "/users", label: "Usuarios", icon: Users },
   { href: "/webhooks", label: "Webhooks", icon: Webhook },
-  { href: "/integrations", label: "Integrations", icon: Plug },
-  { href: "/knowledge", label: "Knowledge", icon: BookOpen },
+  { href: "/integrations", label: "Integraciones", icon: Plug },
+  { href: "/knowledge", label: "Conocimiento", icon: BookOpen },
 ] as const;
 
 const NOTIFICATIONS_KEY = queryKeys.notifications;
 
 const ETHICS_TEXT =
-  "Authorized use only — audit exclusively targets you own or are explicitly authorized to test.";
+  "Solo uso autorizado: audita únicamente objetivos que te pertenezcan o que tengas permiso explícito para probar.";
 
 function kindLabel(kind: NotificationItem["kind"]): string {
-  if (kind === "failed") return "Scan failed";
-  if (kind === "aborted") return "Scan aborted";
-  return "Scan completed";
+  if (kind === "failed") return "Escaneo fallido";
+  if (kind === "aborted") return "Escaneo abortado";
+  return "Escaneo completado";
 }
 
 function isNavCurrent(href: string, pathname: string): boolean {
@@ -53,9 +53,9 @@ function isNavCurrent(href: string, pathname: string): boolean {
 
 async function fetchNotifications(): Promise<NotificationItem[]> {
   const response = await apiFetch("/api/notifications");
-  if (!response.ok) throw new ApiError(response.status, "Could not load notifications.");
+  if (!response.ok) throw new ApiError(response.status, "No se pudieron cargar las notificaciones.");
   const parsed = parseNotifications(await response.json());
-  if (parsed === null) throw new ApiError(200, "Could not load notifications.");
+  if (parsed === null) throw new ApiError(200, "No se pudieron cargar las notificaciones.");
   return parsed;
 }
 
@@ -82,8 +82,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const apiStatus = sessionQuery.isPending ? "checking" : networkDown ? "unreachable" : "reachable";
   const notesError = notesQuery.isError
     ? notesQuery.error instanceof ApiError
-      ? "Could not load notifications."
-      : "Network error: the API is unreachable."
+      ? "No se pudieron cargar las notificaciones."
+      : "Error de red: la API no está accesible."
     : "";
 
   useEffect(() => {
@@ -153,7 +153,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <>
       <a className="mt-skip" href="#main-content">
-        Skip to main content
+        Ir al contenido principal
       </a>
       <div className="mt-shell">
         <aside
@@ -161,15 +161,18 @@ export function AppShell({ children }: { children: ReactNode }) {
           className={navOpen ? "mt-sidebar mt-sidebar-open" : "mt-sidebar"}
           inert={narrow && !navOpen ? true : undefined}
         >
-          <Link href="/" className="mt-brand" aria-label="MetaTracer home" onClick={() => setNavOpen(false)}>
-            <span className="mt-brand-name">
-              MetaTracer <span className="text-xs font-normal text-mt-faint">v{APP_VERSION}</span>
+          <Link href="/" className="mt-brand" aria-label="Inicio de MetaTracer" onClick={() => setNavOpen(false)}>
+            <span className="mt-brand-row">
+              <span className="mt-brand-mark" aria-hidden="true" />
+              <span className="mt-brand-name">
+                MetaTracer <span className="text-xs font-normal text-mt-faint">v{APP_VERSION}</span>
+              </span>
             </span>
-            <span className="mt-brand-sub">Security Intelligence</span>
+            <span className="mt-brand-sub">Inteligencia de seguridad</span>
           </Link>
-          <nav className="flex flex-col" aria-label="Primary">
+          <nav className="flex flex-col" aria-label="Principal">
             <p id="nav-research" className="mt-nav-label">
-              Research
+              Investigación
             </p>
             <div role="group" aria-labelledby="nav-research">
               {NAV.map((item) => {
@@ -191,7 +194,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             {showUsers ? (
               <>
                 <p id="nav-admin" className="mt-nav-label">
-                  Administration
+                  Administración
                 </p>
                 <div role="group" aria-labelledby="nav-admin">
                   {OPERATOR_NAV.map((item) => {
@@ -214,7 +217,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             ) : null}
           </nav>
           <div className="mt-auto flex flex-col gap-1 px-2.5 pt-4">
-            <span className="mt-kicker">Theme</span>
+            <span className="mt-kicker">Tema</span>
             <ThemeSwitcher />
           </div>
         </aside>
@@ -231,7 +234,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               onClick={() => setNavOpen((open) => !open)}
             >
               <Menu aria-hidden="true" className="size-4" />
-              Menu
+              Menú
             </Button>
             <div className="relative">
               <button
@@ -242,7 +245,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 title={ETHICS_TEXT}
                 onClick={() => setEthicsOpen((open) => !open)}
               >
-                Authorized use only
+                Solo uso autorizado
               </button>
               {ethicsOpen ? (
                 <p id={ethicsId} className="mt-ethics-detail">
@@ -256,7 +259,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               aria-keyshortcuts="Control+K Meta+K"
               onClick={() => setPaletteOpen(true)}
             >
-              Go to… <span className="mt-tech text-mt-faint">Ctrl K</span>
+              Ir a… <span className="mt-tech text-mt-faint">Ctrl K</span>
             </Button>
             <MaintainerCredit />
             <div className="mt-session ml-auto">
@@ -267,16 +270,16 @@ export function AppShell({ children }: { children: ReactNode }) {
                   aria-hidden="true"
                 />
                 {apiStatus === "reachable"
-                  ? "API reachable"
+                  ? "API accesible"
                   : apiStatus === "unreachable"
-                    ? "API unreachable"
-                    : "Checking API"}
+                    ? "API no accesible"
+                    : "Comprobando API"}
               </p>
               <div className="relative" ref={panelRef}>
                 <Button
                   variant="ghost"
                   className="py-1"
-                  aria-label="Notifications"
+                  aria-label="Notificaciones"
                   aria-haspopup="true"
                   aria-expanded={notesOpen}
                   aria-controls={panelId}
@@ -299,13 +302,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <div
                     id={panelId}
                     role="region"
-                    aria-label="Notifications panel"
+                    aria-label="Panel de notificaciones"
                     className="absolute right-0 z-20 mt-2 max-h-96 w-80 overflow-y-auto rounded-md border border-mt-border bg-mt-surface p-3"
                   >
                     <div className="mb-2 flex items-center justify-between gap-2 border-b border-mt-border pb-2">
-                      <h2 className="text-sm font-semibold text-mt-fg">Notifications</h2>
+                      <h2 className="text-sm font-semibold text-mt-fg">Notificaciones</h2>
                       <Button variant="ghost" onClick={() => void notesQuery.refetch()}>
-                        Refresh
+                        Actualizar
                       </Button>
                     </div>
                     {notesError ? (
@@ -314,7 +317,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                       </p>
                     ) : null}
                     {!notesError && notes.length === 0 ? (
-                      <p className="text-xs text-mt-muted">No notifications yet.</p>
+                      <p className="text-xs text-mt-muted">Aún no hay notificaciones.</p>
                     ) : null}
                     {notes.map((entry) => {
                       const when = entry.created_at ? formatRelative(entry.created_at) : "";
@@ -324,7 +327,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                             {kindLabel(entry.kind)} — {entry.target}
                           </Badge>
                           <span className="mt-1 block text-xs text-mt-muted">
-                            {entry.total_assets} asset(s) · {entry.total_findings} finding(s)
+                            {entry.total_assets} recurso(s) · {entry.total_findings} hallazgo(s)
                             {when ? ` · ${when}` : ""}
                           </span>
                           {entry.error_message && (entry.kind === "failed" || entry.kind === "aborted") ? (
@@ -353,10 +356,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                           {actor === "operator" ? (
                             <Button
                               variant="ghost"
-                              aria-label="Dismiss notification"
+                              aria-label="Descartar notificación"
                               onClick={() => void dismiss(entry.id)}
                             >
-                              Dismiss
+                              Descartar
                             </Button>
                           ) : null}
                         </div>
@@ -369,13 +372,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <>
                   <p className="mt-session-meta">
                     <strong className="font-semibold text-mt-fg">{session.username}</strong>
-                    <span> · {session.role}</span>
+                    <span> · {session.role === "operator" ? "operador" : "visor"}</span>
                   </p>
                   <p className="mt-session-note">
-                    Signing out ends this session on every surface.
+                    Cerrar sesión termina esta sesión en todas las superficies.
                   </p>
                   <Button variant="ghost" className="shrink-0 py-1" onClick={() => void signOut()}>
-                    Sign out
+                    Cerrar sesión
                   </Button>
                 </>
               ) : null}
@@ -393,12 +396,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           <ShortcutsHelp open={helpOpen} onOpenChange={setHelpOpen} />
           <footer className="flex flex-col gap-2 px-6 pb-6">
             <p className="text-xs text-mt-muted">
-              Passive metadata audit of publicly available documents inside the confirmed scope. Not
-              an exploitation test.
+              Auditoría pasiva de metadatos en documentos públicos dentro del alcance confirmado. No
+              es una prueba de explotación.
             </p>
             <p className="flex flex-wrap gap-3 text-xs text-mt-muted">
               <button type="button" className="underline" onClick={() => setHelpOpen(true)}>
-                Keyboard shortcuts (?)
+                Atajos de teclado (?)
               </button>
             </p>
           </footer>

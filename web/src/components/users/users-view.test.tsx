@@ -23,9 +23,9 @@ describe("UsersView role gating (T3)", () => {
       }),
     );
     render(<UsersView />);
-    expect(await screen.findByText("Operator role required")).toBeInTheDocument();
-    expect(screen.queryByRole("tab", { name: "Users" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Create" })).not.toBeInTheDocument();
+    expect(await screen.findByText("Se requiere el rol de operador")).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Usuarios" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Crear" })).not.toBeInTheDocument();
   });
 });
 
@@ -49,8 +49,8 @@ describe("UsersView invitations", () => {
       }),
     );
     render(<UsersView />);
-    fireEvent.click(await screen.findByRole("tab", { name: "Invitations" }));
-    fireEvent.click(screen.getByRole("button", { name: "Create invitation" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "Invitaciones" }));
+    fireEvent.click(screen.getByRole("button", { name: "Crear invitación" }));
     expect(await screen.findByText("ONCE-CODE")).toBeInTheDocument();
     expect(screen.getAllByText("ONCE-CODE")).toHaveLength(1);
     expect(screen.getByText("ONCE-CODE").closest("p")?.className).toContain("mt-tech");

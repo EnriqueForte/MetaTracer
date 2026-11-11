@@ -54,7 +54,7 @@ function DialogContent({
         {children}
         <DialogPrimitive.Close className="absolute top-3 right-3 rounded-sm text-mt-muted hover:text-mt-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mt-focus">
           <X aria-hidden="true" className="size-4" />
-          <span className="sr-only">Close</span>
+          <span className="sr-only">Cerrar</span>
         </DialogPrimitive.Close>
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>

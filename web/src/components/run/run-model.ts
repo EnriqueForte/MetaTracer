@@ -2,18 +2,13 @@ import { apiFetch } from "@/lib/api/browser";
 import { ApiError, readDetail } from "@/lib/api/errors";
 import type { RunStatus, RunStatusResponse } from "@/lib/api/types";
 import { queryKeys } from "@/lib/query/keys";
+import { EXPORT_LABELS, REDACTION_LABELS, RUN_STATUS_LABEL } from "@/lib/ui-copy";
+
+export { RUN_STATUS_LABEL };
 
 export type RunSnapshot = RunStatusResponse;
 
 export const runKey = queryKeys.run;
-
-export const RUN_STATUS_LABEL: Record<RunStatus, string> = {
-  pending: "Pending",
-  running: "Running",
-  completed: "Completed",
-  failed: "Failed",
-  aborted: "Aborted",
-};
 
 export const TERMINAL: ReadonlySet<RunStatus> = new Set(["completed", "failed", "aborted"]);
 
@@ -48,20 +43,9 @@ export function asRunSnapshot(value: unknown): RunSnapshot | null {
     : null;
 }
 
-export const EXPORTS = [
-  ["md", "Download Markdown"],
-  ["json", "Download JSON"],
-  ["html", "Download HTML"],
-  ["csv", "Download CSV"],
-  ["bounty", "Download Bounty TXT"],
-] as const;
+export const EXPORTS = EXPORT_LABELS;
 
-export const REDACTIONS = [
-  ["contacts", "Contacts"],
-  ["coordinates", "Coordinates"],
-  ["all", "Contacts and coordinates"],
-  ["none", "None"],
-] as const;
+export const REDACTIONS = REDACTION_LABELS;
 
 export type Redaction = (typeof REDACTIONS)[number][0];
 

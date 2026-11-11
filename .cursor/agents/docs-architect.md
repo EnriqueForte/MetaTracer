@@ -41,8 +41,8 @@ Eres el dueño de [`MEMORY.md`](../../MEMORY.md) y [`specs/`](../../specs/).
 
 ## Reglas de escritura
 
-- Idiomas por capa: documentación de `.aicontext/` en **español**; reportes exportados y UI/CLI
-  en **inglés**. Los identificadores, enums y literales de código siempre en inglés.
+- Idiomas por capa: documentación de `.aicontext/` en **español**; reportes exportados y CLI
+  en **inglés**; Web UI en **español**. Los identificadores, enums y literales de código siempre en inglés.
 - Referencias, no copias: apunta a `.aicontext/tasks/XX-*.md` o `specs/NN-*.md` como fuente.
   Las specs no duplican enums.
 - Nada de información volátil ni de rutas con separadores de Windows en los ejemplos.

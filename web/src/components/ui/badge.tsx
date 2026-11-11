@@ -4,7 +4,7 @@ import type { HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center whitespace-nowrap rounded-sm border border-transparent px-1.5 py-0.5 text-[11px] font-semibold leading-tight tracking-wide",
+  "inline-flex items-center whitespace-nowrap rounded-sm border border-transparent px-1.5 py-0.5 text-[11px] font-semibold leading-tight tracking-wide tabular-nums",
   {
     variants: {
       variant: {

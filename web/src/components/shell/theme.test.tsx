@@ -103,14 +103,14 @@ describe("Light mode (TASK-35)", () => {
 
   it("persists System / Dark / Light from the switcher", () => {
     render(<ThemeSwitcher />);
-    fireEvent.click(screen.getByRole("radio", { name: "System" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Sistema" }));
     expect(document.documentElement.getAttribute("data-theme")).toBe("system");
     expect(window.localStorage.getItem("mt-theme")).toBe("system");
-    fireEvent.click(screen.getByRole("radio", { name: "Light" }));
-    expect(screen.getByRole("radio", { name: "Light" })).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(screen.getByRole("radio", { name: "Claro" }));
+    expect(screen.getByRole("radio", { name: "Claro" })).toHaveAttribute("aria-checked", "true");
     expect(window.localStorage.getItem("mt-theme")).toBe("light");
     cleanup();
     render(<ThemeSwitcher />);
-    expect(screen.getByRole("radio", { name: "Light" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("radio", { name: "Claro" })).toHaveAttribute("aria-checked", "true");
   });
 });

@@ -55,7 +55,7 @@ export function IntegrationsView() {
       setFormError("");
       void queryClient.invalidateQueries({ queryKey: ["connectors"] });
     },
-    onError: (error) => setFormError(errorMessage(error, "Could not update the connector.")),
+    onError: (error) => setFormError(errorMessage(error, "No se pudo actualizar el conector.")),
   });
 
   const testLookup = useMutation({
@@ -64,7 +64,7 @@ export function IntegrationsView() {
       setFormError("");
       setLookup(row);
     },
-    onError: (error) => setFormError(errorMessage(error, "The lookup did not complete.")),
+    onError: (error) => setFormError(errorMessage(error, "La consulta no se completó.")),
   });
 
   const card = list.data?.connectors.find((item) => item.id === "rdap");
@@ -74,7 +74,7 @@ export function IntegrationsView() {
     mutationFn: (enabled: boolean) =>
       sendJson<ConnectorCard>("/api/connectors/wayback", "PUT", { enabled }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["connectors"] }),
-    onError: (error) => setFormError(errorMessage(error, "Could not update Wayback.")),
+    onError: (error) => setFormError(errorMessage(error, "No se pudo actualizar Wayback.")),
   });
   const waybackSearch = useMutation({
     mutationFn: (name: string) =>
@@ -88,33 +88,33 @@ export function IntegrationsView() {
       setFormError("");
       setWayback(row);
     },
-    onError: (error) => setFormError(errorMessage(error, "The CDX search did not complete.")),
+    onError: (error) => setFormError(errorMessage(error, "La búsqueda CDX no se completó.")),
   });
   const crawlToggle = useMutation({
     mutationFn: (enabled: boolean) =>
       sendJson<ConnectorCard>("/api/connectors/commoncrawl", "PUT", { enabled }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["connectors"] }),
-    onError: (error) => setFormError(errorMessage(error, "Could not update Common Crawl.")),
+    onError: (error) => setFormError(errorMessage(error, "No se pudo actualizar Common Crawl.")),
   });
   const crawlSearch = useMutation({
     mutationFn: (name: string) =>
       sendJson("/api/connectors/commoncrawl/search", "POST", { domain: name }),
     onSuccess: () => setFormError(""),
-    onError: (error) => setFormError(errorMessage(error, "The index search did not complete.")),
+    onError: (error) => setFormError(errorMessage(error, "La búsqueda del índice no se completó.")),
   });
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
       <div>
-        <h1 className="mt-title">Integrations</h1>
+        <h1 className="mt-title">Integraciones</h1>
         <p className="text-sm text-mt-muted">
-          Connectors send data to a provider. They are off until an operator enables them, and they
-          do not widen a scan scope.
+          Los conectores envían datos a un proveedor. Están apagados hasta que un operador los active
+          y no amplían el alcance de un escaneo.
         </p>
       </div>
       {list.isError ? (
         <p className="text-sm text-mt-danger" role="alert">
-          {errorMessage(list.error, "Could not load connectors")}
+          {errorMessage(list.error, "No se pudieron cargar los conectores")}
         </p>
       ) : null}
       {card ? (
@@ -122,8 +122,8 @@ export function IntegrationsView() {
           <h2 className="mt-section-title">RDAP</h2>
           <p className="text-sm text-mt-fg">{card.notice}</p>
           <p className="text-xs text-mt-muted">
-            Sends: {card.sends.join(", ")}. Bootstrap host: {card.egress_hosts.join(", ")}. Status:{" "}
-            {card.enabled ? "enabled" : "disabled"}.
+            Envía: {card.sends.join(", ")}. Host de bootstrap: {card.egress_hosts.join(", ")}. Estado:{" "}
+            {card.enabled ? "activado" : "desactivado"}.
           </p>
           <div className="flex flex-wrap gap-2">
             <Button
@@ -131,7 +131,7 @@ export function IntegrationsView() {
               disabled={toggle.isPending}
               onClick={() => toggle.mutate(!card.enabled)}
             >
-              {card.enabled ? "Disable RDAP" : "Enable RDAP"}
+              {card.enabled ? "Desactivar RDAP" : "Activar RDAP"}
             </Button>
           </div>
           <form
@@ -140,14 +140,14 @@ export function IntegrationsView() {
               event.preventDefault();
               const name = domain.trim();
               if (!name) {
-                setFormError("Enter a domain name.");
+                setFormError("Indica un nombre de dominio.");
                 return;
               }
               testLookup.mutate(name);
             }}
           >
             <label htmlFor="rdap-domain" className="text-xs font-semibold text-mt-muted">
-              Domain
+              Dominio
             </label>
             <input
               id="rdap-domain"
@@ -157,7 +157,7 @@ export function IntegrationsView() {
               className="rounded-md border border-mt-border-strong bg-mt-bg px-3 py-2 text-sm text-mt-fg"
             />
             <Button type="submit" variant="secondary" disabled={testLookup.isPending || !card.enabled}>
-              Test connection
+              Probar conexión
             </Button>
           </form>
           {lookup ? (
@@ -166,8 +166,8 @@ export function IntegrationsView() {
                 {lookup.domain}: {lookup.status}
                 {lookup.detail ? ` — ${lookup.detail}` : ""}
               </p>
-              {lookup.registrar ? <p>Registrar: {lookup.registrar}</p> : null}
-              <p className="mt-tech text-xs text-mt-muted">Source: {lookup.provenance.source_url}</p>
+              {lookup.registrar ? <p>Registrador: {lookup.registrar}</p> : null}
+              <p className="mt-tech text-xs text-mt-muted">Fuente: {lookup.provenance.source_url}</p>
             </div>
           ) : null}
           {formError ? (
@@ -182,14 +182,14 @@ export function IntegrationsView() {
           <h2 className="mt-section-title">Wayback CDX</h2>
           <p className="text-sm text-mt-fg">{waybackCard.notice}</p>
           <p className="text-xs text-mt-muted">
-            Status: {waybackCard.enabled ? "enabled" : "disabled"}. Archived pages are not downloaded.
+            Estado: {waybackCard.enabled ? "activado" : "desactivado"}. Las páginas archivadas no se descargan.
           </p>
           <Button
             variant="secondary"
             disabled={waybackToggle.isPending}
             onClick={() => waybackToggle.mutate(!waybackCard.enabled)}
           >
-            {waybackCard.enabled ? "Disable Wayback" : "Enable Wayback"}
+            {waybackCard.enabled ? "Desactivar Wayback" : "Activar Wayback"}
           </Button>
           <form
             className="flex flex-wrap items-center gap-2"
@@ -197,14 +197,14 @@ export function IntegrationsView() {
               event.preventDefault();
               const name = waybackDomain.trim();
               if (!name) {
-                setFormError("Enter a domain name.");
+                setFormError("Indica un nombre de dominio.");
                 return;
               }
               waybackSearch.mutate(name);
             }}
           >
             <label htmlFor="wayback-domain" className="text-xs font-semibold text-mt-muted">
-              Domain
+              Dominio
             </label>
             <input
               id="wayback-domain"
@@ -218,15 +218,15 @@ export function IntegrationsView() {
               variant="secondary"
               disabled={waybackSearch.isPending || !waybackCard.enabled}
             >
-              Search captures
+              Buscar capturas
             </Button>
           </form>
           {wayback ? (
             <div className="text-sm text-mt-fg">
               <p>
                 {wayback.status}
-                {wayback.detail ? ` — ${wayback.detail}` : ""}. Replay fetched:{" "}
-                {wayback.replay_fetched ? "yes" : "no"}.
+                {wayback.detail ? ` — ${wayback.detail}` : ""}. Replay descargado:{" "}
+                {wayback.replay_fetched ? "sí" : "no"}.
               </p>
               <ul>
                 {wayback.captures.map((item) => (
@@ -244,14 +244,14 @@ export function IntegrationsView() {
           <h2 className="mt-section-title">Common Crawl</h2>
           <p className="text-sm text-mt-fg">{crawlCard.notice}</p>
           <p className="text-xs text-mt-muted">
-            Status: {crawlCard.enabled ? "enabled" : "disabled"}. WARC files are not downloaded.
+            Estado: {crawlCard.enabled ? "activado" : "desactivado"}. Los ficheros WARC no se descargan.
           </p>
           <Button
             variant="secondary"
             disabled={crawlToggle.isPending}
             onClick={() => crawlToggle.mutate(!crawlCard.enabled)}
           >
-            {crawlCard.enabled ? "Disable Common Crawl" : "Enable Common Crawl"}
+            {crawlCard.enabled ? "Desactivar Common Crawl" : "Activar Common Crawl"}
           </Button>
           <form
             className="flex flex-wrap items-center gap-2"
@@ -259,14 +259,14 @@ export function IntegrationsView() {
               event.preventDefault();
               const name = crawlDomain.trim();
               if (!name) {
-                setFormError("Enter a domain name.");
+                setFormError("Indica un nombre de dominio.");
                 return;
               }
               crawlSearch.mutate(name);
             }}
           >
             <label htmlFor="crawl-domain" className="text-xs font-semibold text-mt-muted">
-              Domain
+              Dominio
             </label>
             <input
               id="crawl-domain"
@@ -276,7 +276,7 @@ export function IntegrationsView() {
               className="rounded-md border border-mt-border-strong bg-mt-bg px-3 py-2 text-sm text-mt-fg"
             />
             <Button type="submit" variant="secondary" disabled={crawlSearch.isPending || !crawlCard.enabled}>
-              Search index
+              Buscar índice
             </Button>
           </form>
         </section>
