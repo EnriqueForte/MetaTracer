@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, BookOpen, History, LayoutDashboard, Layers, Menu, Plug, Radar, Shield, Users, Webhook } from "lucide-react";
+import { Bell, BookOpen, GitCompare, History, LayoutDashboard, Layers, Menu, Plug, Radar, Search, Shield, Users, Webhook } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
@@ -22,7 +22,9 @@ import { formatRelative } from "@/lib/time";
 const NAV = [
   { href: "/dashboard", label: "Panel", icon: LayoutDashboard },
   { href: "/", label: "Nuevo escaneo", icon: Radar },
+  { href: "/search", label: "Buscar", icon: Search },
   { href: "/runs", label: "Historial", icon: History },
+  { href: "/runs/compare", label: "Comparar", icon: GitCompare },
   { href: "/investigations", label: "Investigaciones", icon: Layers },
   { href: "/scopes", label: "Alcances", icon: Shield },
 ] as const;
@@ -46,9 +48,15 @@ function kindLabel(kind: NotificationItem["kind"]): string {
   return "Escaneo completado";
 }
 
+const ALL_NAV_HREFS = [...NAV, ...OPERATOR_NAV].map((item) => item.href);
+
 function isNavCurrent(href: string, pathname: string): boolean {
   if (href === "/") return pathname === "/";
-  return pathname === href || pathname.startsWith(`${href}/`);
+  const matches = ALL_NAV_HREFS.filter(
+    (item) => item !== "/" && (pathname === item || pathname.startsWith(`${item}/`)),
+  );
+  matches.sort((left, right) => right.length - left.length);
+  return matches[0] === href;
 }
 
 async function fetchNotifications(): Promise<NotificationItem[]> {

@@ -122,6 +122,7 @@ const coverage = {
   findings: 1,
   by_skip_reason: { unsupported_type: 1 },
   by_namespace: { pdfinfo: 3, exif: 2 },
+  by_content_type: { "application/pdf": 1, "image/jpeg": 1, "application/octet-stream": 1 },
   counters_recorded: false,
   limits_hit: [],
   budget: {},
@@ -280,6 +281,60 @@ describe("CoverageView", () => {
     expect(screen.getByText(/Los contadores de descubrimiento/i)).toBeInTheDocument();
     expect(screen.getByText(/descubiertos pero no intentados es desconocido, no cero/i)).toBeInTheDocument();
     expect(screen.queryByText(/0 resources/i)).not.toBeInTheDocument();
+    expect(screen.getByText("Activos por tipo MIME")).toBeInTheDocument();
+    expect(screen.getByLabelText("image/jpeg: 1")).toBeInTheDocument();
+  });
+
+  it("groups author strings and emails in a table, not a graph", async () => {
+    stubFetch({
+      correlations: {
+        run_id: "run-1",
+        total: 1,
+        groups: [
+          {
+            kind: "author_string",
+            value_norm: "jane doe",
+            occurrences: 2,
+            first_seen_run_id: "run-1",
+            notice: "Shared value across 2 assets — not proof of common identity.",
+            members_truncated: false,
+            members: [
+              {
+                asset_id: "a1",
+                asset_url: "https://acme.test/report.pdf",
+                run_id: "run-1",
+                namespace: "pdfinfo",
+                key: "Author",
+              },
+            ],
+          },
+          {
+            kind: "email",
+            value_norm: "jane@acme.test",
+            occurrences: 2,
+            first_seen_run_id: "run-1",
+            notice: "Shared value across 2 assets — not proof of common identity.",
+            members_truncated: false,
+            members: [
+              {
+                asset_id: "a1",
+                asset_url: "https://acme.test/report.pdf",
+                run_id: "run-1",
+                namespace: "pdfinfo",
+                key: "Author",
+              },
+            ],
+          },
+        ],
+      },
+    });
+    render(wrap(<CoverageView />));
+    const table = await screen.findByRole("table", { name: "Correos y cadenas de autor compartidos" });
+    expect(within(table).getByText("Cadena de autor")).toBeInTheDocument();
+    expect(within(table).getByText("jane doe")).toBeInTheDocument();
+    expect(within(table).getByText("Correo")).toBeInTheDocument();
+    expect(within(table).getByText("jane@acme.test")).toBeInTheDocument();
+    expect(screen.getByText(/no prueba identidad/i)).toBeInTheDocument();
   });
 
   it("lists the limits reached and the applied budget when counters are recorded", async () => {

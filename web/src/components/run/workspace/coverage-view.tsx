@@ -2,13 +2,22 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-import { ErrorState } from "@/components/ui/states";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { StatusChip } from "@/components/ui/status-chip";
 import { errorMessage } from "@/lib/api/client";
 import { SKIP_REASON_LABEL, fetchCoverage, formatBytes } from "@/lib/api/workspace";
 import { queryKeys } from "@/lib/query/keys";
 
+import { CorrelationPanel } from "./correlation-panel";
 import { useWorkspace } from "./workspace-context";
+
+const MIME_FILL = [
+  "bg-mt-chart-1",
+  "bg-mt-chart-2",
+  "bg-mt-chart-3",
+  "bg-mt-chart-4",
+  "bg-mt-chart-5",
+];
 
 /** Human label for a limit identifier; the wire value stays lowercase snake_case. */
 const LIMIT_LABEL: Record<string, string> = {
@@ -54,12 +63,14 @@ export function CoverageView() {
   }
 
   if (query.isPending || !query.data) {
-    return <p className="text-sm text-mt-muted">Cargando cobertura…</p>;
+    return <LoadingState label="Cargando cobertura" />;
   }
 
   const coverage = query.data;
   const skipReasons = Object.entries(coverage.by_skip_reason).sort((a, b) => b[1] - a[1]);
   const namespaces = Object.entries(coverage.by_namespace).sort((a, b) => b[1] - a[1]);
+  const mimeRows = Object.entries(coverage.by_content_type ?? {}).sort((a, b) => b[1] - a[1]);
+  const mimeMax = Math.max(1, ...mimeRows.map(([, count]) => count));
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
@@ -127,6 +138,39 @@ export function CoverageView() {
           )}
         </section>
       </div>
+
+      <section className="mt-card flex flex-col gap-3 p-4" aria-labelledby="coverage-mime-title">
+        <h3 id="coverage-mime-title" className="mt-section-title">
+          Activos por tipo MIME
+        </h3>
+        {mimeRows.length === 0 ? (
+          <EmptyState title="Sin tipos MIME">
+            Este escaneo no registró ningún activo.
+          </EmptyState>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {mimeRows.map(([mime, count], index) => (
+              <div
+                key={mime}
+                className="grid grid-cols-[minmax(0,10rem)_minmax(0,1fr)_2.5rem] items-center gap-2"
+              >
+                <span className="mt-tech truncate text-xs text-mt-muted" title={mime}>
+                  {mime}
+                </span>
+                <div className="mt-chart-track" role="img" aria-label={`${mime}: ${count}`}>
+                  <span
+                    className={`mt-chart-fill ${MIME_FILL[index % MIME_FILL.length]}`}
+                    style={{ width: `${Math.min(100, (count / mimeMax) * 100)}%` }}
+                  />
+                </div>
+                <span className="text-right text-xs tabular-nums text-mt-fg">{count}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <CorrelationPanel runId={runId} />
 
       <section
         className="rounded-md border border-mt-warning-border bg-mt-warning-bg p-3"

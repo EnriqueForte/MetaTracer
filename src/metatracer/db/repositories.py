@@ -19,16 +19,32 @@ from metatracer.db.models import (
     ExtractionStatus,
     Finding,
     FindingFeedback,
+    FindingType,
     Investigation,
     RawMetadataItem,
     Run,
     RunStatus,
     Scope,
+    Severity,
     TriageStatus,
     WebhookConfig,
     WebhookDelivery,
     WebhookDeliveryStatus,
 )
+
+# Sentinel: ``severity`` filter omitted vs unclassified (NULL).
+_UNSET: object = object()
+
+
+def _like_needle(raw: str) -> str:
+    """Substring pattern for ILIKE with ``%``/``_``/``\\`` escaped."""
+    escaped = raw.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
+def _scope_overlap(domains: tuple[str, ...]):
+    """Runs whose ``allowed_scope`` JSON mentions any of the persisted domains."""
+    return or_(*(Run.allowed_scope.ilike(_like_needle(domain), escape="\\") for domain in domains))
 
 # Canonical orderings for dashboard breakdowns (mirrors the report ordering).
 _SEVERITY_ORDER = ["critical", "high", "medium", "low", "info"]
@@ -401,6 +417,74 @@ class RawMetadataRepository:
         result = await self._session.exec(statement)
         return int(result.one())
 
+    async def search_global(
+        self,
+        *,
+        q: str,
+        run_id: str | None = None,
+        scope_domains: tuple[str, ...] = (),
+        namespace: str | None = None,
+        limit: int = 50,
+        cursor: str | None = None,
+    ) -> list[tuple[RawMetadataItem, Asset, str]]:
+        """Newest-first keyset of metadata values matching ``q`` (TASK-46).
+
+        Each row is ``(item, asset, run_id)``. ``q`` matches key or value,
+        case-insensitive, with ``%``/``_`` escaped. Cursor is the last ``id``
+        (descending).
+        """
+        needle = _like_needle(q)
+        statement = (
+            select(RawMetadataItem, Asset, Asset.run_id)
+            .join(Asset, RawMetadataItem.asset_id == Asset.id)
+        )
+        if run_id is not None:
+            statement = statement.where(Asset.run_id == run_id)
+        if scope_domains:
+            statement = statement.join(Run, Run.id == Asset.run_id).where(
+                _scope_overlap(scope_domains)
+            )
+        if namespace:
+            statement = statement.where(RawMetadataItem.namespace == namespace)
+        statement = statement.where(
+            RawMetadataItem.value.ilike(needle, escape="\\")
+            | RawMetadataItem.key.ilike(needle, escape="\\")
+        )
+        if cursor is not None:
+            statement = statement.where(RawMetadataItem.id < _parse_int_cursor(cursor))
+        statement = statement.order_by(RawMetadataItem.id.desc())  # type: ignore[arg-type]
+        result = await self._session.exec(statement.limit(limit + 1))
+        return [(item, asset, str(rid)) for item, asset, rid in result.all()]
+
+    async def count_global(
+        self,
+        *,
+        q: str,
+        run_id: str | None = None,
+        scope_domains: tuple[str, ...] = (),
+        namespace: str | None = None,
+    ) -> int:
+        needle = _like_needle(q)
+        statement = (
+            select(func.count())
+            .select_from(RawMetadataItem)
+            .join(Asset, RawMetadataItem.asset_id == Asset.id)
+        )
+        if run_id is not None:
+            statement = statement.where(Asset.run_id == run_id)
+        if scope_domains:
+            statement = statement.join(Run, Run.id == Asset.run_id).where(
+                _scope_overlap(scope_domains)
+            )
+        if namespace:
+            statement = statement.where(RawMetadataItem.namespace == namespace)
+        statement = statement.where(
+            RawMetadataItem.value.ilike(needle, escape="\\")
+            | RawMetadataItem.key.ilike(needle, escape="\\")
+        )
+        result = await self._session.exec(statement)
+        return int(result.one())
+
     async def namespace_counts(self, run_id: str) -> list[tuple[str, int]]:
         """``(namespace, count)`` for the facet chips, most populated first."""
         result = await self._session.exec(
@@ -459,6 +543,108 @@ class FindingRepository:
     async def list_by_run(self, run_id: str) -> list[Finding]:
         result = await self._session.exec(select(Finding).where(Finding.run_id == run_id))
         return list(result.all())
+
+    async def search_global(
+        self,
+        *,
+        q: str,
+        run_id: str | None = None,
+        scope_domains: tuple[str, ...] = (),
+        finding_type: FindingType | None = None,
+        severity: Severity | None | object = _UNSET,
+        triage_status: TriageStatus | None = None,
+        limit: int = 50,
+        cursor: str | None = None,
+        finding_ids: tuple[str, ...] | None = None,
+    ) -> list[tuple[Finding, Asset]]:
+        """Newest-first keyset of findings matching ``q`` (TASK-46).
+
+        ``severity`` is ``_UNSET`` (no filter), a ``Severity``, or ``None``
+        (unclassified). ``finding_ids`` restricts to a ranked similar-mode set.
+        """
+        needle = _like_needle(q)
+        statement = select(Finding, Asset).join(Asset, Asset.id == Finding.asset_id)
+        if run_id is not None:
+            statement = statement.where(Finding.run_id == run_id)
+        if scope_domains:
+            statement = statement.join(Run, Run.id == Finding.run_id).where(
+                _scope_overlap(scope_domains)
+            )
+        if finding_type is not None:
+            statement = statement.where(Finding.finding_type == finding_type)
+        if severity is None:
+            statement = statement.where(Finding.severity.is_(None))
+        elif severity is not _UNSET:
+            statement = statement.where(Finding.severity == severity)
+        if triage_status is not None:
+            statement = statement.where(Finding.triage_status == triage_status)
+        if finding_ids is not None:
+            if not finding_ids:
+                return []
+            statement = statement.where(Finding.id.in_(list(finding_ids)))
+        else:
+            statement = statement.where(
+                Finding.evidence_snippet.ilike(needle, escape="\\")
+                | Finding.field_source.ilike(needle, escape="\\")
+                | Finding.title.ilike(needle, escape="\\")
+                | Asset.source_url.ilike(needle, escape="\\")
+                | Asset.final_url.ilike(needle, escape="\\")
+            )
+        if cursor is not None:
+            created_at, finding_id = _split_cursor(cursor)
+            statement = statement.where(
+                (Finding.created_at < created_at)
+                | ((Finding.created_at == created_at) & (Finding.id < finding_id))
+            )
+        statement = statement.order_by(Finding.created_at.desc(), Finding.id.desc())  # type: ignore[arg-type]
+        result = await self._session.exec(statement.limit(limit + 1))
+        return list(result.all())
+
+    async def count_global(
+        self,
+        *,
+        q: str,
+        run_id: str | None = None,
+        scope_domains: tuple[str, ...] = (),
+        finding_type: FindingType | None = None,
+        severity: Severity | None | object = _UNSET,
+        triage_status: TriageStatus | None = None,
+        finding_ids: tuple[str, ...] | None = None,
+    ) -> int:
+        needle = _like_needle(q)
+        statement = (
+            select(func.count())
+            .select_from(Finding)
+            .join(Asset, Asset.id == Finding.asset_id)
+        )
+        if run_id is not None:
+            statement = statement.where(Finding.run_id == run_id)
+        if scope_domains:
+            statement = statement.join(Run, Run.id == Finding.run_id).where(
+                _scope_overlap(scope_domains)
+            )
+        if finding_type is not None:
+            statement = statement.where(Finding.finding_type == finding_type)
+        if severity is None:
+            statement = statement.where(Finding.severity.is_(None))
+        elif severity is not _UNSET:
+            statement = statement.where(Finding.severity == severity)
+        if triage_status is not None:
+            statement = statement.where(Finding.triage_status == triage_status)
+        if finding_ids is not None:
+            if not finding_ids:
+                return 0
+            statement = statement.where(Finding.id.in_(list(finding_ids)))
+        else:
+            statement = statement.where(
+                Finding.evidence_snippet.ilike(needle, escape="\\")
+                | Finding.field_source.ilike(needle, escape="\\")
+                | Finding.title.ilike(needle, escape="\\")
+                | Asset.source_url.ilike(needle, escape="\\")
+                | Asset.final_url.ilike(needle, escape="\\")
+            )
+        result = await self._session.exec(statement)
+        return int(result.one())
 
     async def decisive_triage_in_investigation(
         self, investigation_id: str, exclude_run_id: str

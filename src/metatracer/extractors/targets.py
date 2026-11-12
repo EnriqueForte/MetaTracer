@@ -35,6 +35,8 @@ DOCUMENT_EXTENSIONS = (
     ".tiff",
     ".tif",
     ".webp",
+    ".gif",
+    ".svg",
 ) + OFFICE_EXTENSIONS
 # First-class JS assets (TASK-09): downloaded like documents, not crawled as pages.
 SCRIPT_EXTENSIONS = (".js",)

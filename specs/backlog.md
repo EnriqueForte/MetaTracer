@@ -1,7 +1,7 @@
-# Backlog abierto (v3.3+)
+# Backlog abierto (v3.4+)
 
-Solo ítems con spec. Prioridad de producto acordada 2026-11-05 (gobernanza primero).
-Watch `--cron` está en spec 44 (closed). Deltas desaparecido/severity-up no.
+Solo ítems con spec. Prioridad de producto 2026-11-12 (búsqueda y operador primero).
+TASK-00–35 y specs 36–45 están **closed**. Código de 46–51: solo con spec `active` + TASK-NN.
 
 | # | Spec | Tema | Estado | Depende de |
 | :--- | :--- | :--- | :--- | :--- |
@@ -16,5 +16,12 @@ Watch `--cron` está en spec 44 (closed). Deltas desaparecido/severity-up no.
 | 43 | [43-ui-investigations](43-ui-investigations.md) | UI de correlación | closed | 36 |
 | 44 | [44-watch-cron](44-watch-cron.md) | Watch `--cron` UTC + unit systemd | closed | 22 |
 | 45 | [45-ui-spanish](45-ui-spanish.md) | Web UI en español | closed | 42/43 |
+| 46 | [46-global-search](46-global-search.md) | Búsqueda global findings + metadata | closed | 45 |
+| 47 | [47-operator-workspace](47-operator-workspace.md) | Split pane hallazgos, nav, rollups | closed | 42/45 |
+| 48 | [48-extraction-surface](48-extraction-surface.md) | GIF/SVG, IPTC GPS, cloud URI, CSS url | closed | 37 |
+| 49 | [49-secret-finding](49-secret-finding.md) | `finding_type: secret` | reserved | enum al activar |
+| 50 | [50-watch-deltas](50-watch-deltas.md) | Watch desaparecido / severity-up | reserved | 44 |
+| 51 | [51-local-ingest](51-local-ingest.md) | Ingesta de carpeta local | reserved | extractores actuales |
 
-Orden v3.3 + 44: **36 → 43 → 37 → 39 → 38 → 41 → 40 → 42 → 44**, todas **closed**.
+Orden v3.4: **46–48 closed**. Siguiente: **49 → 50 → 51**.
+No abrir 48+49+51 a la vez (tests negativos de safety por extractor).

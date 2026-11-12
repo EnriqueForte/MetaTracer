@@ -34,6 +34,12 @@ Estados: `reserved` \| `active` \| `closed`.
 | [43-ui-investigations](43-ui-investigations.md) | closed | depende de 36 | [TASK-43](../.aicontext/tasks/43-ui-investigations.md) | `metatracer-ui` | `v2-ui-engineer` |
 | [44-watch-cron](44-watch-cron.md) | closed | `features/12-platform-v3.md` Eje A | [TASK-44](../.aicontext/tasks/44-watch-cron.md) | `metatracer-platform` | `pipeline-engineer` |
 | [45-ui-spanish](45-ui-spanish.md) | closed | contrato de idioma UI | [TASK-45](../.aicontext/tasks/45-ui-spanish.md) | `metatracer-ui` | `v2-ui-engineer` |
+| [46-global-search](46-global-search.md) | closed | búsqueda global findings+metadata | [TASK-46](../.aicontext/tasks/46-global-search.md) | `metatracer-ui` | `ui-engineer` + `v2-ui-engineer` |
+| [47-operator-workspace](47-operator-workspace.md) | closed | split pane, nav, rollups MIME/autor | [TASK-47](../.aicontext/tasks/47-operator-workspace.md) | `metatracer-ui` | `v2-ui-engineer` |
+| [48-extraction-surface](48-extraction-surface.md) | closed | GIF/SVG, IPTC GPS, cloud URI, CSS url | [TASK-48](../.aicontext/tasks/48-extraction-surface.md) | `metadata-extraction` | `pipeline-engineer` |
+| [49-secret-finding](49-secret-finding.md) | reserved | `finding_type: secret` (enum al activar) | — hasta `active` | `detector-patterns` | `pipeline-engineer` |
+| [50-watch-deltas](50-watch-deltas.md) | reserved | desaparecido / severity-up + `PAYLOAD_KEYS` | — hasta `active` | `metatracer-platform` | `pipeline-engineer` |
+| [51-local-ingest](51-local-ingest.md) | reserved | carpeta local, cero red, mismos extractores | — hasta `active` | `metadata-extraction` | `pipeline-engineer` |
 
 ## Qué es histórico (no contrato)
 
@@ -47,5 +53,6 @@ Contrato visual vigente: [`.aicontext/ui/design-system-v2.md`](../.aicontext/ui/
 ## Fuera de este overlay
 
 Watch `--cron` y el ejemplo systemd/compose están en spec 44 (closed). Deltas
-“desaparecido / severity-up” siguen leftover en
-[12-platform-v3.md](../.aicontext/features/12-platform-v3.md) (romperían `PAYLOAD_KEYS`).
+“desaparecido / severity-up” están en [spec 50](50-watch-deltas.md) (**reserved**;
+amplían `PAYLOAD_KEYS`). `secret` no entra al enum hasta [spec 49](49-secret-finding.md)
+`active`.

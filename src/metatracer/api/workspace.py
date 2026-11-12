@@ -142,6 +142,7 @@ class CoverageResponse(BaseModel):
     findings: int
     by_skip_reason: dict[str, int]
     by_namespace: dict[str, int]
+    by_content_type: dict[str, int]
     counters_recorded: bool
     limits_hit: list[str]
     budget: dict[str, int]
@@ -169,6 +170,7 @@ class CoverageResponse(BaseModel):
             findings=coverage.findings,
             by_skip_reason=coverage.by_skip_reason,
             by_namespace=coverage.by_namespace,
+            by_content_type=coverage.by_content_type,
             counters_recorded=coverage.counters_recorded,
             limits_hit=list(coverage.limits_hit),
             budget=dict(coverage.budget),

@@ -9,10 +9,9 @@ Este directorio descompone el MVP en tareas implementables. Cada archivo es un c
 
 Las features del PRD definen *qué* debe existir. Estas tasks definen *cómo* construirlo sin contradecir el PRD.
 
-> **Gobernanza (2026-11-05):** TASK-00–35 están cerradas. El trabajo **activo** está en
-> [`specs/`](../../specs/README.md) y [`MEMORY.md`](../../MEMORY.md). Valores **reserved**
-> restantes: ninguno. Specs 36–44 están **closed**.
-> No mover estos archivos a `archive/` (rompen enlaces).
+> **Gobernanza (2026-11-12):** TASK-00–35 y specs 36–48 están **closed**.
+> Specs 49–51 reserved. `secret` no se añade a `finding_type` hasta spec 49
+> `active`. No mover estos archivos a `archive/` (rompen enlaces).
 
 ---
 

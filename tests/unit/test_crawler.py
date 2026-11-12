@@ -183,3 +183,34 @@ async def test_discover_stays_document_only(fake_public_dns, install_transport) 
     install_transport(_html_handler(body))
     urls = await _crawler().discover("http://target.com/page", scope_confirmed=True, max_assets=50)
     assert urls == ["http://target.com/doc.pdf"]
+
+
+async def test_css_url_enqueues_allowlisted_images_not_the_stylesheet(
+    fake_public_dns, install_transport
+) -> None:
+    html = (
+        b'<html><head><link rel="stylesheet" href="/theme.css"></head>'
+        b"<body><p>x</p></body></html>"
+    )
+    css = b"body{background:url(/secret.png)} .x{background:url(https://evil.com/x.jpg)}"
+    requested: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested.append(f"{request.method} {request.url.path}")
+        if request.url.path == "/page":
+            return _html_handler(html)(request)
+        if request.url.path == "/theme.css":
+            return httpx.Response(
+                200, headers={"content-type": "text/css"}, content=css
+            )
+        raise AssertionError(f"unexpected request: {request.url}")
+
+    install_transport(handler)
+    page = await _crawler().fetch_page(
+        "http://target.com/page", scope_confirmed=True, max_assets=50
+    )
+    assert page is not None
+    assert page.document_urls == ["http://target.com/secret.png"]
+    assert all("/theme.css" not in url for url in page.document_urls)
+    assert all("evil.com" not in url for url in page.document_urls)
+    assert "GET /theme.css" in requested

@@ -18,11 +18,10 @@ Dos rules se aplican siempre, sin excepción:
   confirmado y por el wrapper único, cero binarios, redirects in-scope, un asset
   fallido no tumba el run, los agentes no inventan evidencia, loopback bloqueado).
 - `.cursor/rules/data-contracts.mdc` — enums cerrados en minúsculas, `severity`
-  NULL hasta clasificar, `dedup_signature`, idiomas por capa. No quedan enums
-  reserved. Findings `internal_endpoint`/`cloud_storage` y namespaces `ooxml`/`odf`
-  están en TASK-37. `connector.status` está en TASK-38. `export.redaction` está
-  en TASK-39. Ops hygiene (lock durable, resume, métricas, `/api/v1`) está en
-  TASK-41. Specs 40 y 42 siguen `reserved`.
+  NULL hasta clasificar, `dedup_signature`, idiomas por capa. Specs 36–48 closed.
+  Specs 49–51 reserved. `secret` no es
+  `finding_type` hasta que spec 49 pase a `active`. Findings
+  `internal_endpoint`/`cloud_storage` y namespaces `ooxml`/`odf` están en TASK-37.
 
 Si una petición exigiría violarlas, **para** y explica el conflicto.
 

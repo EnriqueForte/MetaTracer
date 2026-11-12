@@ -1217,6 +1217,225 @@
         }
       }
     },
+    "/api/search": {
+      "get": {
+        "tags": [
+          "search"
+        ],
+        "summary": "Global Search",
+        "description": "Search stored findings and raw metadata. Never crawls. Never reads bodies.",
+        "operationId": "global_search_api_search_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "description": "Substring or similar seed",
+              "title": "Q"
+            },
+            "description": "Substring or similar seed"
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "findings",
+                "metadata",
+                "all"
+              ],
+              "type": "string",
+              "default": "all",
+              "title": "Kind"
+            }
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "lexical",
+                "similar"
+              ],
+              "type": "string",
+              "default": "lexical",
+              "title": "Mode"
+            }
+          },
+          {
+            "name": "run_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "scope_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Scope Id"
+            }
+          },
+          {
+            "name": "finding_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/FindingType"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Finding Type"
+            }
+          },
+          {
+            "name": "namespace",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 32
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Namespace"
+            }
+          },
+          {
+            "name": "severity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "closed severity or unclassified",
+              "title": "Severity"
+            },
+            "description": "closed severity or unclassified"
+          },
+          {
+            "name": "triage_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/TriageStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Triage Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "findings_cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Findings Cursor"
+            }
+          },
+          {
+            "name": "metadata_cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Metadata Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GlobalSearchResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/scopes": {
       "get": {
         "tags": [
@@ -3656,6 +3875,13 @@
             "type": "object",
             "title": "By Namespace"
           },
+          "by_content_type": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "By Content Type"
+          },
           "counters_recorded": {
             "type": "boolean",
             "title": "Counters Recorded"
@@ -3744,6 +3970,7 @@
           "findings",
           "by_skip_reason",
           "by_namespace",
+          "by_content_type",
           "counters_recorded",
           "limits_hit",
           "budget",
@@ -4125,6 +4352,101 @@
         "title": "FindingResponse",
         "description": "One finding card, mapped 1:1 from the ReportBuilder entry (parity)."
       },
+      "FindingSearchHit": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "finding",
+            "title": "Kind",
+            "default": "finding"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "asset_id": {
+            "type": "string",
+            "title": "Asset Id"
+          },
+          "asset_url": {
+            "type": "string",
+            "title": "Asset Url"
+          },
+          "finding_type": {
+            "$ref": "#/components/schemas/FindingType"
+          },
+          "type_label": {
+            "type": "string",
+            "title": "Type Label"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "field_source": {
+            "type": "string",
+            "title": "Field Source"
+          },
+          "evidence_snippet": {
+            "type": "string",
+            "title": "Evidence Snippet"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Severity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "triage_status": {
+            "$ref": "#/components/schemas/TriageStatus"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "run_id",
+          "asset_id",
+          "asset_url",
+          "finding_type",
+          "type_label",
+          "field_source",
+          "evidence_snippet",
+          "triage_status",
+          "created_at"
+        ],
+        "title": "FindingSearchHit"
+      },
       "FindingType": {
         "type": "string",
         "enum": [
@@ -4164,6 +4486,46 @@
         ],
         "title": "FindingsResponse",
         "description": "GET /api/runs/{run_id}/findings: the report-ordered list."
+      },
+      "GlobalSearchResponse": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "findings",
+              "metadata",
+              "all"
+            ],
+            "title": "Kind"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "lexical",
+              "similar"
+            ],
+            "title": "Mode"
+          },
+          "findings": {
+            "$ref": "#/components/schemas/SearchPageFindings"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/SearchPageMetadata"
+          }
+        },
+        "type": "object",
+        "required": [
+          "query",
+          "kind",
+          "mode",
+          "findings",
+          "metadata"
+        ],
+        "title": "GlobalSearchResponse"
       },
       "HTTPValidationError": {
         "properties": {
@@ -4697,6 +5059,55 @@
           "items"
         ],
         "title": "MetadataListResponse"
+      },
+      "MetadataSearchHit": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "metadata",
+            "title": "Kind",
+            "default": "metadata"
+          },
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "asset_id": {
+            "type": "string",
+            "title": "Asset Id"
+          },
+          "asset_url": {
+            "type": "string",
+            "title": "Asset Url"
+          },
+          "namespace": {
+            "type": "string",
+            "title": "Namespace"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "value": {
+            "type": "string",
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "run_id",
+          "asset_id",
+          "asset_url",
+          "namespace",
+          "key",
+          "value"
+        ],
+        "title": "MetadataSearchHit"
       },
       "NotificationListResponse": {
         "properties": {
@@ -5536,6 +5947,80 @@
         ],
         "title": "SearchHit",
         "description": "One ranked hit, surface-safe: no run_id, no raw ids beyond finding_id."
+      },
+      "SearchPageFindings": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FindingSearchHit"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "has_more": {
+            "type": "boolean",
+            "title": "Has More",
+            "default": false
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "items"
+        ],
+        "title": "SearchPageFindings"
+      },
+      "SearchPageMetadata": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MetadataSearchHit"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "has_more": {
+            "type": "boolean",
+            "title": "Has More",
+            "default": false
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "items"
+        ],
+        "title": "SearchPageMetadata"
       },
       "SearchResponse": {
         "properties": {

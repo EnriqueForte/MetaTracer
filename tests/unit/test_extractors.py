@@ -185,3 +185,57 @@ def test_oversized_xmp_packet_is_dropped() -> None:
     assert parse_xmp_packet(b"<" + b"x" * MAX_XMP_PACKET_BYTES) == {}
     assert parse_xmp_packet(b"") == {}
     assert parse_xmp_packet(b"not xml at all") == {}
+
+
+def test_gif_comment_and_trailing_xmp(tmp_path: Path) -> None:
+    from metatracer.extractors.sniff import sniff_asset_kind
+
+    path = tmp_path / "note.gif"
+    image = Image.new("P", (2, 2))
+    image.save(path, format="GIF", comment=b"camera-note")
+    packet = (
+        b'<?xpacket begin=""?><x:xmpmeta xmlns:x="adobe:ns:meta/">'
+        b'<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
+        b'<rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">'
+        b"<dc:creator>gif-author</dc:creator></rdf:Description></rdf:RDF>"
+        b"</x:xmpmeta><?xpacket end=\"w\"?>"
+    )
+    path.write_bytes(path.read_bytes() + packet)
+    assert sniff_asset_kind(path.read_bytes()[:16]) is not None
+    by_key = _by_key(ImageMetadataExtractor().extract(path))
+    assert by_key[("exif", "Comment")] == "camera-note"
+    assert by_key[("xmp", "dc:creator")] == "gif-author"
+
+
+def test_svg_metadata_only_not_drawing() -> None:
+    from metatracer.extractors.sniff import AssetKind, classify_downloaded_asset
+    from metatracer.extractors.svg import SvgMetadataExtractor
+
+    drawing = (
+        b'<?xml version="1.0"?>'
+        b'<svg xmlns="http://www.w3.org/2000/svg" xmlns:dc="http://purl.org/dc/elements/1.1/">'
+        b"<path d=\"M0 0 L10 10\"/>"
+        b"<metadata><dc:creator>jane@acme.test</dc:creator></metadata>"
+        b"</svg>"
+    )
+    assert (
+        classify_downloaded_asset(
+            drawing[:512], content_type="image/svg+xml", url="http://target.com/logo.svg"
+        )
+        is AssetKind.svg
+    )
+    by_key = _by_key(SvgMetadataExtractor().extract(drawing))
+    assert by_key[("xmp", "dc:creator")] == "jane@acme.test"
+    assert all("M0 0" not in field.value for field in SvgMetadataExtractor().extract(drawing))
+
+
+def test_svg_without_root_in_lookahead_is_unsupported() -> None:
+    from metatracer.extractors.sniff import classify_downloaded_asset
+
+    body = b"<?xml version='1.0'?><not-svg></not-svg>"
+    assert (
+        classify_downloaded_asset(
+            body, content_type="image/svg+xml", url="http://target.com/logo.svg"
+        )
+        is None
+    )

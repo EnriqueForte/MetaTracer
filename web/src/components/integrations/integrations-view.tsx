@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { errorMessage, getJson, isObject, sendJson } from "@/lib/api/client";
 
 type ConnectorCard = {
@@ -112,10 +113,17 @@ export function IntegrationsView() {
           y no amplían el alcance de un escaneo.
         </p>
       </div>
+      {list.isPending ? <LoadingState label="Cargando integraciones" /> : null}
       {list.isError ? (
-        <p className="text-sm text-mt-danger" role="alert">
-          {errorMessage(list.error, "No se pudieron cargar los conectores")}
-        </p>
+        <ErrorState
+          message={errorMessage(list.error, "No se pudieron cargar los conectores")}
+          onRetry={() => void list.refetch()}
+        />
+      ) : null}
+      {list.isSuccess && (list.data?.connectors.length ?? 0) === 0 ? (
+        <EmptyState title="Sin conectores">
+          No hay conectores registrados en esta instalación.
+        </EmptyState>
       ) : null}
       {card ? (
         <section className="mt-card flex flex-col gap-3 p-4" aria-label="RDAP">

@@ -61,6 +61,14 @@ def test_cloud_urls_are_recorded_without_the_query_string() -> None:
         "https://storage.googleapis.com/acme-logs/2024"
     ]
     assert _snippets(detector, "nots3.amazonaws.com and https://example.com/file") == []
+    assert _snippets(detector, "s3://acme-logs/2024/a.bin") == ["s3://acme-logs/2024/a.bin"]
+    assert _snippets(detector, "gs://acme-logs/2024/a.bin") == ["gs://acme-logs/2024/a.bin"]
+    assert _snippets(
+        detector, "https://acme.nyc3.digitaloceanspaces.com/bucket/a?sig=secret"
+    ) == ["https://acme.nyc3.digitaloceanspaces.com/bucket/a"]
+    assert _snippets(detector, "https://acme.s3.wasabisys.com/docs/a") == [
+        "https://acme.s3.wasabisys.com/docs/a"
+    ]
 
 
 def test_ceilings_hold_and_the_storage_url_is_not_described_as_fetched() -> None:

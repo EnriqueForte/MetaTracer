@@ -389,6 +389,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Global Search
+         * @description Search stored findings and raw metadata. Never crawls. Never reads bodies.
+         */
+        get: operations["global_search_api_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/scopes": {
         parameters: {
             query?: never;
@@ -1430,6 +1450,10 @@ export interface components {
             by_namespace: {
                 [key: string]: number;
             };
+            /** By Content Type */
+            by_content_type: {
+                [key: string]: number;
+            };
             /** Counters Recorded */
             counters_recorded: boolean;
             /** Limits Hit */
@@ -1637,6 +1661,41 @@ export interface components {
             created_at?: string | null;
             triage_suggestion?: components["schemas"]["TriageSuggestionResponse"] | null;
         };
+        /** FindingSearchHit */
+        FindingSearchHit: {
+            /**
+             * Kind
+             * @default finding
+             * @constant
+             */
+            kind: "finding";
+            /** Id */
+            id: string;
+            /** Run Id */
+            run_id: string;
+            /** Asset Id */
+            asset_id: string;
+            /** Asset Url */
+            asset_url: string;
+            finding_type: components["schemas"]["FindingType"];
+            /** Type Label */
+            type_label: string;
+            /** Title */
+            title?: string | null;
+            /** Field Source */
+            field_source: string;
+            /** Evidence Snippet */
+            evidence_snippet: string;
+            severity?: components["schemas"]["Severity"] | null;
+            triage_status: components["schemas"]["TriageStatus"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Score */
+            score?: number | null;
+        };
         /**
          * FindingType
          * @enum {string}
@@ -1653,6 +1712,23 @@ export interface components {
             total: number;
             /** Findings */
             findings: components["schemas"]["FindingResponse"][];
+        };
+        /** GlobalSearchResponse */
+        GlobalSearchResponse: {
+            /** Query */
+            query: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "findings" | "metadata" | "all";
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "lexical" | "similar";
+            findings: components["schemas"]["SearchPageFindings"];
+            metadata: components["schemas"]["SearchPageMetadata"];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1859,6 +1935,29 @@ export interface components {
             has_more: boolean;
             /** Next Cursor */
             next_cursor?: string | null;
+        };
+        /** MetadataSearchHit */
+        MetadataSearchHit: {
+            /**
+             * Kind
+             * @default metadata
+             * @constant
+             */
+            kind: "metadata";
+            /** Id */
+            id: number;
+            /** Run Id */
+            run_id: string;
+            /** Asset Id */
+            asset_id: string;
+            /** Asset Url */
+            asset_url: string;
+            /** Namespace */
+            namespace: string;
+            /** Key */
+            key: string;
+            /** Value */
+            value: string;
         };
         /**
          * NotificationListResponse
@@ -2207,6 +2306,34 @@ export interface components {
             title: string | null;
             /** Score */
             score: number;
+        };
+        /** SearchPageFindings */
+        SearchPageFindings: {
+            /** Total */
+            total: number;
+            /** Items */
+            items: components["schemas"]["FindingSearchHit"][];
+            /**
+             * Has More
+             * @default false
+             */
+            has_more: boolean;
+            /** Next Cursor */
+            next_cursor?: string | null;
+        };
+        /** SearchPageMetadata */
+        SearchPageMetadata: {
+            /** Total */
+            total: number;
+            /** Items */
+            items: components["schemas"]["MetadataSearchHit"][];
+            /**
+             * Has More
+             * @default false
+             */
+            has_more: boolean;
+            /** Next Cursor */
+            next_cursor?: string | null;
         };
         /** SearchResponse */
         SearchResponse: {
@@ -3095,6 +3222,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CoverageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    global_search_api_search_get: {
+        parameters: {
+            query: {
+                /** @description Substring or similar seed */
+                q: string;
+                kind?: "findings" | "metadata" | "all";
+                mode?: "lexical" | "similar";
+                run_id?: string | null;
+                scope_id?: string | null;
+                finding_type?: components["schemas"]["FindingType"] | null;
+                namespace?: string | null;
+                /** @description closed severity or unclassified */
+                severity?: string | null;
+                triage_status?: components["schemas"]["TriageStatus"] | null;
+                limit?: number;
+                findings_cursor?: string | null;
+                metadata_cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GlobalSearchResponse"];
                 };
             };
             /** @description Validation Error */

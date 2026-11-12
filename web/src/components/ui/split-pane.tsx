@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
+import { hasModifier, isTypingTarget } from "@/lib/keyboard";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_MIN = 320;
@@ -39,9 +40,10 @@ type Props = {
  * the main cost of the old modal. Filters, selection and scroll stay put.
  *
  * Keyboard: the separator takes focus and resizes with ArrowLeft/ArrowRight
- * (Shift for a larger step), Home/End jump to the bounds. The width is stored
- * in `localStorage` so it survives navigation; it is clamped on every read, so
- * a corrupted value can never produce an unusable layout.
+ * and `[` / `]` (Shift for a larger step), Home/End jump to the bounds.
+ * `[` / `]` also work globally while the pane is open, except while typing.
+ * The width is stored in `localStorage` so it survives navigation; it is
+ * clamped on every read, so a corrupted value can never produce an unusable layout.
  */
 export function SplitPane({
   children,
@@ -55,6 +57,8 @@ export function SplitPane({
   const [width, setWidth] = useState(defaultWidth);
   const [resizing, setResizing] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const widthRef = useRef(width);
+  widthRef.current = width;
 
   useEffect(() => {
     setWidth(readStored(min, max, defaultWidth));
@@ -73,6 +77,23 @@ export function SplitPane({
     },
     [max, min],
   );
+
+  useEffect(() => {
+    if (!panel) return;
+    function onGlobalKey(event: KeyboardEvent) {
+      if (isTypingTarget(event.target) || hasModifier(event)) return;
+      const step = event.shiftKey ? 64 : 16;
+      if (event.key === "[") {
+        event.preventDefault();
+        commit(widthRef.current + step);
+      } else if (event.key === "]") {
+        event.preventDefault();
+        commit(widthRef.current - step);
+      }
+    }
+    window.addEventListener("keydown", onGlobalKey);
+    return () => window.removeEventListener("keydown", onGlobalKey);
+  }, [commit, panel]);
 
   useEffect(() => {
     if (!resizing) return;
@@ -96,10 +117,10 @@ export function SplitPane({
 
   function onKey(event: React.KeyboardEvent<HTMLDivElement>) {
     const step = event.shiftKey ? 64 : 16;
-    if (event.key === "ArrowLeft") {
+    if (event.key === "ArrowLeft" || event.key === "[") {
       event.preventDefault();
       commit(width + step);
-    } else if (event.key === "ArrowRight") {
+    } else if (event.key === "ArrowRight" || event.key === "]") {
       event.preventDefault();
       commit(width - step);
     } else if (event.key === "Home") {

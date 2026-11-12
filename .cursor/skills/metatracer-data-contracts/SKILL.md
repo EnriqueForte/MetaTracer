@@ -9,7 +9,7 @@ Referencia completa: `.aicontext/tasks/README.md` (contratos compartidos) y `.ai
 
 ## Regla de oro
 
-Enums en **minúsculas** en DB, JSON, API y Pydantic. La presentación (CLI/UI/Markdown) puede usar Title Case. Los enums son **cerrados**: no añadir valores sin actualizar `.aicontext/tasks/README.md` primero. No quedan enums reserved. Investigations: TASK-36. Detectores de red y OOXML/ODF: TASK-37. Conectores: TASK-38. Redacción de export: TASK-39. Specs 40–42 siguen reserved — ver `MEMORY.md`.
+Enums en **minúsculas** en DB, JSON, API y Pydantic. La presentación (CLI/UI/Markdown) puede usar Title Case. Los enums son **cerrados**: no añadir valores sin actualizar `.aicontext/tasks/README.md` primero. Specs 36–48 closed. Specs 49–51 reserved (v3.4+); `secret` no es `finding_type` hasta spec 49 `active`. Ver `MEMORY.md`.
 
 | Contrato | Valores |
 | :--- | :--- |

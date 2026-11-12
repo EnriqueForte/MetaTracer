@@ -75,6 +75,7 @@ from metatracer.services.orchestrator import (
     ScanRequest,
     ScanResult,
 )
+from metatracer.services.search import NAMESPACES, GlobalSearchService
 
 logger = logging.getLogger("metatracer.cli.main")
 
@@ -311,6 +312,89 @@ def show(
         console.print(report_data.executive_summary_line)
     else:
         console.print("No findings match the current filters.")
+
+
+@app.command()
+def search(
+    query: Annotated[str, typer.Argument(help="Substring to match in evidence, fields or URLs.")],
+    kind: Annotated[
+        str,
+        typer.Option("--kind", help="findings, metadata, or all."),
+    ] = "all",
+    mode: Annotated[
+        str,
+        typer.Option("--mode", help="lexical (default) or similar (knowledge index)."),
+    ] = "lexical",
+    run_id: Annotated[
+        str | None, typer.Option("--run-id", help="Restrict to one run UUID.")
+    ] = None,
+    scope_id: Annotated[
+        str | None, typer.Option("--scope-id", help="Restrict to a saved scope's domains.")
+    ] = None,
+    finding_type: Annotated[
+        FindingType | None, typer.Option("--type", help="Filter by finding type.")
+    ] = None,
+    namespace: Annotated[
+        str | None, typer.Option("--namespace", help="Metadata namespace.")
+    ] = None,
+    severity: Annotated[
+        str | None, typer.Option("--severity", help="Severity or unclassified.")
+    ] = None,
+    triage: Annotated[
+        TriageStatus | None, typer.Option("--triage", help="Filter by triage status.")
+    ] = None,
+    limit: Annotated[int, typer.Option("--limit", min=1, max=100, help="Page size.")] = 50,
+) -> None:
+    """Search persisted findings and raw metadata across runs (TASK-46)."""
+    if kind not in ("findings", "metadata", "all"):
+        err_console.print("[red]Error:[/red] --kind must be findings, metadata, or all.")
+        raise typer.Exit(1)
+    if mode not in ("lexical", "similar"):
+        err_console.print("[red]Error:[/red] --mode must be lexical or similar.")
+        raise typer.Exit(1)
+    if namespace is not None and namespace not in NAMESPACES:
+        err_console.print(f"[red]Error:[/red] --namespace must be one of {sorted(NAMESPACES)}.")
+        raise typer.Exit(1)
+    severity_filter: object
+    if severity is None:
+        from metatracer.db.repositories import _UNSET as unset
+
+        severity_filter = unset
+    elif severity == "unclassified":
+        severity_filter = None
+    elif severity in Severity.__members__:
+        severity_filter = Severity(severity)
+    else:
+        err_console.print("[red]Error:[/red] invalid --severity.")
+        raise typer.Exit(1)
+    try:
+        result = asyncio.run(
+            _execute_search(
+                query,
+                kind=kind,  # type: ignore[arg-type]
+                mode=mode,  # type: ignore[arg-type]
+                run_id=run_id,
+                scope_id=scope_id,
+                finding_type=finding_type,
+                namespace=namespace,
+                severity=severity_filter,
+                triage_status=triage,
+                limit=limit,
+            )
+        )
+    except MetaTracerError as exc:
+        err_console.print(f"[red]Error:[/red] {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+    console.print(
+        f"Search {escape(result.query)!r} ({result.mode}): "
+        f"{result.findings.total} finding(s), {result.metadata.total} metadata field(s)."
+    )
+    if result.findings.items:
+        console.print(formatters.search_findings_table(result.findings.items))
+    if result.metadata.items:
+        console.print(formatters.search_metadata_table(result.metadata.items))
+    if not result.findings.items and not result.metadata.items:
+        console.print("No persisted rows match the query.")
 
 
 @app.command(name="list-runs")
@@ -817,6 +901,35 @@ async def _cli_session_factory():
         yield create_session_factory(engine)
     finally:
         await engine.dispose()
+
+
+async def _execute_search(
+    query: str,
+    *,
+    kind: str,
+    mode: str,
+    run_id: str | None,
+    scope_id: str | None,
+    finding_type: FindingType | None,
+    namespace: str | None,
+    severity: object,
+    triage_status: TriageStatus | None,
+    limit: int,
+):
+    async with _cli_session_factory() as session_factory:
+        service = GlobalSearchService(session_factory)
+        return await service.search(
+            query,
+            kind=kind,  # type: ignore[arg-type]
+            mode=mode,  # type: ignore[arg-type]
+            run_id=run_id,
+            scope_id=scope_id,
+            finding_type=finding_type,
+            namespace=namespace,
+            severity=severity,
+            triage_status=triage_status,
+            limit=limit,
+        )
 
 
 async def _execute_investigation_list():

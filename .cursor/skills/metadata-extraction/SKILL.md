@@ -25,6 +25,8 @@ Referencia: `.aicontext/tasks/01-metadata-extraction.md`, `09-source-expansion.m
 | PNG | `b"\x89PNG\r\n\x1a\n"` |
 | TIFF | `b"II*\x00"` (LE) o `b"MM\x00*"` (BE) |
 | WEBP | `b"RIFF"` … `header[8:12] == b"WEBP"` |
+| GIF | `GIF87a` / `GIF89a` |
+| SVG | no es magic: lookahead 512 B con `<svg`; si no, `unsupported_type` |
 | ZIP (oficina) | `b"PK\x03\x04"` / `PK\x05\x06` / `PK\x07\x08` **y** extensión/Content-Type de Office; un ZIP genérico no se parsea |
 
 Reglas de `classify_downloaded_asset`:
@@ -54,7 +56,8 @@ crawleado se reutiliza: **sin segundo GET**.
   descomprime con **tope antes de inflar** (TASK-27, amenaza 5).
 - **Imagen** (`image.py`): EXIF con Pillow (TAGS/GPSTAGS), bloque GPS **crudo**
   (la conversión DMS→decimal es del detector, no de aquí); IPTC/XMP en
-  JPEG/PNG/WebP. Límite de píxeles de Pillow; tolerante a fallos.
+  JPEG/PNG/WebP/GIF (comentario GIF → `exif:Comment`). Límite de píxeles de Pillow; tolerante a fallos.
+- **SVG** (`svg.py`): solo `<metadata>` / RDF / Dublin Core (`xmp`). El dibujo no se persiste.
 - **HTML** (`html.py`): `title`, meta **allowlist**, comentarios (se saltan los
   condicionales `<!--[if`). Namespace `html`.
 - **Cabeceras HTTP** (`headers.py`): `HEADER_ALLOWLIST` de recon — `server`,

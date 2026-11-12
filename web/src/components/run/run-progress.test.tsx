@@ -140,7 +140,8 @@ describe("RunProgress", () => {
     stub("completed");
     render(<RunProgress runId="run-1" />);
     expect(await screen.findByRole("region", { name: "Valores compartidos" })).toBeInTheDocument();
-    expect(screen.getByText("Ningún valor compartido enlaza este escaneo con otro activo.")).toBeInTheDocument();
+    expect(screen.getByText("Ningún valor compartido")).toBeInTheDocument();
+    expect(screen.getByText("Ningún valor enlaza este escaneo con otro activo.")).toBeInTheDocument();
   });
 
   it("puts the five exports in the run bar", async () => {

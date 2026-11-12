@@ -282,12 +282,34 @@ class KnowledgeRetriever:
         if not snippet:
             return []
         ftype = FindingType(ftype_raw) if ftype_raw in FindingType.__members__ else None
-        backend = await self._get_backend()
-        return await backend.search(
+        return await self.search_similar(
             snippet,
             finding_type=ftype,
             exclude_finding_id=exclude_finding_id,
             limit=self._limit,
+        )
+
+    async def search_similar(
+        self,
+        snippet: str,
+        *,
+        finding_type: FindingType | None = None,
+        exclude_finding_id: str | None = None,
+        limit: int = 8,
+    ) -> list[RetrievedEvidence]:
+        """Rank historical findings for an operator query (TASK-46).
+
+        Same index as the agent RAG; never a document-body search.
+        """
+        text = snippet.strip()
+        if not text:
+            return []
+        backend = await self._get_backend()
+        return await backend.search(
+            text,
+            finding_type=finding_type,
+            exclude_finding_id=exclude_finding_id,
+            limit=limit,
         )
 
     async def _get_backend(self) -> KnowledgeIndex | PgVectorKnowledgeIndex:

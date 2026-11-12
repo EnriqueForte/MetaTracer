@@ -19,9 +19,12 @@ from urllib.parse import urlsplit
 
 from metatracer.extractors.targets import DOCUMENT_EXTENSIONS, OFFICE_EXTENSIONS
 
-# Leading bytes needed to decide every signature below (RIFF....WEBP is the
-# longest lookahead: 12 bytes).
+# Leading bytes needed to decide raster signatures (RIFF....WEBP is 12 bytes).
 SNIFF_HEADER_BYTES = 16
+# SVG is XML: the ``<svg`` tag may sit after an XML declaration. Classification
+# looks this far into the downloaded body; if ``<svg`` is not here, the asset
+# is unsupported rather than parsed as drawing markup.
+CLASSIFY_LOOKAHEAD_BYTES = 512
 
 _HTML_CONTENT_TYPES = frozenset({"text/html", "application/xhtml+xml"})
 _JS_CONTENT_TYPES = frozenset(
@@ -58,6 +61,7 @@ class AssetKind(StrEnum):
     html = "html"
     javascript = "javascript"
     office = "office"
+    svg = "svg"
 
 
 def sniff_asset_kind(header: bytes) -> AssetKind | None:
@@ -76,6 +80,8 @@ def sniff_asset_kind(header: bytes) -> AssetKind | None:
         return AssetKind.image
     if header[:4] == b"RIFF" and header[8:12] == b"WEBP":
         return AssetKind.image
+    if header.startswith((b"GIF87a", b"GIF89a")):
+        return AssetKind.image
     return None
 
 
@@ -93,6 +99,9 @@ _FETCHABLE_DECLARED_TYPES = frozenset(
         "image/png",
         "image/tiff",
         "image/webp",
+        "image/gif",
+        "image/svg+xml",
+        "text/svg+xml",
         "application/javascript",
         "text/javascript",
         "application/ecmascript",
@@ -133,10 +142,18 @@ def classify_downloaded_asset(
     if magic is not None:
         return magic
     path = urlsplit(url).path.lower()
+    content = content_type.split(";", 1)[0].strip().lower()
+    declared_svg = path.endswith(".svg") or content in {"image/svg+xml", "text/svg+xml"}
+    html_declared = content in _HTML_CONTENT_TYPES or path.endswith(_HTML_PATH_SUFFIXES)
+    if not html_declared and _looks_like_svg(header):
+        return AssetKind.svg
+    if declared_svg:
+        # Declared SVG without an ``<svg`` tag in the lookahead: cannot tell
+        # metadata from drawing, so do not parse the markup as a body.
+        return None
     # A ZIP is an office document only when the URL or the declared type says
     # so. A random archive is not parsed. A .docx that is not a ZIP falls
     # through to the document-extension rejection below.
-    content = content_type.split(";", 1)[0].strip().lower()
     if header.startswith(_ZIP_MAGIC) and (
         path.endswith(OFFICE_EXTENSIONS) or content in _OFFICE_CONTENT_TYPES
     ):
@@ -156,3 +173,9 @@ def classify_downloaded_asset(
 def _looks_like_text(header: bytes) -> bool:
     """Reject obviously-binary buffers (NUL in the sniff window)."""
     return b"\x00" not in header[:SNIFF_HEADER_BYTES]
+
+
+def _looks_like_svg(header: bytes) -> bool:
+    """True when the lookahead contains an SVG root, not merely XML or HTML."""
+    window = header.lstrip().lower()
+    return b"<svg" in window[:CLASSIFY_LOOKAHEAD_BYTES]

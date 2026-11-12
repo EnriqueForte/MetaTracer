@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AssetFindings } from "@/components/run/findings/asset-findings";
 import { BulkTriageBar, BULK_TRIAGE_LIMIT } from "@/components/run/findings/bulk-triage-bar";
 import { FiltersBar } from "@/components/run/findings/filters-bar";
+import { FindingDetail } from "@/components/run/findings/finding-detail";
 import { FindingSheet } from "@/components/run/findings/finding-sheet";
 import { FindingsTable } from "@/components/run/findings/findings-table";
 import { GpsMap } from "@/components/run/findings/gps-map";
@@ -26,6 +27,7 @@ import {
 import { TriageForm, triageVariant } from "@/components/run/findings/triage-form";
 import { Badge } from "@/components/ui/badge";
 import { DensitySwitch } from "@/components/ui/density-switch";
+import { SplitPane } from "@/components/ui/split-pane";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { getJson, hasArray } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
@@ -61,6 +63,16 @@ export function FindingsPanel({ runId, totalAssets }: { runId: string; totalAsse
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const searchRef = useRef<HTMLInputElement>(null);
   const canBulk = actor === "operator";
+  const [desktop, setDesktop] = useState(false);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const media = window.matchMedia("(min-width: 1024px)");
+    const apply = () => setDesktop(media.matches);
+    apply();
+    media.addEventListener("change", apply);
+    return () => media.removeEventListener("change", apply);
+  }, []);
 
   const changeFilters = useCallback((next: Filters) => {
     setFilters(next);
@@ -86,7 +98,7 @@ export function FindingsPanel({ runId, totalAssets }: { runId: string; totalAsse
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      if (selected || hasModifier(event) || isTypingTarget(event.target)) return;
+      if ((selected && !desktop) || hasModifier(event) || isTypingTarget(event.target)) return;
       // The palette, the help or another dialog owns the keyboard while open.
       if (document.querySelector('[role="dialog"][data-state="open"]')) return;
       if (event.key === "/") {
@@ -117,7 +129,7 @@ export function FindingsPanel({ runId, totalAssets }: { runId: string; totalAsse
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [activeIndex, canBulk, filtered, selected]);
+  }, [activeIndex, canBulk, desktop, filtered, selected]);
 
   const loaded = query.isSuccess || query.isError;
   const error = query.isError
@@ -176,47 +188,68 @@ export function FindingsPanel({ runId, totalAssets }: { runId: string; totalAsse
       ) : null}
 
       {filtered.length > 0 ? (
-        <FindingsTable
-          rows={filtered}
-          activeIndex={activeIndex}
-          onActiveChange={setActiveIndex}
-          onOpen={setSelected}
-          selectable={canBulk}
-          selectedIds={selectedIds}
-          onToggle={(finding) =>
-            setSelectedIds((current) => {
-              const next = new Set(current);
-              if (next.has(finding.id)) next.delete(finding.id);
-              else if (next.size < BULK_TRIAGE_LIMIT) next.add(finding.id);
-              return next;
-            })
+        <SplitPane
+          panel={
+            desktop && selected ? (
+              <FindingDetail
+                finding={selected}
+                canMutate={actor === "operator"}
+                onClose={() => setSelected(null)}
+                extra={(finding) => (
+                  <TriageForm
+                    key={`triage:${finding.id}`}
+                    runId={runId}
+                    finding={finding}
+                    canMutate={actor === "operator"}
+                  />
+                )}
+              />
+            ) : null
           }
-          onToggleAll={() =>
-            setSelectedIds((current) => {
-              const visible = filtered.slice(0, BULK_TRIAGE_LIMIT);
-              const allOn = visible.every((row) => current.has(row.id));
-              return allOn ? new Set() : new Set(visible.map((row) => row.id));
-            })
-          }
-          extraColumn={{
-            header: "Triaje",
-            cell: (finding) => {
-              const status = triageOf(finding);
-              if (status === "open" && finding.triage_suggestion) {
-                return (
-                  <span className="text-xs text-mt-muted">
-                    Sugerido: {TRIAGE_LABEL[finding.triage_suggestion.status]}
-                  </span>
+          panelLabel="Detalle del hallazgo"
+        >
+          <FindingsTable
+            rows={filtered}
+            activeIndex={activeIndex}
+            onActiveChange={setActiveIndex}
+            onOpen={setSelected}
+            selectable={canBulk}
+            selectedIds={selectedIds}
+            onToggle={(finding) =>
+              setSelectedIds((current) => {
+                const next = new Set(current);
+                if (next.has(finding.id)) next.delete(finding.id);
+                else if (next.size < BULK_TRIAGE_LIMIT) next.add(finding.id);
+                return next;
+              })
+            }
+            onToggleAll={() =>
+              setSelectedIds((current) => {
+                const visible = filtered.slice(0, BULK_TRIAGE_LIMIT);
+                const allOn = visible.every((row) => current.has(row.id));
+                return allOn ? new Set() : new Set(visible.map((row) => row.id));
+              })
+            }
+            extraColumn={{
+              header: "Triaje",
+              cell: (finding) => {
+                const status = triageOf(finding);
+                if (status === "open" && finding.triage_suggestion) {
+                  return (
+                    <span className="text-xs text-mt-muted">
+                      Sugerido: {TRIAGE_LABEL[finding.triage_suggestion.status]}
+                    </span>
+                  );
+                }
+                return status === "open" ? (
+                  <span className="text-xs text-mt-muted">Abierto</span>
+                ) : (
+                  <Badge variant={triageVariant(status)}>{TRIAGE_LABEL[status]}</Badge>
                 );
-              }
-              return status === "open" ? (
-                <span className="text-xs text-mt-muted">Abierto</span>
-              ) : (
-                <Badge variant={triageVariant(status)}>{TRIAGE_LABEL[status]}</Badge>
-              );
-            },
-          }}
-        />
+              },
+            }}
+          />
+        </SplitPane>
       ) : null}
       {findings.length > 0 && filtered.length === 0 ? (
         <EmptyState title="Ningún hallazgo coincide con los filtros actuales">
@@ -226,14 +259,16 @@ export function FindingsPanel({ runId, totalAssets }: { runId: string; totalAsse
         </EmptyState>
       ) : null}
 
-      <FindingSheet
-        finding={selected}
-        canMutate={actor === "operator"}
-        onClose={() => setSelected(null)}
-        extra={(finding) => (
-          <TriageForm key={`triage:${finding.id}`} runId={runId} finding={finding} canMutate={actor === "operator"} />
-        )}
-      />
+      {desktop ? null : (
+        <FindingSheet
+          finding={selected}
+          canMutate={actor === "operator"}
+          onClose={() => setSelected(null)}
+          extra={(finding) => (
+            <TriageForm key={`triage:${finding.id}`} runId={runId} finding={finding} canMutate={actor === "operator"} />
+          )}
+        />
+      )}
     </div>
   );
 }

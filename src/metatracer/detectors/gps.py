@@ -6,7 +6,8 @@ hemisphere ref normalized to ``N``/``S``/``E``/``W``; the DMS -> decimal
 formula is applied here. XMP GPS is already decimal, so the value is only
 range-validated — the formula is never re-applied to it.
 
-A finding requires both coordinates, finite values, lat in [-90, 90], lon in
+IPTC GPS (TASK-48) is decimal like XMP, or the same DMS JSON EXIF uses, and
+never geocoded. A finding requires both coordinates, finite values, lat in [-90, 90], lon in
 [-180, 180] and not a null-island reading (``abs(lat) < 1e-5`` and
 ``abs(lon) < 1e-5``). Exact ``(0, 0)`` and near-zero rationals such as
 ``1/1000`` seconds are an empty GPS block, not a real place. The same
@@ -24,6 +25,7 @@ from metatracer.detectors.base import FindingDraft, normalize_text
 
 EXIF_GPS_SOURCE = "EXIF:GPSInfo"
 XMP_GPS_SOURCE = "XMP:GPS"
+IPTC_GPS_SOURCE = "IPTC:GPS"
 
 _EXIF_GPS_KEYS = frozenset(
     {
@@ -46,13 +48,14 @@ NULL_ISLAND_EPSILON = 1e-5
 
 
 class GpsDetector:
-    """Detects GPS coordinates in EXIF GPS tags and XMP ``exif:GPS*`` fields."""
+    """Detects GPS coordinates in EXIF, XMP and IPTC GPS fields."""
 
     finding_type = FindingType.gps
 
     def detect(self, items: Sequence[RawMetadataItem]) -> list[FindingDraft]:
         exif: dict[str, str] = {}
         xmp: dict[str, str] = {}
+        iptc: dict[str, str] = {}
         for item in items:
             value = normalize_text(item.value)
             if not value:
@@ -63,6 +66,10 @@ class GpsDetector:
                 local = item.key.rpartition(":")[2]
                 if local in _XMP_GPS_LOCAL_KEYS:
                     xmp[local] = value
+            elif item.namespace == "iptc":
+                local = item.key.rpartition(":")[2]
+                if local in _XMP_GPS_LOCAL_KEYS or local in _EXIF_GPS_KEYS:
+                    iptc[local] = value
         drafts: list[FindingDraft] = []
         exif_pair = _exif_coordinates(exif)
         if exif_pair is not None:
@@ -72,6 +79,11 @@ class GpsDetector:
         xmp_pair = _xmp_coordinates(xmp)
         if xmp_pair is not None:
             drafts.append(_draft(xmp_pair[0], xmp_pair[1], xmp.get("GPSAltitude"), XMP_GPS_SOURCE))
+        iptc_pair = _iptc_coordinates(iptc)
+        if iptc_pair is not None:
+            drafts.append(
+                _draft(iptc_pair[0], iptc_pair[1], iptc.get("GPSAltitude"), IPTC_GPS_SOURCE)
+            )
         return drafts
 
 
@@ -118,6 +130,14 @@ def _xmp_coordinates(values: dict[str, str]) -> tuple[float, float] | None:
     if lat is None or lon is None or not _in_range(lat, lon):
         return None
     return lat, lon
+
+
+def _iptc_coordinates(values: dict[str, str]) -> tuple[float, float] | None:
+    """IPTC GPS: prefer decimal; fall back to the EXIF DMS JSON shape."""
+    pair = _xmp_coordinates(values)
+    if pair is not None:
+        return pair
+    return _exif_coordinates(values)
 
 
 def _in_range(lat: float, lon: float) -> bool:

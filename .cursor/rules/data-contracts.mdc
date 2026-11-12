@@ -31,7 +31,9 @@ Fuente de verdad: `.aicontext/tasks/README.md`. Valores **en minúsculas** en ba
 
 No añadir valores sin actualizar antes `.aicontext/tasks/README.md`.
 
-**Reserved:** no quedan enums de contrato bloqueados. Specs 36–43 closed. Ver `MEMORY.md` y `specs/`.
+**Reserved:** specs 47–51 (v3.4+) no son permiso para código. `secret` **no** es
+`finding_type` hasta spec 49 `active` (entonces primero `.aicontext/tasks/README.md`
+y esta rule). Ver `MEMORY.md` y `specs/`.
 
 ## Ciclo de vida de severity
 

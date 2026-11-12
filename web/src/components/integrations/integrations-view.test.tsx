@@ -46,4 +46,11 @@ describe("IntegrationsView", () => {
     expect(screen.getByRole("button", { name: "Buscar capturas" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Activar RDAP" }));
   });
+
+  it("keeps load errors distinct from an empty connector list", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("nope", { status: 500 })));
+    renderWithProviders(<IntegrationsView />);
+    expect(await screen.findByText(/No se pudieron cargar los conectores/i)).toBeInTheDocument();
+    expect(screen.queryByText("Sin conectores")).not.toBeInTheDocument();
+  });
 });

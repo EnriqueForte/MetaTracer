@@ -48,6 +48,8 @@ _NAMESPACE_PREFIXES = {
     "http://ns.adobe.com/xap/1.0/t/": "xmpT",
     "http://ns.adobe.com/xap/1.0/t/pg/": "xmpTPg",
     "http://ns.adobe.com/xap/1.0/bj/": "xmpBJ",
+    "http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/": "Iptc4xmpCore",
+    "http://iptc.org/std/Iptc4xmpExt/2008-02-29/": "Iptc4xmpExt",
 }
 
 _MAX_DEPTH = 8

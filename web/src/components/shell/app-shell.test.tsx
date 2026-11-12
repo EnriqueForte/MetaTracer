@@ -57,6 +57,7 @@ describe("AppShell coexistence", () => {
     expect(screen.getByText("Investigación")).toBeInTheDocument();
     expect(screen.getByText("Administración")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Nuevo escaneo" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", { name: "Buscar" })).toHaveAttribute("href", "/search");
     expect(screen.getByRole("link", { name: "Investigaciones" })).toHaveAttribute(
       "href",
       "/investigations",
@@ -110,5 +111,22 @@ describe("AppShell coexistence", () => {
     expect(await screen.findByRole("link", { name: "Historial" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Panel" })).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("link", { name: "Nuevo escaneo" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", { name: "Comparar" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("marks Compare without keeping History current", async () => {
+    stubMedia();
+    navState.pathname = "/runs/compare";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ notifications: [] }), { status: 200 })),
+    );
+    render(
+      <AppShell>
+        <p>page</p>
+      </AppShell>,
+    );
+    expect(await screen.findByRole("link", { name: "Comparar" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Historial" })).not.toHaveAttribute("aria-current");
   });
 });

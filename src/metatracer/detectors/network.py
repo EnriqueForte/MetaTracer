@@ -27,6 +27,8 @@ _HOST_RE = re.compile(
 # The label before ``s3`` must be a real boundary so ``nots3.amazonaws.com``
 # is not a bucket host.
 _CLOUD_RES = (
+    re.compile(r"(?<![A-Za-z0-9])(s3://[^\s\"'<>]+)", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9])(gs://[^\s\"'<>]+)", re.IGNORECASE),
     re.compile(
         r"(?<![A-Za-z0-9])((?:https?://)?(?:[A-Za-z0-9][A-Za-z0-9.-]*\.)?"
         r"s3(?:\.[A-Za-z0-9-]+)?\.amazonaws\.com(?:/[^\s\"'<>]*)?)",
@@ -45,6 +47,21 @@ _CLOUD_RES = (
     re.compile(
         r"(?<![A-Za-z0-9])((?:https?://)?[A-Za-z0-9][A-Za-z0-9.-]*"
         r"\.r2\.cloudflarestorage\.com(?:/[^\s\"'<>]*)?)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"(?<![A-Za-z0-9])((?:https?://)?[A-Za-z0-9][A-Za-z0-9.-]*"
+        r"\.digitaloceanspaces\.com(?:/[^\s\"'<>]*)?)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"(?<![A-Za-z0-9])((?:https?://)?(?:[A-Za-z0-9][A-Za-z0-9.-]*\.)?"
+        r"s3\.wasabisys\.com(?:/[^\s\"'<>]*)?)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"(?<![A-Za-z0-9])((?:https?://)?[A-Za-z0-9][A-Za-z0-9.-]*"
+        r"\.wasabisys\.com(?:/[^\s\"'<>]*)?)",
         re.IGNORECASE,
     ),
 )

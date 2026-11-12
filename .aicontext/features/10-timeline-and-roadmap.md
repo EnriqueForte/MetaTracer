@@ -3,9 +3,9 @@
 **Proyecto:** MetaTracer  
 **PRD:** [volver al índice](../PRD.md)
 
-> **v3.2 cerrado** (2026-10-05). El trabajo **activo** no vive en esta tabla: ver
-> [`MEMORY.md`](../../MEMORY.md) y [`specs/`](../../specs/README.md) (backlog 36–43 reserved).
-> No hay slice v3.3 de código hasta que una spec pase a `active` y exista TASK-NN.
+> **v3.2 cerrado** (2026-10-05). Specs 36–45 closed. Overlay v3.4: specs 46–51
+> **reserved** — [`MEMORY.md`](../../MEMORY.md) y [`specs/`](../../specs/README.md).
+> No hay código de 46–51 hasta spec `active` + TASK-NN.
 
 ## Esfuerzo estimado
 
@@ -44,7 +44,8 @@ El orden es orientativo; cada slice debe poder demostrarse.
 | v3.0 | Plataforma | Watch/headless (Eje A) ✅, PostgreSQL+pgvector (Eje B) ✅, auth básica (Eje C) ✅ | **Cerrada 2026-09-18** — TASK-22 ✅, [TASK-23](../tasks/23-postgres-pgvector.md) ✅ (Eje B), [TASK-24](../tasks/24-auth-basic.md) ✅ (Eje C) — [12-platform-v3.md](12-platform-v3.md) |
 | v3.1 | Multi-usuario & UI | Multi-usuario (first-run setup, panel admin, invitaciones) + rediseño de UI (design system propio, Tailwind compilado, sidebar) | **Cerrada 2026-09-21** — [TASK-25](../tasks/25-user-registration.md) → [TASK-26](../tasks/26-ui-redesign.md) |
 | v3.2 | Hardening post-auditoría | P0 seguridad, recovery/abort de runs, integridad del agente, retención GDPR, authz del API, higiene de core/backend, precisión de detectores | **Cerrada 2026-10-05** — [auditoría](../audit-2026-10-03.md), [TASK-27](../tasks/27-security-hardening-p0.md) → [TASK-34](../tasks/34-detector-precision.md) + [TASK-35](../tasks/35-ui-ux-improvements.md) (UI/UX) |
-| v3.3+ | Spec-driven (reserved) | Investigations, detectores nuevos, conectores, redacción de export, ONNX, higiene ops, UI operador / investigations | **No abierto.** Specs en [`specs/backlog.md`](../../specs/backlog.md). Watch `--cron` sigue leftover en [12-platform-v3.md](12-platform-v3.md), sin spec. |
+| v3.3 | Spec-driven (closed) | Investigations, detectores, conectores, redacción, ONNX, ops, UI operador / investigations, watch cron, UI ES | **Cerrada.** Specs 36–45 closed. |
+| v3.4+ | Spec-driven (reserved) | Búsqueda global, workspace operador, superficie de extracción, `secret`, watch deltas, ingest local | **Reserved.** Specs 46–51 en [`specs/backlog.md`](../../specs/backlog.md). Sin código hasta `active` + TASK-NN. |
 
 ## Mapeo a características del MVP
 

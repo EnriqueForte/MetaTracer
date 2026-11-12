@@ -391,6 +391,9 @@ async def test_coverage_splits_by_status_and_is_honest_about_limits(
     assert payload["findings"] == 1
     assert payload["by_skip_reason"] == {"unsupported_type": 1}
     assert payload["by_namespace"]["pdfinfo"] == 2
+    assert payload["by_content_type"]["application/pdf"] == 1
+    assert payload["by_content_type"]["image/jpeg"] == 1
+    assert payload["by_content_type"]["application/octet-stream"] == 1
     # Fase 2 persists the crawl budget; until then the UI must not show a zero
     # that reads as "nothing found".
     assert payload["counters_recorded"] is False

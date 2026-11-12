@@ -265,6 +265,7 @@ class TestCsrfAndRoles:
             await client.get("/api/scopes"),
             await client.get("/api/stats"),
             await client.get("/api/notifications"),
+            await client.get("/api/search", params={"q": "test"}),
         ]
         statuses = {r.status_code for r in reads}
         assert statuses == {200}, f"viewer reads failed: {statuses}"

@@ -35,6 +35,7 @@ from metatracer.api import (
     notifications,
     runs,
     scopes,
+    search,
     stats,
     users,
     workspace,
@@ -354,6 +355,7 @@ def create_app(
     app.include_router(runs.router, dependencies=data_deps + action_deps)
     # Fase 1 workspace: read-only, so it needs a session but no CSRF/operator.
     app.include_router(workspace.router, dependencies=data_deps)
+    app.include_router(search.router, dependencies=data_deps)
     app.include_router(scopes.router, dependencies=data_deps + action_deps)
     app.include_router(investigations.router, dependencies=data_deps + action_deps)
     app.include_router(connectors.router, dependencies=data_deps + action_deps)

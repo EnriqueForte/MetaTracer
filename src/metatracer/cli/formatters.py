@@ -22,6 +22,7 @@ from metatracer import __version__
 from metatracer.db.models import Investigation, InvestigationStatus, Run, RunStatus, Severity
 from metatracer.reports.builder import ReportData, run_id_short
 from metatracer.services.orchestrator import ProgressEvent
+from metatracer.services.search import FindingHit, MetadataHit
 
 SEVERITY_STYLES: dict[Severity, str] = {
     Severity.critical: "bold red",
@@ -75,6 +76,40 @@ def findings_table(data: ReportData) -> Table:
             escape(finding.type_label),
             escape(_truncate(finding.evidence, EVIDENCE_MAX_CHARS)),
             escape(_truncate(finding.asset_final_url, URL_MAX_CHARS)),
+        )
+    return table
+
+
+def search_findings_table(items: tuple[FindingHit, ...] | list[FindingHit]) -> Table:
+    """Global finding hits (TASK-46). Evidence is escaped, never markup."""
+    table = Table(title="Finding hits")
+    table.add_column("Run", no_wrap=True)
+    table.add_column("Type", no_wrap=True)
+    table.add_column("Evidence")
+    table.add_column("Asset URL")
+    for item in items:
+        table.add_row(
+            run_id_short(item.run_id),
+            escape(str(item.type_label)),
+            escape(_truncate(str(item.evidence_snippet), EVIDENCE_MAX_CHARS)),
+            escape(_truncate(str(item.asset_url), URL_MAX_CHARS)),
+        )
+    return table
+
+
+def search_metadata_table(items: tuple[MetadataHit, ...] | list[MetadataHit]) -> Table:
+    """Global raw-metadata hits (TASK-46). Values are escaped text."""
+    table = Table(title="Metadata hits")
+    table.add_column("Run", no_wrap=True)
+    table.add_column("Namespace", no_wrap=True)
+    table.add_column("Key")
+    table.add_column("Value")
+    for item in items:
+        table.add_row(
+            run_id_short(item.run_id),
+            escape(str(item.namespace)),
+            escape(str(item.key)),
+            escape(_truncate(str(item.value), EVIDENCE_MAX_CHARS)),
         )
     return table
 

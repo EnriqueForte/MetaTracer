@@ -45,6 +45,12 @@ describe("SplitPane", () => {
     fireEvent.keyDown(handle, { key: "ArrowLeft" });
     expect(handle).toHaveAttribute("aria-valuenow", "436");
 
+    fireEvent.keyDown(handle, { key: "[" });
+    expect(handle).toHaveAttribute("aria-valuenow", "452");
+
+    fireEvent.keyDown(handle, { key: "]" });
+    expect(handle).toHaveAttribute("aria-valuenow", "436");
+
     fireEvent.keyDown(handle, { key: "Home" });
     expect(handle).toHaveAttribute("aria-valuenow", "720");
 

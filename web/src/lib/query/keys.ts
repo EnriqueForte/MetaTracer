@@ -13,4 +13,5 @@ export const queryKeys = {
   compare: (a: string, b: string) => ["compare", a, b] as const,
   investigations: ["investigations"] as const,
   investigation: (id: string) => ["investigation", id] as const,
+  globalSearch: (params: Record<string, string | undefined>) => ["global-search", params] as const,
 };

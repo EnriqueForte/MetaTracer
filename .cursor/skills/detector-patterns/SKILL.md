@@ -33,7 +33,7 @@ Los detectores leen solo `RawMetadataItem` y emiten `FindingDraft` con
   ausente → positivo (default documentado).
 - Snippet: `Latitude: 40.416775, Longitude: -3.703790`, y `, Altitude: N` si
   existe, **sin unidad** (el tag no la lleva; inventarla está prohibido).
-- `confidence` siempre `high`; `field_source` es `EXIF:GPSInfo` o `XMP:GPS`.
+- `confidence` siempre `high`; `field_source` es `EXIF:GPSInfo`, `XMP:GPS` o `IPTC:GPS`.
 
 ## Email (`email.py`)
 
@@ -76,7 +76,8 @@ Los detectores leen solo `RawMetadataItem` y emiten `FindingDraft` con
 ## Cloud storage (`network.py`)
 
 - Hosts `s3.amazonaws.com` (y regional), `storage.googleapis.com`,
-  `*.blob.core.windows.net`, `*.r2.cloudflarestorage.com`.
+  `*.blob.core.windows.net`, `*.r2.cloudflarestorage.com`, `s3://`, `gs://`,
+  `*.digitaloceanspaces.com`, `*.wasabisys.com`.
 - El query string se descarta (puede llevar una firma). **No se pide la URL.**
   Techo heurístico `high`.
 

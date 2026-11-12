@@ -282,6 +282,7 @@ class RawMetadataItem(SQLModel, table=True):
     """
 
     __tablename__ = "raw_metadata_item"
+    __table_args__ = (Index("ix_raw_metadata_item_namespace", "namespace"),)
 
     id: int | None = Field(default=None, primary_key=True)  # autoincrement
     asset_id: str = Field(foreign_key="asset.id", index=True)
@@ -298,6 +299,8 @@ class Finding(SQLModel, table=True):
     __tablename__ = "finding"
     __table_args__ = (
         UniqueConstraint("asset_id", "dedup_signature", name="uq_finding_asset_dedup"),
+        Index("ix_finding_finding_type", "finding_type"),
+        Index("ix_finding_created_at_id", desc("created_at"), desc("id")),
     )
 
     id: str = Field(default_factory=_new_uuid, primary_key=True)

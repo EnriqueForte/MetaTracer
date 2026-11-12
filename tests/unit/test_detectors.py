@@ -98,6 +98,17 @@ def test_gps_xmp_decimal_is_not_reconverted() -> None:
     assert drafts[0].evidence_snippet == "Latitude: 40.416775, Longitude: -3.703790"
 
 
+def test_gps_iptc_decimal_is_honoured() -> None:
+    items = [
+        _item("iptc", "GPSLatitude", "40.416775"),
+        _item("iptc", "GPSLongitude", "-3.703790"),
+    ]
+    drafts = GpsDetector().detect(items)
+    assert len(drafts) == 1
+    assert drafts[0].field_source == "IPTC:GPS"
+    assert drafts[0].evidence_snippet == "Latitude: 40.416775, Longitude: -3.703790"
+
+
 def test_gps_altitude_appended_without_invented_unit() -> None:
     items = [
         _item("exif", "GPSLatitude", '["40/1", "24/1", "4635/100"]'),

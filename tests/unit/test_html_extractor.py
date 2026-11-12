@@ -93,6 +93,14 @@ def test_js_url_with_html_content_type_is_still_javascript() -> None:
     )
 
 
+def test_html_page_with_inline_svg_stays_html() -> None:
+    html = b"<!doctype html><html><body><svg xmlns='http://www.w3.org/2000/svg'></svg></body></html>"
+    assert (
+        classify_downloaded_asset(html, content_type="text/html", url="http://target.com/")
+        is AssetKind.html
+    )
+
+
 def test_html_comment_cap() -> None:
     comments = "".join(f"<!-- TODO: n{i} -->" for i in range(40))
     html = f"<html><body>{comments}</body></html>".encode()

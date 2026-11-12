@@ -47,6 +47,28 @@ describe("FindingsPanel hostile content", () => {
       "href",
       "https://example.com/a.jpg",
     );
+    expect(screen.getByText("Observado")).toBeInTheDocument();
+    expect(screen.getByText("Inferido")).toBeInTheDocument();
+  });
+
+  it("opens the finding in a split pane on a wide viewport", async () => {
+    vi.stubGlobal(
+      "matchMedia",
+      (query: string) => ({
+        matches: String(query).includes("1024"),
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      }),
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ findings: [finding] }), { status: 200 })),
+    );
+    render(<FindingsPanel runId="run-1" totalAssets={1} />);
+    fireEvent.click(await screen.findByText("<script>alert(1)</script>"));
+    expect(screen.getByRole("complementary", { name: "Detalle del hallazgo" })).toBeInTheDocument();
+    expect(screen.getByText("Observado")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("groups findings by their real asset URL", async () => {

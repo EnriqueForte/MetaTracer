@@ -55,4 +55,25 @@ describe("UsersView invitations", () => {
     expect(screen.getAllByText("ONCE-CODE")).toHaveLength(1);
     expect(screen.getByText("ONCE-CODE").closest("p")?.className).toContain("mt-tech");
   });
+
+  it("shows an empty state when there are no accounts", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/api/auth/me")) {
+          return new Response(
+            JSON.stringify({ authenticated: true, username: "op", role: "operator", csrf_token: "t" }),
+            { status: 200 },
+          );
+        }
+        if (url.includes("/api/invitations")) {
+          return new Response(JSON.stringify({ invitations: [] }), { status: 200 });
+        }
+        return new Response(JSON.stringify({ users: [] }), { status: 200 });
+      }),
+    );
+    render(<UsersView />);
+    expect(await screen.findByText("Sin usuarios")).toBeInTheDocument();
+  });
 });

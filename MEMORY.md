@@ -3,14 +3,14 @@
 Memoria de trabajo para agentes. No es un PRD. Si un hecho no cabe aquí, vive en
 `specs/`, `.aicontext/` o el código.
 
-**Última actualización:** 2026-11-11 (TASK-45 closed: Web UI en español)
+**Última actualización:** 2026-11-12 (TASK-48 closed: superficie de extracción)
 
 ## Estado del producto
 
 - Versión: **v3.2 cerrada** (2026-10-05). Suite rechecked 2026-10-23: 787 passed, 6 skipped, cobertura 91.30%.
 - UI: **Web V2** (Next.js 16 + React 19 + Tailwind 4) en `web/`, servida desde la **raíz del origen**. FastAPI es solo-API. Web V1 (Jinja + Alpine) retirada (ADR-0016).
 - Trabajo **activo** (gobernanza): [`specs/`](specs/README.md). Backlog de producto: [`specs/backlog.md`](specs/backlog.md). One-pager: [`specs/current.md`](specs/current.md).
-- TASK-00 → TASK-35 y TASK-36–44 están **cerradas**.
+- TASK-00 → TASK-35 y TASK-36–48 están **cerradas**. Specs 49–51 **reserved**.
 
 ## Dónde está la verdad
 
@@ -28,7 +28,9 @@ Las specs **no duplican** enums: enlazan.
 
 ## Prohibición (specs reserved)
 
-No hay specs reserved. Deltas watch “desaparecido / severity-up” siguen leftover en `.aicontext/features/12-platform-v3.md` (sin spec; romperían `PAYLOAD_KEYS`).
+Specs 49–51 están **reserved**: no implementar esas slices. Specs 47–48 están **closed**. `finding_type: secret`
+(49) **no** está en el enum hasta que 49 pase a `active`. Deltas watch
+desaparecido / severity-up viven en [spec 50](specs/50-watch-deltas.md).
 
 ## Specs
 
@@ -45,6 +47,12 @@ No hay specs reserved. Deltas watch “desaparecido / severity-up” siguen left
 | [43-ui-investigations](specs/43-ui-investigations.md) | closed |
 | [44-watch-cron](specs/44-watch-cron.md) | closed |
 | [45-ui-spanish](specs/45-ui-spanish.md) | closed |
+| [46-global-search](specs/46-global-search.md) | closed |
+| [47-operator-workspace](specs/47-operator-workspace.md) | closed |
+| [48-extraction-surface](specs/48-extraction-surface.md) | closed |
+| [49-secret-finding](specs/49-secret-finding.md) | reserved |
+| [50-watch-deltas](specs/50-watch-deltas.md) | reserved |
+| [51-local-ingest](specs/51-local-ingest.md) | reserved |
 
 ## Docs stale (no reintroducir como contrato)
 
@@ -76,3 +84,7 @@ Las 7 reglas de `safety-invariants.mdc`. Loopback bloqueado salvo `METATRACER_AL
 - 2026-11-05 — TASK-42: triage masivo API/CLI/UI; densidad en findings; atajo `x`.
 - 2026-11-05 — TASK-44: `watch --cron` UTC 5 campos (stdlib); unit systemd; compose profile `watch`.
 - 2026-11-11 — TASK-45: Web UI en español; reportes exportados y CLI siguen en inglés.
+- 2026-11-12 — Overlay v3.4: specs 46–51 **reserved** (búsqueda global, workspace operador, extracción GIF/SVG/GPS/cloud URI, `secret`, watch deltas, ingest local). Sin código de producto.
+- 2026-11-12 — TASK-46: `GET /api/search`, CLI `search`, UI `/search` y paleta de evidencia. Spec 46 closed.
+- 2026-11-12 — TASK-47: split pane de hallazgos, `[`/`]`, Comparar en nav, Integraciones en paleta, MIME/autor rollups, LayerChip, estados compartidos. Spec 47 closed.
+- 2026-11-12 — TASK-48: GIF/SVG metadata-only, GPS IPTC, `s3://`/`gs://`/Spaces/Wasabi, `url()` CSS in-scope. Spec 48 closed. HEIC/AVIF OOS.

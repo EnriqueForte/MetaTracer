@@ -81,11 +81,12 @@ from metatracer.extractors.robots import (
     parse_sitemap,
 )
 from metatracer.extractors.sniff import (
-    SNIFF_HEADER_BYTES,
+    CLASSIFY_LOOKAHEAD_BYTES,
     AssetKind,
     classify_downloaded_asset,
     worth_fetching,
 )
+from metatracer.extractors.svg import SvgMetadataExtractor
 from metatracer.extractors.targets import TargetKind, TargetResolver
 
 logger = logging.getLogger("metatracer.extractors.ingest")
@@ -790,7 +791,7 @@ class IngestionPipeline:
                 file_size=len(body),
             )
         kind = classify_downloaded_asset(
-            body[:SNIFF_HEADER_BYTES], content_type=content_type, url=final_url
+            body[:CLASSIFY_LOOKAHEAD_BYTES], content_type=content_type, url=final_url
         )
         if kind is None:
             return await self._simple_asset(
@@ -875,9 +876,9 @@ class IngestionPipeline:
     ) -> ExtractionStatus:
         """Persist the asset (fail-closed), extract, store fields.
 
-        PDF/image still go through a temp file (Pillow/pypdf). HTML and JS are
-        extracted from the in-memory buffer so the page/script body never hits
-        disk. Response headers (allowlisted) are attached to every ok asset.
+        PDF/image still go through a temp file (Pillow/pypdf). HTML, JS and SVG
+        are extracted from the in-memory buffer so the page/script/drawing body
+        never hits disk. Response headers (allowlisted) are attached to every ok asset.
         """
         temp_path: Path | None = None
         try:
@@ -1098,6 +1099,8 @@ def _extract_fields(
         return JavaScriptMetadataExtractor().extract(body)
     if kind is AssetKind.office:
         return OfficeMetadataExtractor().extract(body)
+    if kind is AssetKind.svg:
+        return SvgMetadataExtractor().extract(body)
     raise ExtractionError(f"unsupported asset kind: {kind}")
 
 

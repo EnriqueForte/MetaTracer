@@ -136,6 +136,7 @@ class CoverageSummary:
     findings: int
     by_skip_reason: dict[str, int] = field(default_factory=dict)
     by_namespace: dict[str, int] = field(default_factory=dict)
+    by_content_type: dict[str, int] = field(default_factory=dict)
     counters_recorded: bool = False
     limits_hit: tuple[str, ...] = ()
     # Fase 2: the crawl budget actually applied to this run.
@@ -283,10 +284,13 @@ class RunWorkspaceService:
         skipped = sum(1 for a in assets if a.extraction_status is ExtractionStatus.skipped)
         failed = sum(1 for a in assets if a.extraction_status is ExtractionStatus.failed)
         by_reason: dict[str, int] = {}
+        by_content_type: dict[str, int] = {}
         for asset in assets:
             if asset.skip_reason is not None:
                 key = str(asset.skip_reason)
                 by_reason[key] = by_reason.get(key, 0) + 1
+            mime = (asset.content_type or "").split(";", 1)[0].strip().lower() or "unknown"
+            by_content_type[mime] = by_content_type.get(mime, 0) + 1
 
         return CoverageSummary(
             run_id=run_id,
@@ -300,6 +304,7 @@ class RunWorkspaceService:
             findings=sum(findings.values()),
             by_skip_reason=by_reason,
             by_namespace=dict(namespace_counts),
+            by_content_type=by_content_type,
             **_recorded_counters(run),
         )
 

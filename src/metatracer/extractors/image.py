@@ -89,7 +89,12 @@ class ImageMetadataExtractor:
                     raise ExtractionError(
                         f"cannot decode image: {type(exc).__name__}: {sanitize_for_log(exc)}"
                     ) from exc
-                return self._exif_fields(img) + self._iptc_fields(img) + self._xmp_fields(img)
+                return (
+                    self._exif_fields(img)
+                    + self._iptc_fields(img)
+                    + self._xmp_fields(img, path)
+                    + self._comment_fields(img)
+                )
         except ExtractionError:
             raise
         except Exception as exc:
@@ -149,14 +154,23 @@ class ImageMetadataExtractor:
                 fields.append(ExtractedField(IPTC_NAMESPACE, key, sanitized))
         return fields
 
-    def _xmp_fields(self, img: Image.Image) -> list[ExtractedField]:
-        packet = _xmp_packet(img)
+    def _xmp_fields(self, img: Image.Image, path: Path) -> list[ExtractedField]:
+        packet = _xmp_packet(img) or _xmp_packet_from_path(path)
         if not packet:
             return []
         return [
             ExtractedField(XMP_NAMESPACE, key, value)
             for key, value in parse_xmp_packet(packet).items()
         ]
+
+    def _comment_fields(self, img: Image.Image) -> list[ExtractedField]:
+        raw = img.info.get("comment")
+        if not raw:
+            return []
+        sanitized = sanitize_value(raw)
+        if not sanitized or not sanitized.strip():
+            return []
+        return [ExtractedField(EXIF_NAMESPACE, "Comment", sanitized)]
 
 
 def _normalize_hemisphere_ref(value: Any) -> str:
@@ -182,3 +196,21 @@ def _xmp_packet(img: Image.Image) -> bytes | str | None:
         if raw:
             return raw
     return None
+
+
+def _xmp_packet_from_path(path: Path) -> bytes | None:
+    """GIF (and similar) may carry an XMP packet after the raster chunks."""
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return None
+    start = data.find(b"<?xpacket")
+    if start == -1:
+        start = data.find(b"<x:xmpmeta")
+    if start == -1:
+        start = data.find(b"<xmpmeta")
+    if start == -1:
+        return None
+    end = data.find(b"<?xpacket end", start)
+    packet = data[start : end + 32] if end != -1 else data[start : start + 65_536]
+    return packet or None

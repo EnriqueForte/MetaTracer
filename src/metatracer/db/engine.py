@@ -104,6 +104,17 @@ async def init_db(engine: AsyncEngine) -> None:
             "CREATE INDEX IF NOT EXISTS ix_finding_triage_status ON finding (triage_status)"
         )
         await connection.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_finding_finding_type ON finding (finding_type)"
+        )
+        await connection.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_finding_created_at_id "
+            "ON finding (created_at DESC, id DESC)"
+        )
+        await connection.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_raw_metadata_item_namespace "
+            "ON raw_metadata_item (namespace)"
+        )
+        await connection.exec_driver_sql(
             "INSERT OR IGNORE INTO concurrency_gate (id) VALUES (1)"
         )
 

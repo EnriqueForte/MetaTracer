@@ -6,6 +6,7 @@ import { z } from "@/lib/validation/zod";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { errorMessage, getJson, hasArray, sendJson } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
 import type { InvitationListResponse, UserListResponse, UserResponse } from "@/lib/api/types";
@@ -128,7 +129,7 @@ export function UsersView() {
 
   const loadError =
     users.isError && !forbidden ? errorMessage(users.error, "No se pudieron cargar los usuarios") : "";
-  const error = formError || actionError || loadError;
+  const error = formError || actionError;
   const busy = createUser.isPending || createInvite.isPending;
   const accountRows = users.data?.users ?? [];
   const inviteRows = invites.data?.invitations ?? [];
@@ -153,8 +154,12 @@ export function UsersView() {
           <Button variant={tab === "invitations" ? "primary" : "secondary"} role="tab" aria-selected={tab === "invitations"} onClick={() => setTab("invitations")}>Invitaciones</Button>
         </div>
       </div>
-      {error ? <p role="alert" className="text-sm text-mt-danger">{error}</p> : null}
+      {error ? <ErrorState message={error} /> : null}
+      {loadError ? (
+        <ErrorState message={loadError} onRetry={() => void users.refetch()} />
+      ) : null}
       {forbidden ? <p role="alert" className="text-sm text-mt-warning">Se requiere el rol de operador</p> : null}
+      {users.isPending ? <LoadingState label="Cargando usuarios" /> : null}
       {tab === "users" ? (
         <section className="flex flex-col gap-4" aria-label="Cuentas de usuario">
           <h2 className="text-sm font-semibold">Crear usuario</h2>
@@ -176,6 +181,11 @@ export function UsersView() {
             </div>
             <Button type="submit" disabled={busy}>Crear</Button>
           </form>
+          {users.isSuccess && accountRows.length === 0 ? (
+            <EmptyState title="Sin usuarios">
+              Crea una cuenta o envía una invitación para dar acceso.
+            </EmptyState>
+          ) : null}
           {accountRows.length > 0 ? (
             <table className="w-full text-sm">
               <caption className="sr-only">Cuentas de usuario</caption>

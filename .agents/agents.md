@@ -61,7 +61,7 @@ Toda la configuración se navega desde aquí, aunque no toda pueda vivir en la m
 | Diseño de skills | [`.agents/skills.md`](skills.md) | Catálogo de las 13 skills y matriz skill × agente |
 | PRD y features | [`.aicontext/`](../.aicontext/PRD.md) | Especificación de producto (histórico hasta v3.2) |
 | Backlog de tasks | [`.aicontext/tasks/`](../.aicontext/tasks/README.md) | Contratos `TASK-00` → `TASK-35` (cerrados) + enums |
-| Memoria / specs | [`MEMORY.md`](../MEMORY.md), [`specs/`](../specs/README.md) | Overlay SDD; 36–39/41/43 closed, 40 y 42 reserved |
+| Memoria / specs | [`MEMORY.md`](../MEMORY.md), [`specs/`](../specs/README.md) | Overlay SDD; 36–48 closed, 49–51 reserved |
 
 ### Por qué no está todo en `.agents/`
 

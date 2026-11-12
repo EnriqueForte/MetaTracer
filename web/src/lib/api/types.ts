@@ -22,6 +22,9 @@ export type UserResponse = Schemas["UserResponse"];
 export type UserListResponse = Schemas["UserListResponse"];
 export type InvitationListResponse = Schemas["InvitationListResponse"];
 export type SearchResponse = Schemas["SearchResponse"];
+export type GlobalSearchResponse = Schemas["GlobalSearchResponse"];
+export type FindingSearchHit = Schemas["FindingSearchHit"];
+export type MetadataSearchHit = Schemas["MetadataSearchHit"];
 export type ScopeListResponse = Schemas["ScopeListResponse"];
 
 export type SeverityKey = Severity | "unclassified";

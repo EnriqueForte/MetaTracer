@@ -114,4 +114,14 @@ describe("command palette", () => {
     expect(baseCommands("viewer").some((item) => item.href === "/investigations")).toBe(true);
     expect(baseCommands("operator").some((item) => item.href === "/investigations")).toBe(true);
   });
+
+  it("includes global search for every actor", () => {
+    expect(baseCommands("viewer").some((item) => item.href === "/search")).toBe(true);
+    expect(baseCommands("operator").some((item) => item.href === "/search")).toBe(true);
+  });
+
+  it("includes Integrations only for operators", () => {
+    expect(baseCommands("viewer").some((item) => item.href === "/integrations")).toBe(false);
+    expect(baseCommands("operator").some((item) => item.href === "/integrations")).toBe(true);
+  });
 });

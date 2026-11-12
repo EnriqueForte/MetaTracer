@@ -14,6 +14,7 @@ References collected, all in-scope and sharing one cap:
   candidate with the highest declared density or width, so a responsive image
   is not downloaded three times;
 - ``<meta property="og:image">`` and ``<meta name="twitter:image">``.
+- ``url()`` inside in-scope stylesheets (the CSS body is not persisted).
 
 A URL whose path ends in a known document or script extension is queued
 directly. A URL with no such extension (``/download?id=7``, a CDN path) is
@@ -27,6 +28,7 @@ as an asset without a second GET.
 
 import asyncio
 import logging
+import re
 from dataclasses import dataclass, field
 from urllib.parse import urljoin, urlsplit
 
@@ -118,6 +120,9 @@ def _sniff_html(body: bytes) -> bool:
 
 
 MAX_HTML_BYTES = 5 * 1024 * 1024  # 5 MB page ceiling (subtask 1.1.2)
+MAX_CSS_BYTES = 512 * 1024
+MAX_STYLESHEETS_PER_PAGE = 8
+_CSS_URL_RE = re.compile(r"url\(\s*(['\"]?)([^)'\"]+)\1\s*\)", re.IGNORECASE)
 _SKIPPED_SCHEMES = ("javascript:", "data:", "mailto:", "tel:")
 _HTML_CONTENT_TYPES = ("text/html", "application/xhtml+xml")
 # Paths that are never documents. Dropped before a HEAD: an ``.html`` link is
@@ -126,8 +131,6 @@ _NEVER_DOCUMENT_SUFFIXES = (
     ".css",
     ".json",
     ".xml",
-    ".svg",
-    ".gif",
     ".ico",
     ".map",
     ".woff",
@@ -287,6 +290,18 @@ class PublicDocCrawler:
         documents, scripts, probes, pages, truncated = self._extract_child_urls(
             response.content, response.url, max_assets
         )
+        css_docs, css_truncated = await self._harvest_css_urls(
+            response.content,
+            response.url,
+            max_assets,
+            already=len(documents) + len(scripts) + len(probes),
+            seen=set(documents + scripts + probes + pages),
+            scope_confirmed=scope_confirmed,
+            download_semaphore=download_semaphore,
+        )
+        if css_docs:
+            documents.extend(css_docs)
+        truncated = truncated or css_truncated
         return FetchedPage(
             source_url=page_url,
             url=response.url,
@@ -364,3 +379,107 @@ class PublicDocCrawler:
         if state["truncated"]:
             logger.info("asset discovery cap reached (%d); links dropped", max_assets)
         return documents, scripts, probes, pages, state["truncated"]
+
+    def _stylesheet_urls(self, html: bytes, final_url: str) -> list[str]:
+        soup = BeautifulSoup(html, "html.parser")
+        urls: list[str] = []
+        seen: set[str] = set()
+        for tag in soup.find_all("link"):
+            if not _is_stylesheet(tag):
+                continue
+            raw = tag.get("href")
+            if not raw or not isinstance(raw, str):
+                continue
+            candidate = raw.strip()
+            if not candidate or candidate.lower().startswith(_SKIPPED_SCHEMES):
+                continue
+            absolute = urljoin(final_url, candidate)
+            parsed = urlsplit(absolute)
+            if parsed.scheme.lower() not in ("http", "https"):
+                continue
+            if not self._scope.is_in_scope(absolute):
+                continue
+            absolute = parsed._replace(fragment="").geturl()
+            if absolute in seen:
+                continue
+            seen.add(absolute)
+            urls.append(absolute)
+            if len(urls) >= MAX_STYLESHEETS_PER_PAGE:
+                break
+        return urls
+
+    async def _harvest_css_urls(
+        self,
+        html: bytes,
+        final_url: str,
+        max_assets: int,
+        *,
+        already: int,
+        seen: set[str],
+        scope_confirmed: bool,
+        download_semaphore: asyncio.Semaphore | None,
+    ) -> tuple[list[str], bool]:
+        """Fetch in-scope stylesheets and enqueue allowlisted ``url()`` documents.
+
+        The CSS bytes are never persisted as an asset.
+        """
+        documents: list[str] = []
+        truncated = False
+        if already >= max_assets:
+            return documents, True
+        for css_url in self._stylesheet_urls(html, final_url):
+            try:
+                response = await safe_httpx_request(
+                    css_url,
+                    scope=self._scope,
+                    guard=self._guard,
+                    scope_confirmed=scope_confirmed,
+                    rate_limiter=self._rate_limiter,
+                    max_file_bytes=MAX_CSS_BYTES,
+                    download_semaphore=download_semaphore,
+                )
+            except ScopeNotConfirmedError:
+                raise
+            except (MetaTracerError, HttpTransportError) as exc:
+                logger.info(
+                    "stylesheet not read: %s (%s)",
+                    sanitize_for_log(css_url),
+                    sanitize_for_log(type(exc).__name__),
+                )
+                continue
+            if response.too_large or response.status_code != 200 or not response.content:
+                continue
+            for raw in _css_url_values(response.content):
+                if raw.lower().startswith(_SKIPPED_SCHEMES):
+                    continue
+                absolute = urljoin(css_url, raw.strip())
+                parsed = urlsplit(absolute)
+                if parsed.scheme.lower() not in ("http", "https"):
+                    continue
+                if not self._scope.is_in_scope(absolute):
+                    continue
+                absolute = parsed._replace(fragment="").geturl()
+                if _reference_kind(parsed.path) != "document" or absolute in seen:
+                    continue
+                if already + len(documents) >= max_assets:
+                    truncated = True
+                    return documents, truncated
+                seen.add(absolute)
+                documents.append(absolute)
+        return documents, truncated
+
+
+def _is_stylesheet(tag: object) -> bool:
+    rel = getattr(tag, "get", lambda _key: None)("rel")
+    if rel is None:
+        return False
+    values = rel if isinstance(rel, list) else str(rel).split()
+    return any(str(item).lower() == "stylesheet" for item in values)
+
+
+def _css_url_values(body: bytes) -> list[str]:
+    try:
+        text = body.decode("utf-8", errors="replace")
+    except Exception:
+        return []
+    return [match.group(2).strip() for match in _CSS_URL_RE.finditer(text)]

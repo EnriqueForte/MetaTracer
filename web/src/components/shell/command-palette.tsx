@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { isGlobalSearch } from "@/components/search/search-view";
 import { getJson, hasArray } from "@/lib/api/client";
 import type { RunListResponse } from "@/lib/api/types";
 import { queryKeys } from "@/lib/query/keys";
@@ -17,6 +18,7 @@ export function baseCommands(actor: Actor): Command[] {
   const commands: Command[] = [
     { id: "new-scan", label: "Nuevo escaneo", hint: "Objetivos y alcance", href: "/" },
     { id: "dashboard", label: "Panel", hint: "Resumen", href: "/dashboard" },
+    { id: "search", label: "Buscar", hint: "Hallazgos y metadatos", href: "/search" },
     { id: "history", label: "Historial", hint: "Escaneos locales", href: "/runs" },
     { id: "investigations", label: "Investigaciones", hint: "Escaneos agrupados", href: "/investigations" },
     { id: "compare", label: "Comparar escaneos", hint: "Nuevos / resueltos / persistentes", href: "/runs/compare" },
@@ -25,6 +27,7 @@ export function baseCommands(actor: Actor): Command[] {
   if (actor === "operator") {
     commands.push(
       { id: "users", label: "Usuarios", hint: "Cuentas e invitaciones", href: "/users" },
+      { id: "integrations", label: "Integraciones", hint: "Conectores de salida", href: "/integrations" },
       { id: "webhooks", label: "Webhooks", hint: "Notificaciones de salida", href: "/webhooks" },
       { id: "knowledge", label: "Conocimiento", hint: "Exportar / importar precedentes", href: "/knowledge" },
     );
@@ -80,10 +83,26 @@ export function CommandPalette({ open, onOpenChange, actor, onNavigate }: Props)
     queryFn: () => getJson<RunListResponse>("/api/runs?limit=50", hasArray("runs")),
     enabled: open,
   });
-  const options = useMemo(
-    () => matchCommands(text, baseCommands(actor), runs.data?.runs ?? []),
-    [actor, runs.data, text],
-  );
+  const needle = text.trim();
+  const evidence = useQuery({
+    queryKey: [...queryKeys.globalSearch({ q: needle, kind: "findings", limit: "8" }), "palette"],
+    queryFn: () =>
+      getJson(
+        `/api/search?q=${encodeURIComponent(needle)}&kind=findings&limit=8`,
+        isGlobalSearch,
+      ),
+    enabled: open && needle.length >= 2,
+  });
+  const options = useMemo(() => {
+    const base = matchCommands(text, baseCommands(actor), runs.data?.runs ?? []);
+    const hits = (evidence.data?.findings.items ?? []).slice(0, 8).map((hit) => ({
+      id: `finding-${hit.id}`,
+      label: hit.evidence_snippet,
+      hint: hit.type_label,
+      href: `/runs/${encodeURIComponent(hit.run_id)}/findings`,
+    }));
+    return [...base, ...hits];
+  }, [actor, evidence.data, runs.data, text]);
   const current = Math.min(active, Math.max(0, options.length - 1));
 
   function run(option: Command | undefined) {
@@ -144,7 +163,7 @@ export function CommandPalette({ open, onOpenChange, actor, onNavigate }: Props)
             setActive(0);
           }}
           onKeyDown={onKey}
-          placeholder="Ir a… (página, id de escaneo u objetivo)"
+          placeholder="Ir a… (página, evidencia, id de escaneo)"
           className="w-full rounded-t-md border-b border-mt-border bg-transparent px-4 py-3 text-sm text-mt-fg placeholder:text-mt-faint focus:outline-none"
         />
         <ul id={listId} role="listbox" aria-label="Comandos" className="max-h-80 overflow-y-auto p-2">
@@ -177,6 +196,7 @@ export const SHORTCUTS: [string, string][] = [
   ["j / k", "Hallazgo siguiente / anterior"],
   ["x", "Seleccionar o quitar el hallazgo activo"],
   ["Intro o Espacio", "Abrir el hallazgo seleccionado"],
+  ["[ / ]", "Ensanchar / estrechar el panel de detalle"],
   ["Esc", "Cerrar el panel o diálogo abierto"],
   ["?", "Mostrar esta ayuda"],
 ];
