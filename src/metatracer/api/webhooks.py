@@ -64,10 +64,11 @@ PAYLOAD_KEYS = (
     "target",
     "total_assets",
     "total_findings",
-    # TASK-22 (v3.0, Eje A): number of findings new to this scope in a watch
-    # iteration. Scalar like the rest; 0 when the run produced no deltas or
-    # when the run was not a watch iteration (None is allowed, not sent).
+    # TASK-22 / TASK-50: watch delta counters. Scalar like the rest; 0 when
+    # the run produced no deltas or was not a watch iteration. Never arrays.
     "new_findings",
+    "resolved_findings",
+    "severity_up_count",
     "executive_summary",
     "error_message",
 )
@@ -385,6 +386,8 @@ class WebhookDispatcher:
         total_assets: int = 0,
         total_findings: int = 0,
         new_findings: int = 0,
+        resolved_findings: int = 0,
+        severity_up_count: int = 0,
         executive_summary: str | None = None,
         error_message: str | None = None,
     ) -> None:
@@ -410,6 +413,8 @@ class WebhookDispatcher:
             total_assets,
             total_findings,
             new_findings,
+            resolved_findings,
+            severity_up_count,
             executive_summary,
             error_message,
         )
@@ -451,6 +456,8 @@ class WebhookDispatcher:
         total_assets: int,
         total_findings: int,
         new_findings: int,
+        resolved_findings: int,
+        severity_up_count: int,
         executive_summary: str | None,
         error_message: str | None,
     ) -> dict[str, Any]:
@@ -470,6 +477,8 @@ class WebhookDispatcher:
             "total_assets": total_assets,
             "total_findings": total_findings,
             "new_findings": max(new_findings, 0),
+            "resolved_findings": max(resolved_findings, 0),
+            "severity_up_count": max(severity_up_count, 0),
             "executive_summary": (executive_summary or "")[:300],
             "error_message": sanitize_for_log(error_message or "", max_length=300) or None,
         }

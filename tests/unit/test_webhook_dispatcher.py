@@ -374,7 +374,36 @@ async def test_watch_delta_counter_travels_in_payload(session_factory) -> None:
     await asyncio.sleep(0.05)
     _, payload2, _ = transport2.calls[0]
     assert payload2["new_findings"] == 3
+    assert payload2["resolved_findings"] == 0
+    assert payload2["severity_up_count"] == 0
     assert set(payload2) == set(PAYLOAD_KEYS)
+
+
+async def test_watch_resolved_and_severity_up_are_scalar_payload_keys(session_factory) -> None:
+    run = await _seed_run(session_factory)
+    await _seed_webhook(session_factory)
+    transport = _FakeTransport()
+    dispatcher = _dispatcher(session_factory, transport)
+    await dispatcher.enqueue_terminal(
+        run.id,
+        RunStatus.completed,
+        target="t.com",
+        new_findings=1,
+        resolved_findings=2,
+        severity_up_count=3,
+    )
+    await asyncio.sleep(0.05)
+    _, payload, _ = transport.calls[0]
+    assert payload["resolved_findings"] == 2
+    assert payload["severity_up_count"] == 3
+    assert isinstance(payload["resolved_findings"], int)
+    assert isinstance(payload["severity_up_count"], int)
+    assert "evidence" not in payload
+    extra = set(payload) - set(PAYLOAD_KEYS)
+    assert extra == set()
+    assert "resolved_findings" in PAYLOAD_KEYS
+    assert "severity_up_count" in PAYLOAD_KEYS
+    assert "evidence_snippet" not in PAYLOAD_KEYS
 
 
 async def test_send_rejects_loopback_target_even_with_https(session_factory) -> None:

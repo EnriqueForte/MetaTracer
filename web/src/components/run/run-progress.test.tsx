@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders as render } from "@/test/render";
 
 import { RunProgress } from "@/components/run/run-progress";
+import { RunWorkspaceShell } from "@/components/run/workspace/run-workspace-shell";
 
 type FakeSource = {
   onmessage: ((event: { data: string }) => void) | null;
@@ -28,7 +29,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function runBody(status: string) {
+function runBody(status: string, extra: Record<string, unknown> = {}) {
   return {
     run_id: "run-1",
     status,
@@ -40,6 +41,7 @@ function runBody(status: string) {
     error_message: null,
     completed_at: status === "completed" ? "2026-09-29T12:00:00Z" : null,
     asset_issues: [],
+    ...extra,
   };
 }
 
@@ -75,7 +77,11 @@ function stub(status: string, role?: "operator" | "viewer") {
 describe("RunProgress", () => {
   it("shows a live activity panel that follows stored counts and stream steps", async () => {
     stub("running");
-    render(<RunProgress runId="run-1" />);
+    render(
+      <RunWorkspaceShell runId="run-1">
+        <RunProgress runId="run-1" />
+      </RunWorkspaceShell>,
+    );
     const panel = await screen.findByRole("region", { name: "Actividad del escaneo" });
     expect(panel).toHaveTextContent("Leyendo documentos guardados");
     expect(panel).toHaveTextContent("Documentos");
@@ -119,7 +125,11 @@ describe("RunProgress", () => {
 
   it("names classification when the stream reports that step", async () => {
     stub("running");
-    render(<RunProgress runId="run-1" />);
+    render(
+      <RunWorkspaceShell runId="run-1">
+        <RunProgress runId="run-1" />
+      </RunWorkspaceShell>,
+    );
     const panel = await screen.findByRole("region", { name: "Actividad del escaneo" });
     await act(async () => {
       source?.onmessage?.({
@@ -138,7 +148,11 @@ describe("RunProgress", () => {
 
   it("shows shared values on a finished run", async () => {
     stub("completed");
-    render(<RunProgress runId="run-1" />);
+    render(
+      <RunWorkspaceShell runId="run-1">
+        <RunProgress runId="run-1" />
+      </RunWorkspaceShell>,
+    );
     expect(await screen.findByRole("region", { name: "Valores compartidos" })).toBeInTheDocument();
     expect(screen.getByText("Ningún valor compartido")).toBeInTheDocument();
     expect(screen.getByText("Ningún valor enlaza este escaneo con otro activo.")).toBeInTheDocument();
@@ -146,7 +160,11 @@ describe("RunProgress", () => {
 
   it("puts the five exports in the run bar", async () => {
     stub("completed");
-    render(<RunProgress runId="run-1" />);
+    render(
+      <RunWorkspaceShell runId="run-1">
+        <RunProgress runId="run-1" />
+      </RunWorkspaceShell>,
+    );
     expect(await screen.findByRole("link", { name: "Descargar Markdown" })).toHaveAttribute(
       "href",
       "/api/runs/run-1/export?format=md&redact=contacts",
@@ -166,29 +184,75 @@ describe("RunProgress", () => {
 
   it("shows Abort scan only for an operator while the run is active", async () => {
     stub("running", "operator");
-    render(<RunProgress runId="run-1" />);
+    render(
+      <RunWorkspaceShell runId="run-1">
+        <RunProgress runId="run-1" />
+      </RunWorkspaceShell>,
+    );
     fireEvent.click(await screen.findByRole("button", { name: "Abortar escaneo" }));
     expect(await screen.findByRole("heading", { name: "¿Abortar este escaneo?" })).toBeInTheDocument();
   });
 
   it("hides Abort scan from a viewer", async () => {
     stub("running", "viewer");
-    render(<RunProgress runId="run-1" />);
+    render(
+      <RunWorkspaceShell runId="run-1">
+        <RunProgress runId="run-1" />
+      </RunWorkspaceShell>,
+    );
     expect(await screen.findByText("En curso")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Abortar escaneo" })).not.toBeInTheDocument();
   });
 
   it("hides Delete run from a viewer on a finished run", async () => {
     stub("completed", "viewer");
-    render(<RunProgress runId="run-1" />);
+    render(
+      <RunWorkspaceShell runId="run-1">
+        <RunProgress runId="run-1" />
+      </RunWorkspaceShell>,
+    );
     expect(await screen.findByRole("link", { name: "Descargar Markdown" })).toBeInTheDocument();
     await screen.findByText("Completado");
     expect(screen.queryByRole("button", { name: "Eliminar escaneo" })).not.toBeInTheDocument();
   });
 
+  it("links Comparar to the previous same-scope run when the API names it", async () => {
+    stub("completed");
+    const fetchMock = globalThis.fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/api/auth/me")) {
+        return new Response(JSON.stringify({ authenticated: false }), { status: 200 });
+      }
+      if (url.includes("/findings")) {
+        return new Response(JSON.stringify({ findings: [] }), { status: 200 });
+      }
+      if (url.includes("/correlations")) {
+        return new Response(JSON.stringify({ run_id: "run-1", total: 0, groups: [] }), { status: 200 });
+      }
+      return new Response(
+        JSON.stringify(runBody("completed", { previous_run_id: "run-0" })),
+        { status: 200 },
+      );
+    });
+    render(
+      <RunWorkspaceShell runId="run-1">
+        <RunProgress runId="run-1" />
+      </RunWorkspaceShell>,
+    );
+    expect(await screen.findByRole("link", { name: "Comparar" })).toHaveAttribute(
+      "href",
+      "/runs/compare?b=run-1&a=run-0",
+    );
+  });
+
   it("hides Abort scan once the run is completed", async () => {
     stub("completed", "operator");
-    render(<RunProgress runId="run-1" />);
+    render(
+      <RunWorkspaceShell runId="run-1">
+        <RunProgress runId="run-1" />
+      </RunWorkspaceShell>,
+    );
     expect(await screen.findByRole("link", { name: "Descargar Markdown" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Abortar escaneo" })).not.toBeInTheDocument();
   });

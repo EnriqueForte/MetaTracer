@@ -101,9 +101,12 @@ err_console = Console(stderr=True)
 @app.command()
 def scan(
     targets: Annotated[
-        list[str],
-        typer.Argument(help="In-scope targets (domains or URLs of public documents)."),
-    ],
+        list[str] | None,
+        typer.Argument(
+            help="In-scope targets (domains or URLs of public documents). "
+            "Omit when using --local."
+        ),
+    ] = None,
     scope_domains: Annotated[
         list[str] | None,
         typer.Option(
@@ -137,14 +140,30 @@ def scan(
             help="Report format to export (md, json, html, csv, bounty, all).",
         ),
     ] = ExportFormat.all,
+    local_paths: Annotated[
+        list[Path] | None,
+        typer.Option(
+            "--local",
+            help="Local file or directory to ingest without network (repeatable). "
+            "Do not combine with HTTP targets.",
+        ),
+    ] = None,
 ) -> None:
     """Scan in-scope targets for sensitive metadata (authorized use only)."""
     _guard_loopback()
     formatters.print_banner(console)
-    cleaned_targets = [target.strip() for target in targets if target.strip()]
+    cleaned_targets = [target.strip() for target in (targets or []) if target.strip()]
+    cleaned_local = [str(path) for path in (local_paths or []) if str(path).strip()]
     domains = [domain.strip() for domain in (scope_domains or []) if domain.strip()]
-    if not cleaned_targets:
-        err_console.print("[red]Error:[/red] at least one non-empty target is required.")
+    if cleaned_targets and cleaned_local:
+        err_console.print(
+            "[red]Error:[/red] use HTTP targets or --local, not both."
+        )
+        raise typer.Exit(1)
+    if not cleaned_targets and not cleaned_local:
+        err_console.print(
+            "[red]Error:[/red] at least one HTTP target or --local path is required."
+        )
         raise typer.Exit(1)
     if not domains:
         # The scope is never inferred from the target (inviolable rule 1).
@@ -154,7 +173,10 @@ def scan(
         )
         raise typer.Exit(1)
     if not confirm_scope:
-        console.print(f"Targets: {escape(', '.join(cleaned_targets))}")
+        if cleaned_local:
+            console.print(f"Local paths: {escape(', '.join(cleaned_local))}")
+        else:
+            console.print(f"Targets: {escape(', '.join(cleaned_targets))}")
         console.print(f"Authorized scope: {escape(', '.join(domains))}")
         confirmed = typer.confirm(
             "Do you confirm explicit authorization to audit this target?", default=False
@@ -165,11 +187,20 @@ def scan(
             err_console.print("Scope not confirmed — aborted before any network activity.")
             raise typer.Exit(1)
     try:
-        request = ScanRequest(
-            targets=cleaned_targets,
-            scope_domains=domains,
-            scope_confirmed=True,
-            reasoning_depth=depth,
+        request = (
+            ScanRequest(
+                local_paths=cleaned_local,
+                scope_domains=domains,
+                scope_confirmed=True,
+                reasoning_depth=depth,
+            )
+            if cleaned_local
+            else ScanRequest(
+                targets=cleaned_targets,
+                scope_domains=domains,
+                scope_confirmed=True,
+                reasoning_depth=depth,
+            )
         )
     except ValidationError as exc:
         err_console.print(f"[red]Invalid scan request:[/red] {exc}")
@@ -677,18 +708,19 @@ def watch(
         typer.Option("--output-dir", "-o", help="Directory for exported reports."),
     ] = DEFAULT_REPORTS_DIR,
 ) -> None:
-    """Re-scan a saved scope on a cadence, reporting only new findings.
+    """Re-scan a saved scope on a cadence, reporting finding deltas.
 
-    Platform v3.0, Eje A (TASK-22): headless continuous recon. The scope is
-    never inferred — ``scope_id`` is the single source of authorization, and
-    every iteration goes through the exact same ``ScanOrchestratorService``
-    gate. ``--once`` runs a single iteration and exits. Without it the
-    command loops: ``--interval`` (default 6h) or ``--cron`` (UTC 5-field).
+    Platform v3.0, Eje A (TASK-22 / TASK-50): headless continuous recon. The
+    scope is never inferred — ``scope_id`` is the single source of
+    authorization, and every iteration goes through the exact same
+    ``ScanOrchestratorService`` gate. ``--once`` runs a single iteration and
+    exits. Without it the command loops: ``--interval`` (default 6h) or
+    ``--cron`` (UTC 5-field).
 
-    Deltas: each iteration compares the run's ``dedup_signature`` set against
-    the historical same-scope baseline (deterministic, no LLM). ``--webhook``
-    forwards the run's terminal event plus ``new_findings`` to the configured
-    endpoint via the TASK-15 relay buffer.
+    Deltas (deterministic, no LLM): ``new_findings`` vs the historical
+    same-scope baseline; ``resolved_findings`` and ``severity_up_count`` vs
+    the previous completed run of that scope. ``--webhook`` forwards the
+    terminal event plus those scalar counters (never evidence arrays).
     """
     _guard_loopback()
     formatters.print_banner(console)
@@ -1429,7 +1461,11 @@ async def _watch_iteration(
     if result.status is RunStatus.completed and result.run_id:
         try:
             delta = await delta_reporter.compute_delta(result.run_id)
-            console.print(f"[green]Delta:[/green] {delta.new_findings} new finding(s)")
+            console.print(
+                f"[green]Delta:[/green] {delta.new_findings} new, "
+                f"{delta.resolved_findings} resolved, "
+                f"{delta.severity_up_count} severity-up"
+            )
         except Exception:
             logger.warning("delta computation failed; continuing watch", exc_info=True)
     return result

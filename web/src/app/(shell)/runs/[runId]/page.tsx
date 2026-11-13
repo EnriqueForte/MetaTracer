@@ -1,4 +1,5 @@
 import { RunProgress } from "@/components/run/run-progress";
+import { RunWorkspaceShell } from "@/components/run/workspace/run-workspace-shell";
 
 export default async function RunPage({
   params,
@@ -6,5 +7,9 @@ export default async function RunPage({
   params: Promise<{ runId: string }>;
 }) {
   const { runId } = await params;
-  return <RunProgress runId={runId} />;
+  return (
+    <RunWorkspaceShell runId={runId}>
+      <RunProgress runId={runId} />
+    </RunWorkspaceShell>
+  );
 }

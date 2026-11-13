@@ -30,7 +30,7 @@ export function FiltersBar({ filters, onChange, total, counts, types, dismissed,
   const set = (patch: Partial<Filters>) => onChange({ ...filters, ...patch });
   return (
     <div className="flex flex-col gap-2" role="group" aria-label="Filtros de hallazgos">
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           variant="toggle"
           aria-pressed={filters.severity === "all"}
@@ -48,6 +48,18 @@ export function FiltersBar({ filters, onChange, total, counts, types, dismissed,
             {SEVERITY_LABEL[severity]} ({counts[severity]})
           </Button>
         ))}
+        <label className="sr-only" htmlFor="findings-search">
+          Buscar hallazgos
+        </label>
+        <input
+          ref={searchRef}
+          id="findings-search"
+          type="search"
+          value={filters.q}
+          onChange={(event) => set({ q: event.target.value })}
+          placeholder="Buscar evidencia, título, campo o URL (pulsa / para enfocar)"
+          className="min-w-48 flex-1 rounded-md border border-mt-border-strong bg-mt-bg px-3 py-2 text-sm text-mt-fg placeholder:text-mt-faint focus:border-mt-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mt-focus"
+        />
       </div>
       <div className="flex flex-wrap gap-2">
         <Button variant="toggle" aria-pressed={filters.type === "all"} onClick={() => set({ type: "all" })}>
@@ -63,8 +75,6 @@ export function FiltersBar({ filters, onChange, total, counts, types, dismissed,
             {type.label}
           </Button>
         ))}
-      </div>
-      <div className="flex flex-wrap gap-2">
         <Button
           variant="toggle"
           aria-pressed={filters.confidence === "all"}
@@ -82,33 +92,33 @@ export function FiltersBar({ filters, onChange, total, counts, types, dismissed,
             {CONFIDENCE_LABEL[level]}
           </Button>
         ))}
-      </div>
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Filtro de triaje">
-        <Button
-          variant="toggle"
-          aria-pressed={filters.triage === "any"}
-          onClick={() => set({ triage: "any" })}
-        >
-          Cualquier estado
-        </Button>
-        {TRIAGE_STATUSES.map((status) => (
+        <span className="flex flex-wrap gap-2" role="group" aria-label="Filtro de triaje">
           <Button
-            key={status}
             variant="toggle"
-            aria-pressed={filters.triage === status}
-            onClick={() => set({ triage: filters.triage === status ? "any" : status })}
+            aria-pressed={filters.triage === "any"}
+            onClick={() => set({ triage: "any" })}
           >
-            {TRIAGE_LABEL[status]}
+            Cualquier estado
           </Button>
-        ))}
-        <Button
-          variant="toggle"
-          aria-pressed={filters.dismissed}
-          disabled={filters.triage !== "any"}
-          onClick={() => set({ dismissed: !filters.dismissed })}
-        >
-          Mostrar descartados ({dismissed})
-        </Button>
+          {TRIAGE_STATUSES.map((status) => (
+            <Button
+              key={status}
+              variant="toggle"
+              aria-pressed={filters.triage === status}
+              onClick={() => set({ triage: filters.triage === status ? "any" : status })}
+            >
+              {TRIAGE_LABEL[status]}
+            </Button>
+          ))}
+          <Button
+            variant="toggle"
+            aria-pressed={filters.dismissed}
+            disabled={filters.triage !== "any"}
+            onClick={() => set({ dismissed: !filters.dismissed })}
+          >
+            Mostrar descartados ({dismissed})
+          </Button>
+        </span>
       </div>
       {filters.asset ? (
         <div className="flex flex-wrap items-center gap-2 text-xs text-mt-muted">
@@ -119,18 +129,6 @@ export function FiltersBar({ filters, onChange, total, counts, types, dismissed,
           </Button>
         </div>
       ) : null}
-      <label className="sr-only" htmlFor="findings-search">
-        Buscar hallazgos
-      </label>
-      <input
-        ref={searchRef}
-        id="findings-search"
-        type="search"
-        value={filters.q}
-        onChange={(event) => set({ q: event.target.value })}
-        placeholder="Buscar evidencia, título, campo o URL (pulsa / para enfocar)"
-        className="w-full rounded-md border border-mt-border-strong bg-mt-bg px-3 py-2 text-sm text-mt-fg placeholder:text-mt-faint focus:border-mt-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mt-focus"
-      />
     </div>
   );
 }

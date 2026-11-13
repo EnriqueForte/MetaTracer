@@ -42,6 +42,7 @@ async def test_build_with_zero_rows(session_factory) -> None:
         "internal_path": 0,
         "software_version": 0,
         "debug_comment": 0,
+        "secret": 0,
         "internal_endpoint": 0,
         "cloud_storage": 0,
     }

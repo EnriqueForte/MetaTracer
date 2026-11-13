@@ -26,6 +26,8 @@ wrapper HTTP.
 - Primitivas Radix + Lucide, empaquetadas en el bundle. **Cero CDN.**
 - Un solo origen (`deploy/Caddyfile`): `/api/*` → FastAPI, resto → Next. La
   cookie de sesión es `SameSite=Lax` y la CSP `connect-src 'self'`.
+- Wizard (TASK-51): modo carpeta local envía `local_paths` (rutas **en el
+  servidor**, texto). No hay upload de bytes ni `<input type="file">`.
 
 ## Reglas de renderizado (inviolables)
 

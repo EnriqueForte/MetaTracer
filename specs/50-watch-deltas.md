@@ -1,10 +1,10 @@
 # Spec 50 — Deltas watch: desaparecido y severity-up
 
-**Estado:** reserved  
+**Estado:** closed  
 **Agente previsto:** `pipeline-engineer` · UI compare: `v2-ui-engineer`  
 **Skill al abrir:** `metatracer-platform`  
 **Fuente leftover:** `.aicontext/features/12-platform-v3.md` Eje A · spec 44 OOS  
-**Task:** no existe hasta que esta spec pase a `active`
+**Task:** [TASK-50](../.aicontext/tasks/50-watch-deltas.md)
 
 ## Intención
 

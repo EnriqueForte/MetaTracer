@@ -47,6 +47,8 @@ HEURISTIC_CEILINGS: dict[FindingType, Severity] = {
     # The snippet is a storage URL. The product never requests it, so the
     # ceiling stays high: exposure of the bucket is for the analyst to check.
     FindingType.cloud_storage: Severity.high,
+    # Closed-allowlist credential in extracted metadata (TASK-49).
+    FindingType.secret: Severity.critical,
 }
 
 
@@ -68,9 +70,10 @@ RUBRIC_PROMPT_TEXT = """\
 SEVERITY RUBRIC (source of truth, TASK-03):
 
 - critical: a secret or credential value is present in the evidence snippet
-  (e.g. "password=", "api_key=", "BEGIN PRIVATE KEY", "TODO: token=ghp_...",
-  an AWS access key id, a GitHub token). The bare word "credentials" or
-  "password" without a value is not critical. NOT enough: "CONFIDENTIAL".
+  (finding_type=secret: AWS key id AKIA, GitHub PAT ghp_, PEM private-key
+  header, compact JWT; debug_comment: those plus "password=" / "api_key="
+  with a value). The bare word "credentials" or "password" without a value
+  is not critical. NOT enough: "CONFIDENTIAL".
 - high: an internal path containing a username or an internal UNC share
   (e.g. "C:\\Users\\jdoe\\...", "\\\\CORP-DC01\\share\\..."), or precise GPS
   coordinates. GPS is never critical: the snippet is coordinates only and
@@ -90,7 +93,8 @@ SEVERITY RUBRIC (source of truth, TASK-03):
 Heuristic ceilings: gps <= high; software_version <= low; email <= medium;
 internal_path <= high; debug_comment <= critical (only with a secret marker
 in the snippet); internal_endpoint <= medium; cloud_storage <= high (the
-snippet is a storage URL and was not requested). When evidence is ambiguous,
+snippet is a storage URL and was not requested); secret <= critical (only
+with a closed-allowlist pattern in the snippet). When evidence is ambiguous,
 choose one level lower. Never raise severity without text in the snippet
 that justifies it.
 """

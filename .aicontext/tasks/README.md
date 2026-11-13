@@ -9,9 +9,8 @@ Este directorio descompone el MVP en tareas implementables. Cada archivo es un c
 
 Las features del PRD definen *qué* debe existir. Estas tasks definen *cómo* construirlo sin contradecir el PRD.
 
-> **Gobernanza (2026-11-12):** TASK-00–35 y specs 36–48 están **closed**.
-> Specs 49–51 reserved. `secret` no se añade a `finding_type` hasta spec 49
-> `active`. No mover estos archivos a `archive/` (rompen enlaces).
+> **Gobernanza (2026-11-13):** TASK-00–35 y specs 36–51 están **closed**.
+> Spec 52 closed (pulido visual). No mover estos archivos a `archive/`.
 
 ---
 
@@ -31,7 +30,7 @@ Valores **en minúsculas** en base de datos, JSON, API y Pydantic. La capa de pr
 
 | Contrato | Valores |
 | :--- | :--- |
-| `finding_type` | `gps` \| `email` \| `internal_path` \| `software_version` \| `debug_comment` \| `internal_endpoint` \| `cloud_storage` ([TASK-37](37-new-detectors.md): `internal_endpoint` = IPv4 RFC1918 o hostname `.internal`/`.corp`/`.local`/`.lan`/`*.svc.cluster.local`, techo `medium`. `cloud_storage` = host S3/GCS/Azure Blob/R2, techo `high`; el producto no pide esa URL. Ninguno es `author_name`) |
+| `finding_type` | `gps` \| `email` \| `internal_path` \| `software_version` \| `debug_comment` \| `internal_endpoint` \| `cloud_storage` \| `secret` ([TASK-37](37-new-detectors.md): `internal_endpoint` = IPv4 RFC1918 o hostname `.internal`/`.corp`/`.local`/`.lan`/`*.svc.cluster.local`, techo `medium`. `cloud_storage` = host S3/GCS/Azure Blob/R2, techo `high`; el producto no pide esa URL. [TASK-49](49-secret-finding.md): `secret` = allowlist cerrada AKIA / `ghp_` / PEM / JWT compact en valores ya extraídos, techo `critical`. Ninguno es `author_name`) |
 | `severity` | `critical` \| `high` \| `medium` \| `low` \| `info` |
 | `confidence` | `high` \| `medium` \| `low` |
 | `detector_method` | `rule` \| `heuristic` \| `agent` |
@@ -119,6 +118,9 @@ Aplican a **todas** las tasks. Un PR que las viole no está done.
 | **TASK-39** | [39-export-redaction.md](39-export-redaction.md) | Redacción de exports (`export.redaction`) — **cerrada 2026-11-05** | TASK-04, TASK-18 |
 | **TASK-41** | [41-ops-hygiene.md](41-ops-hygiene.md) | Lock durable, resume abort, métricas, `/api/v1` — **cerrada 2026-11-05** | TASK-28, TASK-33 |
 | **TASK-43** | [43-ui-investigations.md](43-ui-investigations.md) | UI de investigations: listado y ficha en Web V2 — **cerrada 2026-11-05** | TASK-36 |
+| **TASK-49** | [49-secret-finding.md](49-secret-finding.md) | `finding_type: secret` (allowlist AKIA/`ghp_`/PEM/JWT) — **cerrada 2026-11-13** | TASK-02, TASK-03, TASK-05 |
+| **TASK-50** | [50-watch-deltas.md](50-watch-deltas.md) | Watch `resolved_findings` / `severity_up_count` en `PAYLOAD_KEYS` — **cerrada 2026-11-13** | TASK-22, TASK-44 |
+| **TASK-51** | [51-local-ingest.md](51-local-ingest.md) | Ingesta local de carpeta (cero red, mismos extractores) — **cerrada 2026-11-13** | TASK-01, TASK-09 |
 
 `TASK-04` **no** depende de `TASK-05`: el motor de reportes debe funcionar con clasificaciones heurísticas (campos de explicación vacíos o plantilla). `TASK-05` rellena justificación, impacto, remediación y repro. `TASK-06` orquesta el pipeline completo.
 

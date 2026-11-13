@@ -31,6 +31,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import mimetypes
 import tempfile
 import time
 from collections import deque
@@ -67,6 +68,7 @@ from metatracer.extractors.headers import extract_http_headers
 from metatracer.extractors.html import HtmlMetadataExtractor
 from metatracer.extractors.image import ImageMetadataExtractor
 from metatracer.extractors.javascript import JavaScriptMetadataExtractor
+from metatracer.extractors.local import LOCAL_SOURCE, LocalEntry, list_local_entries
 from metatracer.extractors.normalize import apply_normalization
 from metatracer.extractors.office import NotOfficePackage, OfficeMetadataExtractor
 from metatracer.extractors.pdf import PdfMetadataExtractor
@@ -364,14 +366,13 @@ class IngestionPipeline:
                 "ingestion requires an explicitly confirmed scope (scope_confirmed=True)"
             )
         set_run_context(run.id)
+        budget = _budget_for(run, self._settings)
+        tracker = BudgetTracker(budget=budget)
+        if _is_local_run(run):
+            return await self._execute_local(run, tracker)
         scope = ScopeValidator(_loads_str_list(run.allowed_scope, "allowed_scope"))
         raw_targets = _loads_str_list(run.target_input, "target_input")
         rate_limiter = DomainRateLimiter(self._settings.rate_limit_rps)
-        # Fase 2: depth/pages/assets/bytes/seconds are explicit and recorded.
-        # The budget comes from the run's persisted snapshot when present, so a
-        # re-run keeps the limits the operator saw, and from Settings otherwise.
-        budget = _budget_for(run, self._settings)
-        tracker = BudgetTracker(budget=budget)
         semaphore = asyncio.Semaphore(budget.max_concurrency)
         resolver = TargetResolver(scope)
         crawler = PublicDocCrawler(scope=scope, guard=self._guard, rate_limiter=rate_limiter)
@@ -587,6 +588,135 @@ class IngestionPipeline:
         )
         return summary
 
+    async def _execute_local(self, run: Run, tracker: BudgetTracker) -> IngestionSummary:
+        """Ingest operator-supplied paths from disk. Never opens a socket."""
+        snapshot = _ingestion_snapshot(run)
+        roots = snapshot.get("local_paths")
+        if not isinstance(roots, list) or not all(isinstance(item, str) for item in roots):
+            roots = _loads_str_list(run.target_input, "target_input")
+        entries = list_local_entries([str(item) for item in roots])
+        seen_hashes = await self._known_hashes(run.id)
+        ok = failed = skipped = 0
+        discovered = 0
+        for entry in entries:
+            if not tracker.check_deadline():
+                logger.info("time budget reached; remaining local files not processed")
+                break
+            if tracker.exhausted and LIMIT_BYTES in tracker.limits_hit:
+                logger.info("byte budget reached; remaining local files not processed")
+                break
+            if not tracker.charge_asset():
+                logger.info(
+                    "asset cap reached (%d); remaining local files not processed",
+                    tracker.budget.max_assets,
+                )
+                break
+            discovered += 1
+            status = await self._process_local_entry(run, entry, seen_hashes, tracker)
+            tracker.assets_processed += 1
+            if status is ExtractionStatus.ok:
+                ok += 1
+            elif status is ExtractionStatus.failed:
+                failed += 1
+            else:
+                skipped += 1
+        await self._finalize_run(run.id, tracker)
+        summary = IngestionSummary(
+            run_id=run.id,
+            targets_seen=len(roots),
+            pages_crawled=0,
+            documents_discovered=discovered,
+            assets_ok=ok,
+            assets_failed=failed,
+            assets_skipped=skipped,
+            limits_hit=tracker.limits_hit,
+        )
+        logger.info(
+            "local ingestion finished: %d assets (%d ok, %d failed, %d skipped), limits=%s",
+            summary.total_assets,
+            ok,
+            failed,
+            skipped,
+            ",".join(tracker.limits_hit) or "none",
+        )
+        return summary
+
+    async def _process_local_entry(
+        self,
+        run: Run,
+        entry: LocalEntry,
+        seen_hashes: set[str],
+        tracker: BudgetTracker,
+    ) -> ExtractionStatus:
+        if entry.status is not None:
+            return await self._simple_asset(
+                run.id,
+                entry.uri,
+                entry.status,
+                entry.skip_reason,
+                entry.error_message or "local path skipped",
+                final_url=entry.uri,
+            )
+        path = entry.path
+        try:
+            size = path.stat().st_size
+        except OSError as exc:
+            return await self._simple_asset(
+                run.id,
+                entry.uri,
+                ExtractionStatus.failed,
+                None,
+                f"unreadable file: {type(exc).__name__}",
+                final_url=entry.uri,
+            )
+        guessed = mimetypes.guess_type(path.name)[0] or ""
+        content_type = guessed.split(";", 1)[0].strip()
+        if size > self._settings.max_file_bytes:
+            tracker.charge_bytes(size)
+            return await self._simple_asset(
+                run.id,
+                entry.uri,
+                ExtractionStatus.skipped,
+                SkipReason.too_large,
+                f"file exceeds max_file_bytes ({self._settings.max_file_bytes})",
+                final_url=entry.uri,
+                content_type=content_type,
+                file_size=size,
+            )
+        try:
+            body = path.read_bytes()
+        except OSError as exc:
+            return await self._simple_asset(
+                run.id,
+                entry.uri,
+                ExtractionStatus.failed,
+                None,
+                f"unreadable file: {type(exc).__name__}",
+                final_url=entry.uri,
+                content_type=content_type,
+            )
+        if len(body) > self._settings.max_file_bytes:
+            tracker.charge_bytes(len(body))
+            return await self._simple_asset(
+                run.id,
+                entry.uri,
+                ExtractionStatus.skipped,
+                SkipReason.too_large,
+                f"file exceeds max_file_bytes ({self._settings.max_file_bytes})",
+                final_url=entry.uri,
+                content_type=content_type,
+                file_size=len(body),
+            )
+        return await self._ingest_body(
+            run,
+            entry.uri,
+            entry.uri,
+            content_type,
+            body,
+            seen_hashes,
+            tracker,
+        )
+
     def _classify_targets(
         self, resolver: TargetResolver, raw_targets: list[str]
     ) -> tuple[list[str], list[str]]:
@@ -765,11 +895,38 @@ class IngestionPipeline:
                 final_url=final_url,
                 content_type=content_type,
             )
-        body = response.content
+        return await self._ingest_body(
+            run,
+            url,
+            final_url,
+            content_type,
+            response.content,
+            seen_hashes,
+            tracker,
+            headers=response.headers,
+            charge_bytes=False,
+        )
+
+    async def _ingest_body(
+        self,
+        run: Run,
+        source_url: str,
+        final_url: str,
+        content_type: str,
+        body: bytes,
+        seen_hashes: set[str],
+        tracker: BudgetTracker,
+        *,
+        headers: dict[str, str] | None = None,
+        charge_bytes: bool = True,
+    ) -> ExtractionStatus:
+        """Classify and extract an in-memory body. Used by HTTP and local ingest."""
+        if charge_bytes:
+            tracker.charge_bytes(len(body))
         if not body:
             return await self._simple_asset(
                 run.id,
-                url,
+                source_url,
                 ExtractionStatus.skipped,
                 SkipReason.empty_body,
                 "empty body",
@@ -778,10 +935,9 @@ class IngestionPipeline:
             )
         digest = hashlib.sha256(body).hexdigest()
         if digest in seen_hashes:
-            # The URL is still persisted for traceability; the bytes are not re-extracted.
             return await self._simple_asset(
                 run.id,
-                url,
+                source_url,
                 ExtractionStatus.skipped,
                 SkipReason.duplicate_hash,
                 "identical SHA-256 already processed in this run",
@@ -796,7 +952,7 @@ class IngestionPipeline:
         if kind is None:
             return await self._simple_asset(
                 run.id,
-                url,
+                source_url,
                 ExtractionStatus.skipped,
                 SkipReason.unsupported_type,
                 f"magic bytes match no supported type (content-type: {content_type or 'none'})",
@@ -808,13 +964,13 @@ class IngestionPipeline:
         seen_hashes.add(digest)
         return await self._extract_asset(
             run.id,
-            url,
+            source_url,
             final_url,
             content_type,
             digest,
             body,
             kind,
-            headers=response.headers,
+            headers=headers,
         )
 
     async def _process_preloaded(
@@ -1075,7 +1231,12 @@ class IngestionPipeline:
                 raise MetaTracerError("run vanished during ingestion")
             run.total_assets = len(assets)
             try:
-                run.ingestion_stats = json.dumps(tracker.snapshot(), ensure_ascii=False)
+                payload = tracker.snapshot()
+                previous = _ingestion_snapshot(run)
+                for key in ("source", "local_paths"):
+                    if key in previous:
+                        payload[key] = previous[key]
+                run.ingestion_stats = json.dumps(payload, ensure_ascii=False)
             except (TypeError, ValueError):  # pragma: no cover - snapshot is plain JSON
                 logger.warning("could not serialize ingestion stats; run keeps NULL")
             await run_repo.update(run)
@@ -1113,6 +1274,21 @@ def _loads_str_list(payload: str, field_name: str) -> list[str]:
     if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
         raise MetaTracerError(f"corrupt {field_name} payload on run row: expected list of str")
     return value
+
+
+def _ingestion_snapshot(run: Run) -> dict[str, object]:
+    raw = getattr(run, "ingestion_stats", None)
+    if not isinstance(raw, str) or not raw.strip():
+        return {}
+    try:
+        snapshot = json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+    return snapshot if isinstance(snapshot, dict) else {}
+
+
+def _is_local_run(run: Run) -> bool:
+    return _ingestion_snapshot(run).get("source") == LOCAL_SOURCE
 
 
 def _budget_for(run: Run, settings: Settings) -> CrawlBudget:

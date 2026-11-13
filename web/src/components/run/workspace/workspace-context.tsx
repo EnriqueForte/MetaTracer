@@ -3,6 +3,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 
+import { ApiError } from "@/lib/api/errors";
+
 import { fetchRun, runKey, TERMINAL, type RunSnapshot } from "@/components/run/run-model";
 
 type WorkspaceValue = {
@@ -11,6 +13,8 @@ type WorkspaceValue = {
   /** True once the run row was deleted from this session. */
   deleted: boolean;
   setDeleted: (value: boolean) => void;
+  isPending: boolean;
+  error: unknown;
 };
 
 const WorkspaceContext = createContext<WorkspaceValue | null>(null);
@@ -27,6 +31,7 @@ export function WorkspaceProvider({ runId, children }: { runId: string; children
   const query = useQuery({
     queryKey: runKey(runId),
     queryFn: () => fetchRun(runId),
+    retry: (count, error) => !(error instanceof ApiError && error.status === 404) && count < 1,
     // Poll only while the run can still change; a terminal run never refetches
     // on a timer (the SSE stream is what updates it live).
     refetchInterval: (state) => {
@@ -36,8 +41,15 @@ export function WorkspaceProvider({ runId, children }: { runId: string; children
   });
 
   const value = useMemo<WorkspaceValue>(
-    () => ({ runId, run: query.data ?? null, deleted, setDeleted }),
-    [deleted, query.data, runId],
+    () => ({
+      runId,
+      run: query.data ?? null,
+      deleted,
+      setDeleted,
+      isPending: query.isPending,
+      error: query.error,
+    }),
+    [deleted, query.data, query.error, query.isPending, runId],
   );
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;

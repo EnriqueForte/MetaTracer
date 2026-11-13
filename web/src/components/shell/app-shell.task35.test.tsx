@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { renderWithProviders as render } from "@/test/render";
@@ -85,11 +85,62 @@ describe("AppShell (TASK-35)", () => {
         <p>page</p>
       </AppShell>,
     );
-    fireEvent.click(await screen.findByRole("button", { name: "Notificaciones" }));
+    const bell = await screen.findByRole("button", { name: "Notificaciones" });
+    await waitFor(() => expect(bell.querySelector(".mt-notify-count")).toHaveTextContent("1"));
+    expect(bell.querySelector(".absolute")).toBeNull();
+    fireEvent.click(bell);
     const panel = await screen.findByRole("region", { name: "Panel de notificaciones" });
     const link = await within(panel).findByRole("link");
     expect(link).toHaveAttribute("href", "/runs/run-42");
-    expect(link).toHaveTextContent("hace 5 min");
+    expect(link).toHaveTextContent("acme.com");
+    expect(within(panel).getByText("Escaneo completado")).toBeInTheDocument();
+    expect(within(panel).getByText(/hace 5 min/)).toBeInTheDocument();
+    expect(within(panel).getByRole("button", { name: "Descartar notificación" })).toBeInTheDocument();
+  });
+
+  it("keeps a long file target off the status badge and the dismiss control", async () => {
+    stubMedia();
+    const longTarget = "file:///C:/Users/elqui/Downloads";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/api/notifications")) {
+          return new Response(
+            JSON.stringify({
+              total: 1,
+              notifications: [
+                {
+                  id: 0,
+                  kind: "completed",
+                  run_id: "run-local",
+                  target: longTarget,
+                  total_assets: 46,
+                  total_findings: 23,
+                  error_message: null,
+                  created_at: new Date().toISOString(),
+                },
+              ],
+            }),
+            { status: 200 },
+          );
+        }
+        return new Response(JSON.stringify({ authenticated: true, username: "ada", role: "operator" }), {
+          status: 200,
+        });
+      }),
+    );
+    render(
+      <AppShell>
+        <p>page</p>
+      </AppShell>,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "Notificaciones" }));
+    const panel = await screen.findByRole("region", { name: "Panel de notificaciones" });
+    const badge = within(panel).getByText("Escaneo completado");
+    expect(badge).not.toHaveTextContent("file:");
+    expect(within(panel).getByText(longTarget)).toHaveClass("mt-notify-target");
+    expect(panel.className).toContain("mt-notify-panel");
     expect(within(panel).getByRole("button", { name: "Descartar notificación" })).toBeInTheDocument();
   });
 

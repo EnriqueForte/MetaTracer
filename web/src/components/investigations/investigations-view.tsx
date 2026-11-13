@@ -43,7 +43,7 @@ export function InvestigationsView() {
     onError: (error) => setFormError(errorMessage(error, "No se pudo crear la investigación.")),
   });
 
-  if (list.isPending) return <LoadingState label="Cargando investigaciones" />;
+  if (list.isPending) return <LoadingState label="Cargando investigaciones" variant="list" />;
   if (list.isError) {
     return (
       <ErrorState
@@ -57,45 +57,46 @@ export function InvestigationsView() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="mt-title">Investigaciones</h1>
-        <p className="mt-2 max-w-2xl text-sm text-mt-muted">
-          Grupos de escaneos en esta instalación. Un valor compartido no es una identidad compartida.
-          El triaje de otro escaneo se sugiere en el hallazgo, nunca se aplica solo.
-        </p>
+      <div className="mt-page-head">
+        <div>
+          <h1 className="mt-page-title">Investigaciones</h1>
+          <p className="mt-meta">
+            Grupos de escaneos en esta instalación. Un valor compartido no es una identidad compartida.
+            El triaje de otro escaneo se sugiere en el hallazgo, nunca se aplica solo.
+          </p>
+        </div>
+        {canMutate ? (
+          <form
+            className="flex flex-wrap items-end gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const parsed = createSchema.safeParse({ name });
+              if (!parsed.success) {
+                setFormError(parsed.error.issues[0]?.message ?? "Pon primero un nombre a la investigación.");
+                return;
+              }
+              create.mutate(parsed.data);
+            }}
+          >
+            <label className="flex min-w-48 flex-col gap-1 text-xs font-semibold text-mt-muted">
+              Nueva investigación
+              <Input
+                value={name}
+                maxLength={80}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Nombre del encargo"
+              />
+            </label>
+            <Button type="submit" disabled={create.isPending}>
+              Crear
+            </Button>
+          </form>
+        ) : null}
       </div>
-
-      {canMutate ? (
-        <form
-          className="mt-card flex flex-wrap items-end gap-2 p-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const parsed = createSchema.safeParse({ name });
-            if (!parsed.success) {
-              setFormError(parsed.error.issues[0]?.message ?? "Pon primero un nombre a la investigación.");
-              return;
-            }
-            create.mutate(parsed.data);
-          }}
-        >
-          <label className="flex min-w-48 flex-1 flex-col gap-1 text-xs font-semibold text-mt-muted">
-            Nueva investigación
-            <Input
-              value={name}
-              maxLength={80}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Nombre del encargo"
-            />
-          </label>
-          <Button type="submit" disabled={create.isPending}>
-            Crear
-          </Button>
-          {formError ? (
-            <p className="w-full text-sm text-mt-danger" role="alert">
-              {formError}
-            </p>
-          ) : null}
-        </form>
+      {formError ? (
+        <p className="text-sm text-mt-danger" role="alert">
+          {formError}
+        </p>
       ) : null}
 
       {rows.length === 0 ? (
@@ -106,18 +107,18 @@ export function InvestigationsView() {
         </EmptyState>
       ) : (
         <div className="mt-card overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="mt-table">
             <thead>
-              <tr className="border-b border-mt-border text-xs text-mt-muted">
-                <th className="px-3 py-1 font-semibold">Nombre</th>
-                <th className="px-3 py-1 font-semibold">Estado</th>
-                <th className="px-3 py-1 font-semibold">Escaneos</th>
+              <tr>
+                <th>Nombre</th>
+                <th>Estado</th>
+                <th>Escaneos</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={row.id} className="border-b border-mt-border last:border-0">
-                  <td className="px-3 py-2">
+                <tr key={row.id} className="mt-row">
+                  <td>
                     <Link
                       href={`/investigations/${encodeURIComponent(row.id)}`}
                       className="text-mt-fg underline-offset-2 hover:underline"
@@ -125,12 +126,12 @@ export function InvestigationsView() {
                       {row.name}
                     </Link>
                   </td>
-                  <td className="px-3 py-2">
-                    <Badge variant={row.status === "open" ? "running" : "aborted"}>
+                  <td>
+                    <Badge variant={row.status === "open" ? "running" : "completed"}>
                       {row.status === "open" ? "Abierta" : "Cerrada"}
                     </Badge>
                   </td>
-                  <td className="px-3 py-2 mt-tech">{row.run_count}</td>
+                  <td className="mt-tech">{row.run_count}</td>
                 </tr>
               ))}
             </tbody>

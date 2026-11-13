@@ -37,9 +37,10 @@ Estados: `reserved` \| `active` \| `closed`.
 | [46-global-search](46-global-search.md) | closed | búsqueda global findings+metadata | [TASK-46](../.aicontext/tasks/46-global-search.md) | `metatracer-ui` | `ui-engineer` + `v2-ui-engineer` |
 | [47-operator-workspace](47-operator-workspace.md) | closed | split pane, nav, rollups MIME/autor | [TASK-47](../.aicontext/tasks/47-operator-workspace.md) | `metatracer-ui` | `v2-ui-engineer` |
 | [48-extraction-surface](48-extraction-surface.md) | closed | GIF/SVG, IPTC GPS, cloud URI, CSS url | [TASK-48](../.aicontext/tasks/48-extraction-surface.md) | `metadata-extraction` | `pipeline-engineer` |
-| [49-secret-finding](49-secret-finding.md) | reserved | `finding_type: secret` (enum al activar) | — hasta `active` | `detector-patterns` | `pipeline-engineer` |
-| [50-watch-deltas](50-watch-deltas.md) | reserved | desaparecido / severity-up + `PAYLOAD_KEYS` | — hasta `active` | `metatracer-platform` | `pipeline-engineer` |
-| [51-local-ingest](51-local-ingest.md) | reserved | carpeta local, cero red, mismos extractores | — hasta `active` | `metadata-extraction` | `pipeline-engineer` |
+| [49-secret-finding](49-secret-finding.md) | closed | `finding_type: secret` | [TASK-49](../.aicontext/tasks/49-secret-finding.md) | `detector-patterns` | `pipeline-engineer` |
+| [50-watch-deltas](50-watch-deltas.md) | closed | desaparecido / severity-up + `PAYLOAD_KEYS` | [TASK-50](../.aicontext/tasks/50-watch-deltas.md) | `metatracer-platform` | `pipeline-engineer` |
+| [51-local-ingest](51-local-ingest.md) | closed | carpeta local, cero red, mismos extractores | [TASK-51](../.aicontext/tasks/51-local-ingest.md) | `metadata-extraction` | `pipeline-engineer` |
+| [52-ui-polish](52-ui-polish.md) | closed | pulido visual (jerarquía, cromo, login) | [TASK-52](../.aicontext/tasks/52-ui-polish.md) | `metatracer-ui` | `v2-ui-engineer` |
 
 ## Qué es histórico (no contrato)
 
@@ -48,11 +49,14 @@ Estados: `reserved` \| `active` \| `closed`.
 - `.aicontext/migrations/` post-T11
 - TASK-00–35: contratos de implementación **cerrados**; no mover a `archive/` el día uno (enlaces)
 
-Contrato visual vigente: [`.aicontext/ui/design-system-v2.md`](../.aicontext/ui/design-system-v2.md).
+Contrato visual vigente: [`.aicontext/ui/design-system-v2.md`](../.aicontext/ui/design-system-v2.md)
+(tokens). Pulido: [`.aicontext/ui/polish-contract.md`](../.aicontext/ui/polish-contract.md).
 
 ## Fuera de este overlay
 
 Watch `--cron` y el ejemplo systemd/compose están en spec 44 (closed). Deltas
-“desaparecido / severity-up” están en [spec 50](50-watch-deltas.md) (**reserved**;
-amplían `PAYLOAD_KEYS`). `secret` no entra al enum hasta [spec 49](49-secret-finding.md)
-`active`.
+“desaparecido / severity-up” están en [spec 50](50-watch-deltas.md) (closed;
+`PAYLOAD_KEYS` incluye `resolved_findings` y `severity_up_count`). `secret`
+está en el enum ([spec 49](49-secret-finding.md) closed). Ingesta local:
+[spec 51](51-local-ingest.md) (closed). Pulido UI: [spec 52](52-ui-polish.md)
+(closed; contrato en `.aicontext/ui/polish-contract.md`).

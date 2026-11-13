@@ -4456,7 +4456,8 @@
           "software_version",
           "debug_comment",
           "internal_endpoint",
-          "cloud_storage"
+          "cloud_storage",
+          "secret"
         ],
         "title": "FindingType"
       },
@@ -5630,6 +5631,17 @@
               }
             ],
             "title": "Investigation Name"
+          },
+          "previous_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Run Id"
           }
         },
         "type": "object",
@@ -5656,7 +5668,6 @@
               "type": "string"
             },
             "type": "array",
-            "minItems": 1,
             "title": "Targets"
           },
           "scope_domains": {
@@ -5720,15 +5731,28 @@
                 "type": "null"
               }
             ]
+          },
+          "local_paths": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Local Paths"
           }
         },
         "type": "object",
         "required": [
-          "targets",
           "scope_confirmed"
         ],
         "title": "ScanRequest",
-        "description": "Validated scan parameters; also the exact POST /api/runs body (6.3).\n\nAt least one target and one confirmed scope source are required, and the\nscope is a deliberate operator input — it is never derived from the\ntargets. The scope source is exactly one of: manual `scope_domains`\n(v1.x), a single saved `scope_id` (TASK-10, v2.0) or the union of many\nsaved scopes `scope_ids` (TASK-21, v2.4); never a mix. `scope_id` is\nkept as an alias of ``scope_ids=[scope_id]`` at the boundary, so none of\nthe v2.0-v2.3 clients break. Export options are NOT part of this\ncontract: they are parameters of\n:meth:`ScanOrchestratorService.scan`, so the API request body stays\nexactly this model."
+        "description": "Validated scan parameters; also the exact POST /api/runs body (6.3).\n\nAt least one HTTP target **or** one local path, and one confirmed scope\nsource, are required. The scope is a deliberate operator input — it is\nnever derived from the targets or from disk paths. ``local_paths`` and\n``targets`` are mutually exclusive (TASK-51): local ingest never opens\nHTTP. The scope source is exactly one of: manual `scope_domains`\n(v1.x), a single saved `scope_id` (TASK-10, v2.0) or the union of many\nsaved scopes `scope_ids` (TASK-21, v2.4); never a mix. `scope_id` is\nkept as an alias of ``scope_ids=[scope_id]`` at the boundary, so none of\nthe v2.0-v2.3 clients break. Export options are NOT part of this\ncontract: they are parameters of\n:meth:`ScanOrchestratorService.scan`, so the API request body stays\nexactly this model."
       },
       "ScopeCreate": {
         "properties": {

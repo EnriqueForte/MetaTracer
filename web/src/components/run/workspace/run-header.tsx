@@ -23,6 +23,12 @@ export const RUN_TABS = [
   { segment: "coverage", label: "Cobertura", hint: "Lo que el rastreo no descargó" },
 ] as const;
 
+function compareHref(runId: string, previousRunId?: string | null): string {
+  const params = new URLSearchParams({ b: runId });
+  if (previousRunId) params.set("a", previousRunId);
+  return `/runs/compare?${params.toString()}`;
+}
+
 export function RunSectionNav({ runId, active }: { runId: string; active: string }) {
   return (
     <nav aria-label="Secciones del escaneo" className="mt-tabs">
@@ -33,11 +39,12 @@ export function RunSectionNav({ runId, active }: { runId: string; active: string
           <Link
             key={tab.segment || "overview"}
             href={href}
+            title={tab.hint}
+            aria-label={`${tab.label}. ${tab.hint}`}
             aria-current={isActive ? "page" : undefined}
             className="mt-tab"
           >
-            <span className="text-sm font-semibold text-mt-fg">{tab.label}</span>
-            <span className="text-xs text-mt-muted">{tab.hint}</span>
+            {tab.label}
           </Link>
         );
       })}
@@ -45,7 +52,8 @@ export function RunSectionNav({ runId, active }: { runId: string; active: string
   );
 }
 
-function currentTab(pathname: string, runId: string): string {
+function currentTab(pathname: string | null, runId: string): string {
+  if (!pathname) return "";
   const base = `/runs/${runId}`;
   const rest = pathname.slice(base.length).replace(/^\//, "");
   return rest.split("/")[0] ?? "";
@@ -58,13 +66,14 @@ function currentTab(pathname: string, runId: string): string {
  * query), so switching tabs never refetches it.
  */
 export function RunHeader() {
-  const { runId, run, setDeleted } = useWorkspace();
+  const { runId, run, setDeleted, error } = useWorkspace();
   const actor = useActor();
   const pathname = usePathname();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const active = currentTab(pathname, runId);
   const canMutate = actor === "operator";
 
+  if (error && !run) return null;
   if (!run) return <p className="text-sm text-mt-muted">Cargando escaneo…</p>;
 
   const live = isLive(run.status);
@@ -74,7 +83,7 @@ export function RunHeader() {
     <div className="flex min-w-0 flex-col gap-3">
       <div className="mt-page-head">
         <div className="min-w-0">
-          <h1 className="mt-title">
+          <h1 className="mt-page-title">
             Escaneo de <span className="mt-tech">{run.target}</span>
           </h1>
           <p className="mt-tech text-xs text-mt-muted">{run.run_id}</p>
@@ -94,6 +103,21 @@ export function RunHeader() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {live && canMutate ? <AbortRunButton runId={run.run_id} /> : null}
+          {finished && run.total_findings > 0 ? (
+            <Button asChild>
+              <Link href={`/runs/${encodeURIComponent(run.run_id)}/findings`}>Ver hallazgos</Link>
+            </Button>
+          ) : null}
+          {finished && run.total_findings === 0 ? (
+            <Button variant="secondary" asChild>
+              <Link href="/">Nuevo escaneo</Link>
+            </Button>
+          ) : null}
+          {finished ? (
+            <Button variant="ghost" className="px-2 py-1 text-xs" asChild>
+              <Link href={compareHref(run.run_id, run.previous_run_id)}>Comparar</Link>
+            </Button>
+          ) : null}
           {!live && canMutate ? (
             <Button variant="danger" onClick={() => setConfirmDelete(true)}>
               Eliminar escaneo

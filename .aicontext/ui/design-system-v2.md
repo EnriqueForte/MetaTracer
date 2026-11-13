@@ -4,6 +4,9 @@
 [`design-system.md`](design-system.md), que describe la Web V1 (Jinja + Alpine) y se
 conserva solo como histórico.
 
+**Pulido (2026-11-13):** [`polish-contract.md`](polish-contract.md) extiende este
+documento (jerarquía, cromo, login). No cambia tokens de color. Spec 52 closed.
+
 **Implementación normativa:** `web/src/app/globals.css` (tokens `--mt-*` y clases de
 componente) más utilidades Tailwind 4 en los componentes de `web/src/components/ui/`.
 **Verificación automática:** `web/src/components/shell/theme.test.tsx` comprueba que el

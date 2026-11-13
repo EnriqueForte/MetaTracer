@@ -9,8 +9,8 @@
 Índice del PRD. Cada archivo es una especificación: alcance, requisitos y criterios de aceptación donde aplica.
 
 > **v3.2 cerrado** (2026-10-05). Dashboard, Web V2 en origen, auth y watch `--interval` ya existen.
-> Specs 36–45 closed. Overlay v3.4: specs **46–51 reserved**. Código solo con spec
-> `active` + TASK-NN. `secret` no es `finding_type` hasta spec 49 `active`.
+> Specs 36–52 closed. Overlay v3.4 sin reserved. Código de producto exige spec
+> `active` + TASK-NN. `secret` es `finding_type` (TASK-49).
 
 **Nota de convención:** los nombres de archivo y la carpeta `features/` se mantienen en **inglés**; el contenido de la documentación está en **español**. Los enlaces apuntan a las mismas rutas, así que no hay descuadre entre el índice y los specs.
 
@@ -55,5 +55,5 @@
 ## Backlog Técnico de Tareas
 
 - [Desglose de tareas a bajo nivel (Tasks Backlog)](tasks/README.md) — TASK-00–35 cerradas
-- [Specs activas / reserved](../specs/README.md) — v3.4+ (46–51 reserved)
+- [Specs activas / reserved](../specs/README.md) — v3.4 (46–51 closed)
 

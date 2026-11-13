@@ -550,7 +550,9 @@ body {
 }
 
 .mt-theme-switch {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 100%;
   gap: 2px;
   padding: 2px;
   border: 1px solid var(--mt-border-strong);
@@ -558,10 +560,13 @@ body {
 }
 
 .mt-theme-option {
-  display: inline-flex;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 2px;
   border: 0;
   border-radius: var(--mt-radius-sm);
   background: transparent;
@@ -569,6 +574,8 @@ body {
   font: inherit;
   font-size: 11px;
   font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -663,6 +670,82 @@ body {
   flex: 0 1 auto;
   align-items: center;
   gap: var(--mt-space-3);
+}
+
+.mt-notify {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.mt-notify-trigger {
+  position: relative;
+  flex: 0 0 auto;
+  gap: 4px;
+}
+
+.mt-notify-count {
+  min-width: 1.25rem;
+  padding: 0 4px;
+  border: 1px solid var(--mt-border-strong);
+  border-radius: var(--mt-radius-sm);
+  color: var(--mt-fg);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+
+.mt-notify-panel {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  right: 0;
+  display: flex;
+  width: min(22rem, calc(100vw - 2rem));
+  max-height: 24rem;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--mt-border);
+  border-radius: var(--mt-radius-md);
+  background: var(--mt-elevated);
+}
+
+.mt-notify-item {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--mt-border);
+}
+
+.mt-notify-item:last-child {
+  border-bottom: 0;
+  padding-bottom: 2px;
+}
+
+.mt-notify-item-head {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mt-notify-item-head .mt-notify-dismiss {
+  flex: 0 0 auto;
+}
+
+.mt-notify-target {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  color: var(--mt-fg);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .mt-session-meta,
@@ -923,6 +1006,10 @@ body {
   flex: 0 0 auto;
 }
 
+.mt-empty {
+  padding: var(--mt-space-4);
+}
+
 .mt-auth {
   display: flex;
   height: 100dvh;
@@ -935,10 +1022,6 @@ body {
   padding: 10px 16px 8px;
   overflow: hidden;
   background-color: var(--mt-bg);
-  background-image:
-    linear-gradient(var(--mt-border) 1px, transparent 1px),
-    linear-gradient(90deg, var(--mt-border) 1px, transparent 1px);
-  background-size: 32px 32px;
   color: var(--mt-fg);
 }
 
@@ -973,19 +1056,15 @@ body {
 }
 
 .mt-auth-spoke {
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  animation: mt-auth-draw 1.15s ease-out forwards;
+  stroke-dashoffset: 0;
 }
 
 .mt-auth-spoke-session {
-  stroke-dashoffset: 1;
-  animation-duration: 1.35s;
+  stroke-dashoffset: 0;
 }
 
 .mt-auth-node {
-  opacity: 0;
-  animation: mt-auth-arrive 0.55s ease-out forwards;
+  opacity: 1;
 }
 
 .mt-auth-stack {
@@ -1008,26 +1087,6 @@ body {
   border-radius: var(--mt-radius-lg);
   background: var(--mt-surface);
   box-shadow: var(--mt-shadow-card);
-}
-
-@keyframes mt-auth-draw {
-  from {
-    stroke-dashoffset: 1;
-  }
-
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-
-@keyframes mt-auth-arrive {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
 }
 
 .mt-auth-note {
@@ -1078,25 +1137,18 @@ body {
     overflow: auto;
   }
 
-  .mt-auth-frame {
-    min-height: min(70dvh, 36rem);
+  .mt-auth-brief {
+    display: none;
   }
 
-  .mt-auth-diagram {
-    min-height: 18rem;
-    max-height: min(70dvh, 36rem);
+  .mt-auth-frame {
+    min-height: 0;
+    display: flex;
+    justify-content: center;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mt-auth-spoke,
-  .mt-auth-spoke-session,
-  .mt-auth-node {
-    animation: none;
-    opacity: 1;
-    stroke-dashoffset: 0;
-  }
-
   .mt-auth-signal {
     display: none;
   }
@@ -1350,15 +1402,16 @@ input[type="checkbox"] {
 }
 
 .mt-tab {
-  display: flex;
+  display: inline-flex;
   min-width: 0;
-  flex: 1 1 8rem;
-  flex-direction: column;
-  gap: 2px;
-  padding: 10px 14px 11px;
+  flex: 0 1 auto;
+  align-items: center;
+  padding: 8px 12px 9px;
   margin-bottom: -1px;
   border-bottom: 2px solid transparent;
   color: var(--mt-muted);
+  font-size: 0.875rem;
+  font-weight: 600;
   text-decoration: none;
   transition:
     border-color var(--mt-duration) var(--mt-ease),

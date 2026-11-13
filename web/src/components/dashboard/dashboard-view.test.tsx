@@ -67,16 +67,16 @@ describe("DashboardView", () => {
     expect(barClass("Correo")).toContain("bg-mt-chart-2");
     expect(screen.getByRole("img", { name: "10 hallazgos" })).toBeInTheDocument();
     expect(screen.getByText("example.com")).toBeInTheDocument();
-    expect(screen.getByText("Hallazgos aún abiertos")).toBeInTheDocument();
+    expect(screen.getByText(/2 hallazgos sin severidad/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Abrir escaneos completados" })).toHaveAttribute(
       "href",
       "/runs?status=completed",
     );
     expect(screen.getByRole("link", { name: "Abrir comparación" })).toHaveAttribute("href", "/runs/compare");
     expect(screen.getByText("Latitude: 1")).toBeInTheDocument();
-    const agent = screen.getByRole("region", { name: "Uso del agente" });
-    expect(agent).toHaveTextContent("Llamadas 1");
-    expect(agent.className).not.toContain("text-2xl");
+    expect(screen.getByText("Uso de IA")).toBeInTheDocument();
+    expect(screen.getByText("15")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Uso del agente" })).not.toBeInTheDocument();
   });
 
   it("sends failed scans to the failed history filter", async () => {
@@ -97,8 +97,9 @@ describe("DashboardView", () => {
   it("shows a single empty state when there are no runs", async () => {
     stubStats(0);
     render(<DashboardView />);
-    expect(await screen.findByText(/Aún no hay datos/)).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Nuevo escaneo" })).toHaveLength(1);
+    expect(await screen.findByText("Aún no hay escaneos")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Iniciar el primer escaneo" })).toHaveAttribute("href", "/");
+    expect(screen.queryByRole("link", { name: "Nuevo escaneo" })).not.toBeInTheDocument();
     expect(screen.queryByText("Completados 0 · Fallidos 0")).not.toBeInTheDocument();
   });
 

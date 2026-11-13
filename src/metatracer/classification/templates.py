@@ -279,6 +279,42 @@ _TEMPLATES: dict[tuple[FindingType, Severity], SeverityTemplate] = {
         remediation=("Strip storage URLs from published metadata.",),
         reproduction=_INSPECT_STEPS,
     ),
+    # --- secret ---
+    (FindingType.secret, Severity.critical): SeverityTemplate(
+        justification=(
+            "Metadata field {field_source} contains a credential matching a closed "
+            "allowlist pattern: '{snippet}'."
+        ),
+        impact=(
+            "If the value is valid, this is direct credential exposure in a public asset."
+        ),
+        remediation=(
+            "Remove the credential from published metadata immediately.",
+            "Rotate the credential if it was ever valid.",
+            "Audit the publication pipeline so secrets are not written into metadata fields.",
+        ),
+        reproduction=_INSPECT_STEPS,
+    ),
+    (FindingType.secret, Severity.high): SeverityTemplate(
+        justification=(
+            "Credential-shaped value '{snippet}' in {field_source}. Confirm whether it is live."
+        ),
+        impact="A public file names a credential-shaped string.",
+        remediation=("Remove the value from the published field and rotate if it was valid.",),
+        reproduction=_INSPECT_STEPS,
+    ),
+    (FindingType.secret, Severity.medium): SeverityTemplate(
+        justification="Credential-shaped string '{snippet}' in {field_source}.",
+        impact="Limited context around a credential-shaped value in metadata.",
+        remediation=("Strip the value from published metadata.",),
+        reproduction=_INSPECT_STEPS,
+    ),
+    (FindingType.secret, Severity.low): SeverityTemplate(
+        justification="Possible credential marker '{snippet}' in {field_source}, limited context.",
+        impact="Minor reconnaissance value; the snippet does not prove a live secret.",
+        remediation=("Review and strip credential-shaped strings from metadata.",),
+        reproduction=_INSPECT_STEPS,
+    ),
 }
 
 # Generic info-level templates (subtask 3.2.1 / 3.2.2): empty or unanchored

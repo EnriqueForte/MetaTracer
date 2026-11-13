@@ -27,15 +27,16 @@ heurístico (TASK-03) o el agente (TASK-05).
 | `internal_endpoint` | `medium` | Dirección interna en metadata; no es un acceso demostrado. |
 | `cloud_storage` | `high` | La URL se registra y no se pide. |
 | `debug_comment` | `critical` | **Solo** con marcador de secreto en el snippet. |
+| `secret` | `critical` | **Solo** con patrón de allowlist cerrada (AKIA / `ghp_` / PEM / JWT) en el snippet. |
 
 `cap_severity(sev, ceiling)` baja al techo cuando el rank lo supera. El guard
 post-LLM usa **el mismo** `ceiling_for(type)`.
 
 ## Lo que sostiene cada nivel
 
-- **critical**: hay un **valor** de secreto en el snippet. `_SECRET_VALUE_RE`:
-  `password|token := valor`, `api_key := valor`, `AKIA[0-9A-Z]{16}`,
-  `ghp_[A-Za-z0-9]{36}`, `-----BEGIN … PRIVATE KEY-----`.
+- **critical**: hay un **valor** de secreto en el snippet. Tipo `secret`:
+  `SECRET_RES` (AKIA, `ghp_`, PEM, JWT compact). Tipo `debug_comment`: esos
+  más `_SECRET_VALUE_RE` (`password|token|api_key := valor`).
   **No** basta la palabra suelta (`_SECRET_RE`): "remove staging credentials"
   es un marcador, se queda en medium. `CONFIDENTIAL` tampoco.
 - **high**: ruta interna con usuario o UNC (`C:\Users\…`, `\\CORP-DC01\…`),

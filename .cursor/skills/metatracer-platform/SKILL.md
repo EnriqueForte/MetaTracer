@@ -6,8 +6,7 @@ description: Superficie de plataforma ya existente en MetaTracer (watch/delta, P
 # Plataforma existente (v3.0–v3.2)
 
 Evita que un agente reimplemente lo que TASK-22–45 ya cerraron. Deltas watch
-desaparecido/severity-up: [spec 50](../../../specs/50-watch-deltas.md) **reserved**
-(no código hasta `active`).
+desaparecido/severity-up: [spec 50](../../../specs/50-watch-deltas.md) **closed**.
 
 Fuentes: `.aicontext/tasks/22-watch-headless.md` … `35-ui-ux-improvements.md`,
 `.aicontext/features/12-platform-v3.md`. Safety: wrapper HTTP + anti-SSRF de egreso
@@ -17,11 +16,11 @@ siguen mandando.
 
 - `metatracer watch` con `--once` / `--interval` / `--cron` (UTC, 5 campos, stdlib) /
   `--webhook`. `--cron` es exclusivo de `--interval` y de `--once`. Lock por scope.
-- `DeltaReporter` determinista por `finding_identity`, **sin LLM**. Payload webhook:
-  `new_findings` (solo hallazgos **nuevos**).
+- `DeltaReporter` determinista por `finding_identity`, **sin LLM**. Payload webhook
+  (escalares, `PAYLOAD_KEYS`): `new_findings` (nunca visto en el historial del
+  scope), `resolved_findings` y `severity_up_count` (vs el último completed del
+  mismo scope). Sin arrays de evidencia.
 - Operación: `deploy/metatracer-watch.service` y compose profile `watch`.
-- No está implementado: deltas “desaparecido / severity-up” — spec 50 reserved
-  (`PAYLOAD_KEYS` no se amplía sin esa spec `active`).
 
 ## Postgres + pgvector (TASK-23)
 

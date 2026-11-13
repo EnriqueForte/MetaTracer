@@ -98,7 +98,7 @@ export function HistoryView() {
     <div className="flex min-w-0 flex-col gap-6">
       <div className="mt-page-head">
         <div>
-          <h1 className="mt-title">Historial local</h1>
+          <h1 className="mt-page-title">Historial local</h1>
           <p className="text-sm text-mt-fg">
             Escaneos guardados en esta instalación. Reabre uno para revisar hallazgos o volver a exportar el informe. No es un panel multiusuario.
           </p>
@@ -113,7 +113,7 @@ export function HistoryView() {
               Comparar selección
             </Button>
           )}
-          <Button variant="secondary" asChild>
+          <Button asChild>
             <Link href="/">Nuevo escaneo</Link>
           </Button>
         </div>

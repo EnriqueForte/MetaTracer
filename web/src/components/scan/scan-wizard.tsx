@@ -13,9 +13,9 @@ import type { ScopeListResponse } from "@/lib/api/types";
 import { BASE_PATH } from "@/lib/constants";
 import { queryKeys } from "@/lib/query/keys";
 import { useActor } from "@/lib/session";
-import { STAGE_LABELS, STAGES } from "@/lib/sse/progress";
 
 const DEPTHS = ["brief", "standard", "detailed"] as const;
+const SOURCES = ["http", "local"] as const;
 
 function lines(value: string): string[] {
   return value
@@ -37,10 +37,18 @@ function domains(value: string): string[] {
  */
 const scanSchema = z
   .object({
-    targets: z.array(z.string()).min(1, "Indica al menos un objetivo."),
+    source: z.enum(SOURCES),
+    targets: z.array(z.string()),
+    local_paths: z.array(z.string()),
     scope_domains: z.array(z.string()),
     scope_ids: z.array(z.string()),
     reasoning_depth: z.enum(DEPTHS),
+  })
+  .refine((value) => (value.source === "http" ? value.targets.length > 0 : true), {
+    message: "Indica al menos un objetivo.",
+  })
+  .refine((value) => (value.source === "local" ? value.local_paths.length > 0 : true), {
+    message: "Indica al menos una ruta local en el servidor.",
   })
   .refine((value) => value.scope_domains.length > 0 || value.scope_ids.length > 0, {
     message:
@@ -55,6 +63,8 @@ type ScanDraft = z.infer<typeof scanSchema>;
 export function ScanWizard() {
   const actor = useActor();
   const [targets, setTargets] = useState("");
+  const [source, setSource] = useState<(typeof SOURCES)[number]>("http");
+  const [localPaths, setLocalPaths] = useState("");
   const [scopeDomains, setScopeDomains] = useState("");
   const [depth, setDepth] = useState<(typeof DEPTHS)[number]>("standard");
   const [selectedScopeIds, setSelectedScopeIds] = useState<string[]>([]);
@@ -73,6 +83,7 @@ export function ScanWizard() {
   const activeScopeIds = selectedScopeIds.filter((id) => savedScopes.some((scope) => scope.id === id));
 
   const targetList = lines(targets);
+  const localList = lines(localPaths);
   const manualDomains = domains(scopeDomains);
   const usingSaved = activeScopeIds.length > 0;
   const usingManual = !usingSaved && manualDomains.length > 0;
@@ -82,7 +93,9 @@ export function ScanWizard() {
   function openModal() {
     setError("");
     const parsed = scanSchema.safeParse({
-      targets: targetList,
+      source,
+      targets: source === "http" ? targetList : [],
+      local_paths: source === "local" ? localList : [],
       scope_domains: usingSaved ? [] : manualDomains,
       scope_ids: activeScopeIds,
       reasoning_depth: depth,
@@ -101,10 +114,11 @@ export function ScanWizard() {
     setStarting(true);
     setError("");
     const body: Record<string, unknown> = {
-      targets: draft.targets,
       scope_confirmed: true,
       reasoning_depth: draft.reasoning_depth,
     };
+    if (draft.source === "local") body.local_paths = draft.local_paths;
+    else body.targets = draft.targets;
     if (draft.scope_ids.length > 0) body.scope_ids = draft.scope_ids;
     else body.scope_domains = draft.scope_domains;
     try {
@@ -157,10 +171,9 @@ export function ScanWizard() {
     <div className="flex min-w-0 flex-col gap-4">
       <div className="mt-page-head">
         <div>
-          <h1 className="mt-title">Nuevo escaneo</h1>
+          <h1 className="mt-page-title">Nuevo escaneo</h1>
           <p className="text-sm text-mt-muted">
-            Descubre metadatos sensibles (GPS, correos, rutas internas, versiones de software, comentarios
-            de depuración) en documentos públicos dentro de tu alcance autorizado.
+            Documentos públicos dentro del alcance que confirmes. El alcance no se copia de los objetivos.
           </p>
         </div>
       </div>
@@ -183,9 +196,33 @@ export function ScanWizard() {
           <p className="mt-kicker">Paso 1</p>
           <h2 className="mt-section-title">Qué pedir</h2>
           <p className="text-sm text-mt-muted">
-            URLs o nombres de host públicos que tienes permiso para solicitar. Un objetivo por línea.
-            No se descarga nada hasta que confirmes el alcance.
+            Crawl HTTP de documentos públicos, o una carpeta ya en el servidor (cero red). El
+            alcance nunca se infiere de las rutas.
           </p>
+          <fieldset className="flex flex-col gap-2">
+            <legend className="text-xs font-semibold text-mt-muted">Origen</legend>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="toggle"
+                aria-pressed={source === "http"}
+                disabled={viewer}
+                onClick={() => setSource("http")}
+              >
+                Crawl HTTP
+              </Button>
+              <Button
+                type="button"
+                variant="toggle"
+                aria-pressed={source === "local"}
+                disabled={viewer}
+                onClick={() => setSource("local")}
+              >
+                Carpeta local
+              </Button>
+            </div>
+          </fieldset>
+          {source === "http" ? (
           <div className="flex flex-col gap-1">
             <label htmlFor="targets" className="text-xs font-semibold text-mt-muted">
               Objetivos
@@ -200,6 +237,26 @@ export function ScanWizard() {
               placeholder="https://example.com/&#10;files.example.com"
             />
           </div>
+          ) : (
+          <div className="flex flex-col gap-1">
+            <label htmlFor="local-paths" className="text-xs font-semibold text-mt-muted">
+              Rutas en el servidor
+            </label>
+            <textarea
+              id="local-paths"
+              rows={3}
+              value={localPaths}
+              disabled={viewer}
+              onChange={(event) => setLocalPaths(event.target.value)}
+              className="mt-tech w-full resize-y rounded-md border border-mt-border-strong bg-mt-bg px-3 py-2 text-sm text-mt-fg placeholder:text-mt-faint focus:border-mt-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mt-focus disabled:opacity-[0.45]"
+              placeholder="/var/audit/export&#10;C:\\engagements\\target\\docs"
+            />
+            <p className="text-xs text-mt-muted">
+              El navegador no lee tu disco. Escribe rutas que el proceso de MetaTracer pueda
+              abrir. No se descomprimen ZIP genéricos.
+            </p>
+          </div>
+          )}
         </section>
 
         <section className="mt-card flex flex-col gap-3 p-4">
@@ -271,30 +328,32 @@ export function ScanWizard() {
             Breve es una ficha corta. Estándar es el valor por defecto. Detallado pide una explicación
             más larga. La severidad sigue saliendo de la rúbrica.
           </p>
-          <div className="flex flex-col gap-1 sm:max-w-xs">
-            <label htmlFor="depth" className="text-xs font-semibold text-mt-muted">
-              Profundidad del razonamiento
-            </label>
-            <select
-              id="depth"
-              value={depth}
-              disabled={viewer}
-              onChange={(event) => {
-                const next = DEPTHS.find((item) => item === event.target.value);
-                if (next) setDepth(next);
-              }}
-              className="w-full rounded-md border border-mt-border-strong bg-mt-bg px-3 py-2 text-sm text-mt-fg focus:border-mt-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mt-focus"
-            >
-              {DEPTHS.map((item) => (
-                <option key={item} value={item}>
-                  {item === "brief" ? "Breve" : item === "detailed" ? "Detallado" : "Estándar"}
-                </option>
-              ))}
-            </select>
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div className="flex min-w-48 flex-1 flex-col gap-1 sm:max-w-xs">
+              <label htmlFor="depth" className="text-xs font-semibold text-mt-muted">
+                Profundidad del razonamiento
+              </label>
+              <select
+                id="depth"
+                value={depth}
+                disabled={viewer}
+                onChange={(event) => {
+                  const next = DEPTHS.find((item) => item === event.target.value);
+                  if (next) setDepth(next);
+                }}
+                className="w-full rounded-md border border-mt-border-strong bg-mt-bg px-3 py-2 text-sm text-mt-fg focus:border-mt-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mt-focus"
+              >
+                {DEPTHS.map((item) => (
+                  <option key={item} value={item}>
+                    {item === "brief" ? "Breve" : item === "detailed" ? "Detallado" : "Estándar"}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Button type="submit" disabled={viewer}>
+              Iniciar escaneo
+            </Button>
           </div>
-          <Button type="submit" className="self-start" disabled={viewer}>
-            Iniciar escaneo
-          </Button>
         </section>
       </form>
       <p id="scope-source-note" className="text-xs text-mt-muted" aria-live="polite">
@@ -304,30 +363,6 @@ export function ScanWizard() {
             ? "Usando dominios manuales: se ignoran los alcances guardados."
             : "Elige alcances guardados o escribe dominios. El alcance nunca se infiere de los objetivos."}
       </p>
-
-      <section className="mt-card flex flex-col gap-3 p-4" aria-labelledby="scan-pipeline-title">
-        <div>
-          <h2 id="scan-pipeline-title" className="mt-section-title">
-            Recorrido
-          </h2>
-          <p className="mt-meta mt-1">
-            Al iniciar, la página del escaneo sigue esta cadena en vivo. Un paso se enciende solo
-            cuando el servidor lo informa. El paso del modelo clasifica evidencia ya recogida; no
-            abre objetivos nuevos.
-          </p>
-        </div>
-        <ol className="mt-stages" aria-label="Cadena del escaneo">
-          {STAGES.map((key) => (
-            <li key={key} className="mt-stage" data-state="pending" data-stage={key}>
-              <span className="mt-stage-line" aria-hidden="true" />
-              <span className="mt-stage-node">
-                <span className="mt-stage-dot" aria-hidden="true" />
-                <span>{STAGE_LABELS[key]}</span>
-              </span>
-            </li>
-          ))}
-        </ol>
-      </section>
 
       {error ? (
         <p role="alert" className="rounded-md border border-mt-danger-border bg-mt-danger-bg px-3 py-2 text-sm text-mt-danger">
@@ -350,9 +385,11 @@ export function ScanWizard() {
           <div>
             <p className="text-sm text-mt-fg">Vas a auditar:</p>
             <ul className="mt-1 max-h-32 list-inside list-disc overflow-y-auto text-xs text-mt-muted">
-              {(draft?.targets ?? []).map((target) => (
-                <li key={target}>{target}</li>
-              ))}
+              {(draft?.source === "local" ? draft.local_paths : (draft?.targets ?? [])).map(
+                (target) => (
+                  <li key={target}>{target}</li>
+                ),
+              )}
             </ul>
           </div>
           <div>
@@ -360,9 +397,9 @@ export function ScanWizard() {
             <p className="mt-tech">{scopeSummary}</p>
           </div>
           <p className="text-xs text-mt-muted">
-            MetaTracer solo descarga documentos públicos de estos dominios, extrae sus metadatos
-            y nunca intenta explotar. Escanear sistemas sin autorización explícita puede ser ilegal
-            en tu jurisdicción.
+            {draft?.source === "local"
+              ? "MetaTracer lee esos ficheros en el servidor (cero red), extrae metadatos y no sigue enlaces. El alcance etiqueta el informe; no autoriza peticiones HTTP."
+              : "MetaTracer solo descarga documentos públicos de estos dominios, extrae sus metadatos y nunca intenta explotar. Escanear sistemas sin autorización explícita puede ser ilegal en tu jurisdicción."}
           </p>
           <label className="flex cursor-pointer items-start gap-2">
             <input

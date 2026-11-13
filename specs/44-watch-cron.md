@@ -19,8 +19,8 @@ supervisan.
 ## Fuera de alcance
 
 Windows Service. `@reboot`. Segundos (6 campos). `apscheduler`. Deltas
-“desaparecido” / “severity-up” (romperían `PAYLOAD_KEYS`; ahora
-[spec 50](50-watch-deltas.md) reserved). Varios watches concurrentes por scope.
+“desaparecido” / “severity-up” (ahora [spec 50](50-watch-deltas.md) closed).
+Varios watches concurrentes por scope.
 
 ## Dependencias
 

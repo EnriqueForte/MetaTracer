@@ -168,17 +168,6 @@ export function FindingsPanel({ runId, totalAssets }: { runId: string; totalAsse
         </EmptyState>
       ) : null}
 
-      <GpsMap findings={filtered} onOpen={setSelected} />
-
-      {filtered.length > 0 ? (
-        <AssetFindings
-          findings={filtered}
-          activeAsset={filters.asset}
-          onOpen={setSelected}
-          onFilterAsset={(asset) => changeFilters({ ...filters, asset })}
-        />
-      ) : null}
-
       {canBulk && selectedIds.size > 0 ? (
         <BulkTriageBar
           runId={runId}
@@ -257,6 +246,17 @@ export function FindingsPanel({ runId, totalAssets }: { runId: string; totalAsse
             ? `Quita un filtro o la búsqueda, o muestra el/los ${dismissed} hallazgo(s) descartado(s).`
             : "Quita un filtro o la búsqueda para ver más hallazgos."}
         </EmptyState>
+      ) : null}
+
+      <GpsMap findings={filtered} onOpen={setSelected} />
+
+      {filtered.length > 0 ? (
+        <AssetFindings
+          findings={filtered}
+          activeAsset={filters.asset}
+          onOpen={setSelected}
+          onFilterAsset={(asset) => changeFilters({ ...filters, asset })}
+        />
       ) : null}
 
       {desktop ? null : (

@@ -36,6 +36,7 @@ export const FINDING_TYPE_LABEL: Record<string, string> = {
   internal_path: "Ruta interna",
   software_version: "Versión de software",
   debug_comment: "Comentario de depuración",
+  secret: "Secreto",
   internal_endpoint: "Endpoint interno",
   cloud_storage: "Almacenamiento en la nube",
 };

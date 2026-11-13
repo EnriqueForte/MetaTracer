@@ -8,6 +8,7 @@ const TYPE_FILL: Record<string, string> = {
   internal_path: "bg-mt-chart-3",
   software_version: "bg-mt-chart-4",
   debug_comment: "bg-mt-chart-5",
+  secret: "bg-mt-chart-3",
   internal_endpoint: "bg-mt-chart-1",
   cloud_storage: "bg-mt-chart-2",
 };

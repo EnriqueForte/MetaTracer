@@ -88,6 +88,7 @@ from metatracer.db.repositories import AssetRepository, RunRepository
 from metatracer.detectors.pipeline import DetectionPipeline
 from metatracer.extractors.budget import CrawlBudget
 from metatracer.extractors.ingest import _EXTRACTION_INCOMPLETE, IngestionPipeline
+from metatracer.extractors.local import LOCAL_SOURCE, file_uris_for
 from metatracer.reports.bounty import BountyExporter
 from metatracer.reports.builder import DEFAULT_REPORTS_DIR, ReportBuilder
 from metatracer.reports.csv_exporter import CsvReportExporter
@@ -173,9 +174,11 @@ class ExportFormat(StrEnum):
 class ScanRequest(BaseModel):
     """Validated scan parameters; also the exact POST /api/runs body (6.3).
 
-    At least one target and one confirmed scope source are required, and the
-    scope is a deliberate operator input — it is never derived from the
-    targets. The scope source is exactly one of: manual `scope_domains`
+    At least one HTTP target **or** one local path, and one confirmed scope
+    source, are required. The scope is a deliberate operator input — it is
+    never derived from the targets or from disk paths. ``local_paths`` and
+    ``targets`` are mutually exclusive (TASK-51): local ingest never opens
+    HTTP. The scope source is exactly one of: manual `scope_domains`
     (v1.x), a single saved `scope_id` (TASK-10, v2.0) or the union of many
     saved scopes `scope_ids` (TASK-21, v2.4); never a mix. `scope_id` is
     kept as an alias of ``scope_ids=[scope_id]`` at the boundary, so none of
@@ -185,7 +188,7 @@ class ScanRequest(BaseModel):
     exactly this model.
     """
 
-    targets: list[str] = Field(min_length=1)
+    targets: list[str] = Field(default_factory=list)
     # Optional now: when scope_id/scope_ids is set, scope_domains must be
     # absent, and the resolver supplies the domains. A request with neither
     # is invalid.
@@ -212,8 +215,12 @@ class ScanRequest(BaseModel):
     # existing client keeps working unchanged. The resolved snapshot is
     # persisted on the Run so the coverage view can say which limit stopped it.
     budget: CrawlBudget | None = None
+    # TASK-51: filesystem roots (files or directories) on the API/CLI host.
+    # Mutually exclusive with `targets`. Paths are not uploaded; the process
+    # reads them in place and never persists bytes.
+    local_paths: list[str] | None = None
 
-    @field_validator("targets", "scope_domains")
+    @field_validator("targets", "scope_domains", "local_paths")
     @classmethod
     def _non_blank_entries(cls, values: list[str] | None) -> list[str] | None:
         """Strip entries and reject blank ones (whitespace is not a target).
@@ -276,6 +283,10 @@ class ScanRequest(BaseModel):
         if self.scope_id is not None:
             self.scope_ids = [self.scope_id]
             self.scope_id = None
+        if self.local_paths and self.targets:
+            raise ValueError("set local_paths or targets, not both")
+        if not self.local_paths and not self.targets:
+            raise ValueError("either targets or local_paths is required")
         return self
 
 
@@ -850,17 +861,21 @@ class ScanOrchestratorService:
         if request.scope_ids is not None:
             scope_domains = await self._resolve_scope_domains_many(request.scope_ids)
         budget = request.budget or CrawlBudget.from_settings(self._settings)
+        stats: dict[str, object] = {"budget": budget.describe(), "limits_hit": []}
+        targets = list(request.targets)
+        if request.local_paths:
+            stats["source"] = LOCAL_SOURCE
+            stats["local_paths"] = list(request.local_paths)
+            targets = file_uris_for(request.local_paths)
         async with self._session_factory() as session:
             await reject_if_at_capacity(session, self._settings.max_concurrent_runs)
             return await RunRepository(session).create(
                 Run(
-                    target_input=json.dumps(request.targets),
+                    target_input=json.dumps(targets),
                     allowed_scope=json.dumps(scope_domains),
                     scope_confirmed=True,
                     reasoning_depth=request.reasoning_depth,
-                    ingestion_stats=json.dumps(
-                        {"budget": budget.describe(), "limits_hit": []}, ensure_ascii=False
-                    ),
+                    ingestion_stats=json.dumps(stats, ensure_ascii=False),
                 )
             )
 
@@ -998,14 +1013,18 @@ class ScanOrchestratorService:
                 # degrades to 0 (nothing new to report), never fails the scan
                 # (inviolable rule 5).
                 new_findings = 0
+                resolved_findings = 0
+                severity_up_count = 0
                 if run.id in self._watch_run_ids and self._delta_reporter is not None:
                     try:
                         delta = await self._delta_reporter.compute_delta(run.id)
                         new_findings = delta.new_findings
+                        resolved_findings = delta.resolved_findings
+                        severity_up_count = delta.severity_up_count
                     except Exception:
                         logger.warning(
                             "watch delta computation failed; webhook without "
-                            "new_findings",
+                            "delta counters",
                             exc_info=True,
                         )
                 # The dispatcher exposes the same signature as the bus; an
@@ -1018,6 +1037,8 @@ class ScanOrchestratorService:
                         total_assets=run.total_assets,
                         total_findings=run.total_findings,
                         new_findings=new_findings,
+                        resolved_findings=resolved_findings,
+                        severity_up_count=severity_up_count,
                         executive_summary=run.executive_summary,
                         error_message=error_message,
                     )

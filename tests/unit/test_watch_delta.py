@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from metatracer.db.engine import create_db_engine, create_session_factory, init_db
-from metatracer.db.models import Asset, Finding, FindingType, Run
+from metatracer.db.models import Asset, Finding, FindingType, Run, RunStatus, Severity
 from metatracer.db.repositories import AssetRepository, FindingRepository, RunRepository
 from metatracer.services.watch import DeltaReporter
 
@@ -31,6 +31,8 @@ async def _seed_run(
     *,
     scope: str = '["t.com"]',
     signatures: list[str],
+    status: RunStatus = RunStatus.pending,
+    severity: Severity | None = None,
 ) -> Run:
     async with session_factory() as session:
         run = await RunRepository(session).create(
@@ -38,6 +40,7 @@ async def _seed_run(
                 target_input='["https://t.com/a.jpg"]',
                 allowed_scope=scope,
                 scope_confirmed=True,
+                status=status,
                 total_findings=len(signatures),
             )
         )
@@ -63,6 +66,7 @@ async def _seed_run(
                     dedup_signature=sig,
                     detector_method="rule",
                     confidence="high",
+                    severity=severity,
                 )
             )
     return run
@@ -98,6 +102,71 @@ async def test_delta_is_scoped_to_the_same_allowed_scope(session_factory) -> Non
     delta = await DeltaReporter(session_factory).compute_delta(mine.id)
     assert delta.new_findings == 1
     assert delta.new_signatures == ["sig-mine"]
+
+
+async def test_first_run_has_zero_resolved_and_severity_up(session_factory) -> None:
+    run = await _seed_run(session_factory, signatures=["sig-1"], status=RunStatus.completed)
+    delta = await DeltaReporter(session_factory).compute_delta(run.id)
+    assert delta.new_findings == 1
+    assert delta.resolved_findings == 0
+    assert delta.severity_up_count == 0
+    assert delta.previous_run_id is None
+
+
+async def test_resolved_counts_identities_absent_from_the_current_run(session_factory) -> None:
+    first = await _seed_run(
+        session_factory, signatures=["gone", "kept"], status=RunStatus.completed
+    )
+    second = await _seed_run(session_factory, signatures=["kept"], status=RunStatus.completed)
+    delta = await DeltaReporter(session_factory).compute_delta(second.id)
+    assert delta.new_findings == 0
+    assert delta.resolved_findings == 1
+    assert delta.severity_up_count == 0
+    assert delta.previous_run_id == first.id
+
+
+async def test_severity_up_counts_only_a_higher_contract_rank(session_factory) -> None:
+    first = await _seed_run(
+        session_factory,
+        signatures=["same"],
+        status=RunStatus.completed,
+        severity=Severity.low,
+    )
+    raised = await _seed_run(
+        session_factory,
+        signatures=["same"],
+        status=RunStatus.completed,
+        severity=Severity.high,
+    )
+    delta = await DeltaReporter(session_factory).compute_delta(raised.id)
+    assert delta.previous_run_id == first.id
+    assert delta.new_findings == 0
+    assert delta.resolved_findings == 0
+    assert delta.severity_up_count == 1
+
+    lowered = await _seed_run(
+        session_factory,
+        signatures=["same"],
+        status=RunStatus.completed,
+        severity=Severity.info,
+    )
+    down = await DeltaReporter(session_factory).compute_delta(lowered.id)
+    assert down.severity_up_count == 0
+    assert down.resolved_findings == 0
+
+
+async def test_unclassified_severity_is_not_a_severity_up(session_factory) -> None:
+    await _seed_run(
+        session_factory, signatures=["same"], status=RunStatus.completed, severity=None
+    )
+    current = await _seed_run(
+        session_factory,
+        signatures=["same"],
+        status=RunStatus.completed,
+        severity=Severity.critical,
+    )
+    delta = await DeltaReporter(session_factory).compute_delta(current.id)
+    assert delta.severity_up_count == 0
 
 
 async def test_missing_run_raises_lookup_error(session_factory) -> None:

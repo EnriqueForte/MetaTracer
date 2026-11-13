@@ -1,9 +1,9 @@
 # Spec 51 — Ingesta local de carpeta
 
-**Estado:** reserved  
+**Estado:** closed  
 **Agente previsto:** `pipeline-engineer` · CLI/API: `ui-engineer` · wizard: `v2-ui-engineer`  
 **Skill al abrir:** `metadata-extraction`, `metatracer-safety-rules`  
-**Task:** no existe hasta que esta spec pase a `active`
+**Task:** [.aicontext/tasks/51-local-ingest.md](../.aicontext/tasks/51-local-ingest.md)
 
 ## Intención
 
@@ -27,7 +27,7 @@ descomprimido). El wizard actual solo hace crawl HTTP. Esta slice alimenta los
 
 Ejecutar binarios del target. Preview/render de documentos. Unpack de `.zip`
 genérico, `.rar`, `.7z`. Sembrar crawl con CDX/Wayback (posible spec 52, no esta).
-Dorks. Autenticación a file shares. Código mientras esta spec esté `reserved`.
+Dorks. Autenticación a file shares.
 
 ## Dependencias
 

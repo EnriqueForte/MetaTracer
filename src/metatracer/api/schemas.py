@@ -70,6 +70,8 @@ class RunStatusResponse(BaseModel):
     # permission boundary.
     investigation_id: str | None = None
     investigation_name: str | None = None
+    # TASK-50: previous completed run of the same scope snapshot, for compare.
+    previous_run_id: str | None = None
 
     @classmethod
     def from_models(
@@ -78,6 +80,7 @@ class RunStatusResponse(BaseModel):
         assets: list[Asset],
         *,
         investigation_name: str | None = None,
+        previous_run_id: str | None = None,
     ) -> RunStatusResponse:
         """Map persisted rows; JSON text columns are decoded defensively."""
         targets = _json_str_list(run.target_input)
@@ -106,6 +109,7 @@ class RunStatusResponse(BaseModel):
             asset_issues=issues,
             investigation_id=run.investigation_id,
             investigation_name=investigation_name,
+            previous_run_id=previous_run_id,
         )
 
 

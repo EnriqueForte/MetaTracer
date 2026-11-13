@@ -30,12 +30,16 @@ def _isolated_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-def test_watch_help_lists_scope_and_once() -> None:
+def test_watch_help_lists_scope_and_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("COLUMNS", "200")
+    monkeypatch.setenv("TERM", "dumb")
     result = runner.invoke(app, ["watch", "--help"])
     assert result.exit_code == 0
     output = _plain(result.output)
     assert "--once" in output
     assert "--interval" in output
+    assert "resolved_findings" in output
+    assert "severity_up_count" in output
 
 
 def test_watch_once_without_scope_aborts() -> None:

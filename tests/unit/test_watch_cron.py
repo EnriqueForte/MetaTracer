@@ -88,6 +88,7 @@ def test_watch_help_lists_cron(monkeypatch: pytest.MonkeyPatch) -> None:
     output = _plain(result.output)
     assert "--cron" in output
     assert "--interval" in output
+    assert "resolved_findings" in output
 
 
 def test_watch_rejects_cron_with_interval() -> None:

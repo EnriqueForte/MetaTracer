@@ -54,7 +54,17 @@ def _isolated_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 def test_scan_help_lists_scope_option() -> None:
     result = runner.invoke(app, ["scan", "--help"])
     assert result.exit_code == 0
-    assert "--scope-domain" in _plain(result.output)
+    plain = _plain(result.output)
+    assert "--scope-domain" in plain
+    assert "--local" in plain
+
+
+def test_scan_rejects_http_and_local_mix() -> None:
+    result = runner.invoke(
+        app, ["scan", "target.com", "--local", ".", "-s", "target.com", "-y"]
+    )
+    assert result.exit_code != 0
+    assert "not both" in result.output.lower()
 
 
 def test_scan_without_scope_domain_fails() -> None:

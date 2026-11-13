@@ -44,7 +44,7 @@ from metatracer.db.models import (
     Severity,
     severity_rank,
 )
-from metatracer.detectors.patterns import STRONG_DEBUG_RES, WEAK_DEBUG_RE
+from metatracer.detectors.patterns import STRONG_DEBUG_RES, WEAK_DEBUG_RE, snippet_has_closed_secret
 
 # A secret word with an associated value is critical (TASK-34). The bare word
 # ("remove staging credentials") is only a marker and stays at medium.
@@ -52,9 +52,6 @@ _SECRET_VALUE_RE = re.compile(
     r"(?:"
     r"(?:password|token)\s*[:=]\s*\S+"
     r"|api[_-]?key\s*[:=]\s*\S+"
-    r"|AKIA[0-9A-Z]{16}"
-    r"|ghp_[A-Za-z0-9]{36}"
-    r"|-----BEGIN [A-Z ]*PRIVATE KEY-----"
     r")",
     re.IGNORECASE,
 )
@@ -220,6 +217,8 @@ class HeuristicRiskClassifier:
                 return Severity.medium
             case FindingType.cloud_storage:
                 return Severity.high
+            case FindingType.secret:
+                return self._secret_severity(snippet)
         return Severity.info  # pragma: no cover - the enum is closed
 
     @staticmethod
@@ -263,8 +262,12 @@ class HeuristicRiskClassifier:
         return Severity.low if re.search(r"\d", snippet) else Severity.info
 
     @staticmethod
+    def _secret_severity(snippet: str) -> Severity:
+        return Severity.critical if snippet_has_closed_secret(snippet) else Severity.info
+
+    @staticmethod
     def _debug_severity(snippet: str) -> Severity:
-        if _SECRET_VALUE_RE.search(snippet):
+        if _SECRET_VALUE_RE.search(snippet) or snippet_has_closed_secret(snippet):
             return Severity.critical
         if _SECRET_RE.search(snippet):
             return Severity.medium  # marker without an associated value

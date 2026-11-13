@@ -3,14 +3,14 @@
 Memoria de trabajo para agentes. No es un PRD. Si un hecho no cabe aquí, vive en
 `specs/`, `.aicontext/` o el código.
 
-**Última actualización:** 2026-11-12 (TASK-48 closed: superficie de extracción)
+**Última actualización:** 2026-11-13 (spec 52 closed: pulido visual UI)
 
 ## Estado del producto
 
 - Versión: **v3.2 cerrada** (2026-10-05). Suite rechecked 2026-10-23: 787 passed, 6 skipped, cobertura 91.30%.
 - UI: **Web V2** (Next.js 16 + React 19 + Tailwind 4) en `web/`, servida desde la **raíz del origen**. FastAPI es solo-API. Web V1 (Jinja + Alpine) retirada (ADR-0016).
 - Trabajo **activo** (gobernanza): [`specs/`](specs/README.md). Backlog de producto: [`specs/backlog.md`](specs/backlog.md). One-pager: [`specs/current.md`](specs/current.md).
-- TASK-00 → TASK-35 y TASK-36–48 están **cerradas**. Specs 49–51 **reserved**.
+- TASK-00 → TASK-35 y TASK-36–52 están **cerradas**. Overlay v3.4 sin reserved.
 
 ## Dónde está la verdad
 
@@ -28,9 +28,7 @@ Las specs **no duplican** enums: enlazan.
 
 ## Prohibición (specs reserved)
 
-Specs 49–51 están **reserved**: no implementar esas slices. Specs 47–48 están **closed**. `finding_type: secret`
-(49) **no** está en el enum hasta que 49 pase a `active`. Deltas watch
-desaparecido / severity-up viven en [spec 50](specs/50-watch-deltas.md).
+Specs 46–52 están **closed**. No hay specs reserved en el overlay v3.4.
 
 ## Specs
 
@@ -50,9 +48,10 @@ desaparecido / severity-up viven en [spec 50](specs/50-watch-deltas.md).
 | [46-global-search](specs/46-global-search.md) | closed |
 | [47-operator-workspace](specs/47-operator-workspace.md) | closed |
 | [48-extraction-surface](specs/48-extraction-surface.md) | closed |
-| [49-secret-finding](specs/49-secret-finding.md) | reserved |
-| [50-watch-deltas](specs/50-watch-deltas.md) | reserved |
-| [51-local-ingest](specs/51-local-ingest.md) | reserved |
+| [49-secret-finding](specs/49-secret-finding.md) | closed |
+| [50-watch-deltas](specs/50-watch-deltas.md) | closed |
+| [51-local-ingest](specs/51-local-ingest.md) | closed |
+| [52-ui-polish](specs/52-ui-polish.md) | closed |
 
 ## Docs stale (no reintroducir como contrato)
 
@@ -88,3 +87,8 @@ Las 7 reglas de `safety-invariants.mdc`. Loopback bloqueado salvo `METATRACER_AL
 - 2026-11-12 — TASK-46: `GET /api/search`, CLI `search`, UI `/search` y paleta de evidencia. Spec 46 closed.
 - 2026-11-12 — TASK-47: split pane de hallazgos, `[`/`]`, Comparar en nav, Integraciones en paleta, MIME/autor rollups, LayerChip, estados compartidos. Spec 47 closed.
 - 2026-11-12 — TASK-48: GIF/SVG metadata-only, GPS IPTC, `s3://`/`gs://`/Spaces/Wasabi, `url()` CSS in-scope. Spec 48 closed. HEIC/AVIF OOS.
+- 2026-11-13 — TASK-49: `finding_type: secret` (AKIA / `ghp_` / PEM / JWT compact en metadata extraída). Spec 49 closed. Bodies/JS/TruffleHog OOS.
+- 2026-11-13 — TASK-50: watch `resolved_findings` / `severity_up_count` en webhook (escalares). Spec 50 closed.
+- 2026-11-13 — TASK-51: ingesta local (`--local` / `local_paths`), cero red, mismos sniff/extractores. Spec 51 closed. Unpack ZIP OOS.
+- 2026-11-13 — spec 52 reserved: contrato de pulido UI (`.aicontext/ui/polish-contract.md`). Sin código.
+- 2026-11-13 — TASK-52: pulido Web V2 (jerarquía, cromo de run, wizard sin Recorrido, login estático). Spec 52 closed.

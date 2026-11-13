@@ -54,6 +54,7 @@ _FINDING_TYPE_ORDER = [
     "internal_path",
     "software_version",
     "debug_comment",
+    "secret",
     "internal_endpoint",
     "cloud_storage",
 ]
@@ -182,6 +183,22 @@ class RunRepository:
             select(Run.id).where(Run.allowed_scope == allowed_scope, Run.id != exclude_id)
         )
         return list(result.all())
+
+    async def latest_completed_id_with_scope(
+        self, allowed_scope: str, *, exclude_id: str
+    ) -> str | None:
+        """Most recent completed run of this scope snapshot, excluding ``exclude_id``."""
+        result = await self._session.exec(
+            select(Run.id)
+            .where(
+                Run.allowed_scope == allowed_scope,
+                Run.id != exclude_id,
+                Run.status == RunStatus.completed,
+            )
+            .order_by(Run.started_at.desc(), Run.id.desc())  # type: ignore[arg-type]
+        )
+        row = result.first()
+        return str(row) if row is not None else None
 
     async def count(self, *, status: RunStatus | None = None) -> int:
         """Total rows under the given filter (TASK-21: untruncated "N runs")."""

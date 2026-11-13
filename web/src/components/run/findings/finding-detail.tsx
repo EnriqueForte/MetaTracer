@@ -35,7 +35,7 @@ export function FindingDetail({ finding, canMutate, extra, onClose, heading = tr
   }
 
   return (
-    <div className="flex flex-col gap-6 p-4">
+    <div className="flex flex-col gap-4 p-4">
       {heading || onClose ? (
         <div className="flex items-start justify-between gap-2">
           {heading ? <h2 className="mt-section-title">{finding.title}</h2> : null}

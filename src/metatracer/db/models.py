@@ -81,6 +81,7 @@ class FindingType(StrEnum):
     debug_comment = "debug_comment"
     internal_endpoint = "internal_endpoint"
     cloud_storage = "cloud_storage"
+    secret = "secret"
 
 
 class DetectorMethod(StrEnum):

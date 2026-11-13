@@ -247,6 +247,7 @@ def test_heuristic_ceilings_match_the_contract() -> None:
     assert ceiling_for(FindingType.email) is Severity.medium
     assert ceiling_for(FindingType.internal_path) is Severity.high
     assert ceiling_for(FindingType.debug_comment) is Severity.critical
+    assert ceiling_for(FindingType.secret) is Severity.critical
 
 
 def test_rubric_prompt_text_covers_all_five_levels() -> None:
@@ -270,6 +271,8 @@ _CASES = [
     (FindingType.debug_comment, "blocked by JIRA-8812"),
     (FindingType.debug_comment, "DRAFT"),
     (FindingType.debug_comment, ""),
+    (FindingType.secret, "AKIAIOSFODNN7EXAMPLE"),
+    (FindingType.secret, "password=hunter2"),
 ]
 
 

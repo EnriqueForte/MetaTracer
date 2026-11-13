@@ -1,10 +1,10 @@
 # Spec 49 — `finding_type: secret`
 
-**Estado:** reserved  
+**Estado:** closed  
 **Agente previsto:** `pipeline-engineer` · rúbrica: skill `risk-rubric` · guard LLM:
 `llm-agent-engineer` si el clasificador/agente toca el tipo  
 **Skill al abrir:** `detector-patterns`, `risk-rubric`  
-**Task:** no existe hasta que esta spec pase a `active`
+**Task:** [TASK-49](../.aicontext/tasks/49-secret-finding.md)
 
 ## Intención
 

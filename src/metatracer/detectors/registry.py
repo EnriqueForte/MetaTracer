@@ -16,6 +16,7 @@ from metatracer.detectors.email import EmailDetector
 from metatracer.detectors.gps import GpsDetector
 from metatracer.detectors.network import CloudStorageDetector, InternalEndpointDetector
 from metatracer.detectors.paths import InternalPathDetector
+from metatracer.detectors.secrets import SecretDetector
 from metatracer.detectors.software import SoftwareVersionDetector
 
 logger = logging.getLogger("metatracer.detectors.registry")
@@ -36,6 +37,7 @@ class DetectorRegistry:
                 CloudStorageDetector(),
                 SoftwareVersionDetector(),
                 DebugCommentDetector(),
+                SecretDetector(),
             ]
         )
 

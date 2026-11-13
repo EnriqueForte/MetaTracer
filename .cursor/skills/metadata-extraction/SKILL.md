@@ -1,12 +1,21 @@
 ---
 name: metadata-extraction
-description: Pipeline de ingesta y extracción de MetaTracer (crawler, allowlist por magic bytes, extractores PDF/imagen/HTML/JS/cabeceras HTTP/Office, sanitización de valores y namespaces). Usar al tocar src/metatracer/extractors/ (ingest.py, crawler.py, sniff.py, targets.py, pdf.py, image.py, html.py, javascript.py, headers.py, office.py, xmp.py, sanitize.py, fields.py) o al diagnosticar por qué un asset se marca skipped/failed.
+description: Pipeline de ingesta y extracción de MetaTracer (crawler, allowlist por magic bytes, extractores PDF/imagen/HTML/JS/cabeceras HTTP/Office, ingest local TASK-51, sanitización de valores y namespaces). Usar al tocar src/metatracer/extractors/ (ingest.py, local.py, crawler.py, sniff.py, targets.py, pdf.py, image.py, html.py, javascript.py, headers.py, office.py, xmp.py, sanitize.py, fields.py) o al diagnosticar por qué un asset se marca skipped/failed.
 ---
 
 # Ingesta y extracción
 
 De una URL in-scope a `Asset` + `RawMetadataItem`. **Nunca** se persisten bytes.
-Referencia: `.aicontext/tasks/01-metadata-extraction.md`, `09-source-expansion.md`.
+Referencia: `.aicontext/tasks/01-metadata-extraction.md`, `09-source-expansion.md`,
+`51-local-ingest.md`.
+
+## Ingesta local (`local.py`, TASK-51)
+
+- `ScanRequest.local_paths` **o** `targets` HTTP, nunca ambos. Scope confirmado
+  solo etiqueta el engagement; este camino **no** llama a `safe_httpx_request`.
+- Walker: `FILE_EXTENSIONS` + `.html`/`.htm`. No sigue symlinks. No unpack de
+  `.zip`/`.rar`/`.7z`. Magic bytes como ingest remota. HTML local no sigue enlaces.
+- `Asset.url`: `file:` URI. `ingestion_stats.source=local`. Cero bytes persistidos.
 
 ## Resolución del target (`targets.py`)
 

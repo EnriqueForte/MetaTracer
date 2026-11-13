@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 
 function EmptyState({ title, children }: { title: string; children?: ReactNode }) {
   return (
-    <div className="mt-card px-5 py-8">
+    <div className="mt-card mt-empty">
       <p className="mt-section-title">{title}</p>
       {children ? <div className="mt-2 max-w-prose text-sm text-mt-muted">{children}</div> : null}
     </div>
@@ -27,17 +27,30 @@ function ErrorState({ message, onRetry }: { message: string; onRetry?: () => voi
   );
 }
 
-function LoadingState({ label = "Cargando" }: { label?: string }) {
+function LoadingState({
+  label = "Cargando",
+  variant = "list",
+}: {
+  label?: string;
+  variant?: "page" | "list";
+}) {
   return (
     <div role="status" aria-busy="true" className="flex flex-col gap-3">
       <span className="sr-only">{label}</span>
-      <div className="mt-skeleton h-8 w-48" />
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="mt-skeleton h-24" />
-        <div className="mt-skeleton h-24" />
-        <div className="mt-skeleton h-24" />
-        <div className="mt-skeleton h-24" />
-      </div>
+      {variant === "page" ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-skeleton h-24" />
+          <div className="mt-skeleton h-24" />
+          <div className="mt-skeleton h-24" />
+          <div className="mt-skeleton h-24" />
+        </div>
+      ) : (
+        <>
+          <div className="mt-skeleton h-8 w-48" />
+          <div className="mt-skeleton h-10 w-full" />
+          <div className="mt-skeleton h-10 w-5/6" />
+        </>
+      )}
     </div>
   );
 }

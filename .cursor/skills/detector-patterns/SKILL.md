@@ -1,6 +1,6 @@
 ---
 name: detector-patterns
-description: Patrones y trampas de los detectores deterministas de MetaTracer (gps, email, internal_path, software_version, debug_comment, internal_endpoint, cloud_storage), niveles de confidence y consolidación/dedup. Usar al escribir o ajustar cualquier fichero de src/metatracer/detectors/ (gps.py, email.py, paths.py, software.py, debug.py, network.py, patterns.py, consolidator.py, registry.py) o al investigar falsos positivos y negativos de detección.
+description: Patrones y trampas de los detectores deterministas de MetaTracer (gps, email, internal_path, software_version, debug_comment, internal_endpoint, cloud_storage, secret), niveles de confidence y consolidación/dedup. Usar al escribir o ajustar cualquier fichero de src/metatracer/detectors/ (gps.py, email.py, paths.py, software.py, debug.py, network.py, secrets.py, patterns.py, consolidator.py, registry.py) o al investigar falsos positivos y negativos de detección.
 ---
 
 # Detectores deterministas
@@ -80,6 +80,16 @@ Los detectores leen solo `RawMetadataItem` y emiten `FindingDraft` con
   `*.digitaloceanspaces.com`, `*.wasabisys.com`.
 - El query string se descarta (puede llevar una firma). **No se pide la URL.**
   Techo heurístico `high`.
+
+## Secret (`secrets.py` + `patterns.py`)
+
+- Allowlist cerrada en `SECRET_RES`: `AKIA[0-9A-Z]{16}`, `ghp_[A-Za-z0-9]{36}`,
+  cabecera PEM `BEGIN … PRIVATE KEY`, JWT compact `eyJ` + tres segmentos
+  acotados. Cuantificadores acotados. **No** `password=` (eso no es este tipo).
+- Recorre **todos** los `RawMetadataItem` ya extraídos, no solo comentarios.
+  Nunca abre el body, JS ni sourcemaps.
+- Snippet = el match (≤150). Techo heurístico `critical`.
+- Un secreto limpio (sin TODO/FIXME) **no** es `debug_comment`.
 
 ## Debug comment (`debug.py` + `patterns.py`)
 

@@ -101,6 +101,14 @@ describe("Light mode (TASK-35)", () => {
     expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
   });
 
+  it("keeps the three theme choices in one equal row", () => {
+    expect(CSS).toContain("grid-template-columns: repeat(3, minmax(0, 1fr))");
+    expect(CSS).toContain(".mt-theme-option {");
+    const option = block(".mt-theme-option {");
+    expect(option).toContain("white-space: nowrap");
+    expect(option).toContain("min-width: 0");
+  });
+
   it("persists System / Dark / Light from the switcher", () => {
     render(<ThemeSwitcher />);
     fireEvent.click(screen.getByRole("radio", { name: "Sistema" }));

@@ -116,6 +116,18 @@ def test_scan_request_requires_targets_and_scope() -> None:
     """At least one target and one scope domain; scope is never inferred."""
     with pytest.raises(ValidationError):
         ScanRequest(targets=[], scope_domains=["target.com"], scope_confirmed=True)
+    ScanRequest(
+        local_paths=["/tmp/export"],
+        scope_domains=["target.com"],
+        scope_confirmed=True,
+    )
+    with pytest.raises(ValidationError):
+        ScanRequest(
+            targets=["target.com"],
+            local_paths=["/tmp/export"],
+            scope_domains=["target.com"],
+            scope_confirmed=True,
+        )
     with pytest.raises(ValidationError):
         ScanRequest(targets=["target.com"], scope_domains=[], scope_confirmed=True)
     with pytest.raises(ValidationError):

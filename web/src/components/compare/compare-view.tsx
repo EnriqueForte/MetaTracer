@@ -144,18 +144,22 @@ export function CompareView() {
 
   return (
     <div className="flex min-w-0 flex-col gap-5">
-      <div>
-        <h1 className="mt-title">Comparar escaneos</h1>
-        <p className="text-sm text-mt-muted">
-          Los hallazgos se emparejan por URL de activo, tipo y evidencia. La línea base es el
-          escaneo anterior; el otro es el que estás revisando.
-        </p>
+      <div className="mt-page-head">
+        <div>
+          <h1 className="mt-page-title">Comparar escaneos</h1>
+          <p className="mt-meta">
+            Los hallazgos se emparejan por URL de activo, tipo y evidencia. La línea base es el
+            escaneo anterior; el otro es el que estás revisando.
+          </p>
+        </div>
       </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="mt-command grid grid-cols-1 gap-3 sm:grid-cols-2">
         {select("a", "Escaneo de línea base", a)}
         {select("b", "Escaneo a revisar", b)}
       </div>
-      {!a || !b ? <EmptyState title="Elige dos escaneos">Escoge una línea base y un escaneo a revisar.</EmptyState> : null}
+      {!a || !b ? (
+        <p className="mt-meta">Elige una línea base y un escaneo a revisar.</p>
+      ) : null}
       {a && b && a === b ? <EmptyState title="El mismo escaneo dos veces">Elige dos escaneos distintos.</EmptyState> : null}
       {comparison.isPending && comparison.fetchStatus === "fetching" ? <LoadingState label="Comparando escaneos" /> : null}
       {comparison.isError ? (

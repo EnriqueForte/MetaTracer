@@ -45,7 +45,8 @@ El orden es orientativo; cada slice debe poder demostrarse.
 | v3.1 | Multi-usuario & UI | Multi-usuario (first-run setup, panel admin, invitaciones) + rediseño de UI (design system propio, Tailwind compilado, sidebar) | **Cerrada 2026-09-21** — [TASK-25](../tasks/25-user-registration.md) → [TASK-26](../tasks/26-ui-redesign.md) |
 | v3.2 | Hardening post-auditoría | P0 seguridad, recovery/abort de runs, integridad del agente, retención GDPR, authz del API, higiene de core/backend, precisión de detectores | **Cerrada 2026-10-05** — [auditoría](../audit-2026-10-03.md), [TASK-27](../tasks/27-security-hardening-p0.md) → [TASK-34](../tasks/34-detector-precision.md) + [TASK-35](../tasks/35-ui-ux-improvements.md) (UI/UX) |
 | v3.3 | Spec-driven (closed) | Investigations, detectores, conectores, redacción, ONNX, ops, UI operador / investigations, watch cron, UI ES | **Cerrada.** Specs 36–45 closed. |
-| v3.4+ | Spec-driven (reserved) | Búsqueda global, workspace operador, superficie de extracción, `secret`, watch deltas, ingest local | **Reserved.** Specs 46–51 en [`specs/backlog.md`](../../specs/backlog.md). Sin código hasta `active` + TASK-NN. |
+| v3.4 | Spec-driven (closed) | Búsqueda global, workspace operador, superficie de extracción, `secret`, watch deltas, ingest local | **Cerrada 2026-11-13.** Specs 46–51 closed. |
+| v3.4+ | Pulido UI | Jerarquía, cromo, login estático | **Cerrada 2026-11-13.** [spec 52](../../specs/52-ui-polish.md). |
 
 ## Mapeo a características del MVP
 

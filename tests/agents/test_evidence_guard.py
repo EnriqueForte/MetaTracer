@@ -95,6 +95,37 @@ def test_software_version_cannot_exceed_low() -> None:
     assert outcome.severity is Severity.low
 
 
+def test_secret_without_allowlist_pattern_is_rejected() -> None:
+    guard = EvidenceGuard()
+    payload = {
+        **GPS_PAYLOAD,
+        "finding_type": "secret",
+        "field_source": "pdfinfo:Author",
+        "evidence_snippet": "password=hunter2",
+    }
+    outcome = guard.check(
+        severity=Severity.critical,
+        cited_evidence="password=hunter2",
+        reproduction_steps=list(STEPS),
+        payload=payload,
+    )
+    assert outcome.rejected is True
+    assert outcome.severity is Severity.info
+
+    live = {
+        **payload,
+        "evidence_snippet": "AKIAIOSFODNN7EXAMPLE",
+    }
+    outcome = guard.check(
+        severity=Severity.critical,
+        cited_evidence="AKIAIOSFODNN7EXAMPLE",
+        reproduction_steps=list(STEPS),
+        payload=live,
+    )
+    assert outcome.rejected is False
+    assert outcome.severity is Severity.critical
+
+
 def test_debug_comment_critical_requires_a_secret_marker_in_the_snippet() -> None:
     guard = EvidenceGuard()
     payload = {

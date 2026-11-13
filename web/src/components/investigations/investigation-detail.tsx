@@ -44,7 +44,7 @@ export function InvestigationDetail({ investigationId }: { investigationId: stri
     },
   });
 
-  if (query.isPending) return <LoadingState label="Cargando investigación" />;
+  if (query.isPending) return <LoadingState label="Cargando investigación" variant="list" />;
   if (query.isError) {
     return (
       <ErrorState
@@ -60,22 +60,22 @@ export function InvestigationDetail({ investigationId }: { investigationId: stri
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-xs text-mt-muted">
-        <Link href="/investigations" className="underline-offset-2 hover:underline">
-          Investigaciones
-        </Link>
-      </p>
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="mt-page-head">
         <div>
-          <h1 className="mt-title">{row.name}</h1>
-          {row.description ? <p className="mt-2 max-w-2xl text-sm text-mt-muted">{row.description}</p> : null}
-          <p className="mt-2 text-sm text-mt-muted">
+          <p className="mt-meta">
+            <Link href="/investigations" className="underline-offset-2 hover:underline">
+              Investigaciones
+            </Link>
+          </p>
+          <h1 className="mt-page-title">{row.name}</h1>
+          {row.description ? <p className="max-w-2xl text-sm text-mt-muted">{row.description}</p> : null}
+          <p className="text-sm text-mt-muted">
             Los valores compartidos aparecen en cada escaneo. El triaje sugerido nunca se aplica
             solo y no cambia la severidad ni la evidencia.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant={row.status === "open" ? "running" : "aborted"}>
+          <Badge variant={row.status === "open" ? "running" : "completed"}>
             {row.status === "open" ? "Abierta" : "Cerrada"}
           </Badge>
           {canMutate && row.status === "open" ? (
@@ -99,18 +99,18 @@ export function InvestigationDetail({ investigationId }: { investigationId: stri
         <EmptyState title="No hay escaneos en este grupo">Adjunta un escaneo desde un espacio de trabajo.</EmptyState>
       ) : (
         <div className="mt-card overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="mt-table">
             <thead>
-              <tr className="border-b border-mt-border text-xs text-mt-muted">
-                <th className="px-3 py-1 font-semibold">Escaneo</th>
-                <th className="px-3 py-1 font-semibold">Objetivo</th>
-                <th className="px-3 py-1 font-semibold">Estado</th>
-                <th className="px-3 py-1 font-semibold">Inicio</th>
+              <tr>
+                <th>Escaneo</th>
+                <th>Objetivo</th>
+                <th>Estado</th>
+                <th>Inicio</th>
               </tr>
             </thead>
             <tbody>
               {runs.map((run) => (
-                <tr key={run.run_id} className="border-b border-mt-border last:border-0">
+                <tr key={run.run_id} className="mt-row">
                   <td className="px-3 py-2">
                     <Link
                       href={`/runs/${encodeURIComponent(run.run_id)}`}

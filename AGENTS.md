@@ -18,9 +18,8 @@ Dos rules se aplican siempre, sin excepción:
   confirmado y por el wrapper único, cero binarios, redirects in-scope, un asset
   fallido no tumba el run, los agentes no inventan evidencia, loopback bloqueado).
 - `.cursor/rules/data-contracts.mdc` — enums cerrados en minúsculas, `severity`
-  NULL hasta clasificar, `dedup_signature`, idiomas por capa. Specs 36–48 closed.
-  Specs 49–51 reserved. `secret` no es
-  `finding_type` hasta que spec 49 pase a `active`. Findings
+  NULL hasta clasificar, `dedup_signature`, idiomas por capa. Specs 36–51 closed.
+  Overlay v3.4 sin reserved. `secret` es `finding_type` (TASK-49). Findings
   `internal_endpoint`/`cloud_storage` y namespaces `ooxml`/`odf` están en TASK-37.
 
 Si una petición exigiría violarlas, **para** y explica el conflicto.

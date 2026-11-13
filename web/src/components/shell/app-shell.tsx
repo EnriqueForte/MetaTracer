@@ -283,10 +283,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                     ? "API no accesible"
                     : "Comprobando API"}
               </p>
-              <div className="relative" ref={panelRef}>
+              <div className="mt-notify" ref={panelRef}>
                 <Button
                   variant="ghost"
-                  className="py-1"
+                  className="mt-notify-trigger py-1"
                   aria-label="Notificaciones"
                   aria-haspopup="true"
                   aria-expanded={notesOpen}
@@ -301,9 +301,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 >
                   <Bell aria-hidden="true" className="size-5" />
                   {notes.length > 0 ? (
-                    <Badge variant="info" className="absolute -top-1 -right-1">
-                      {notes.length}
-                    </Badge>
+                    <span className="mt-notify-count">{notes.length}</span>
                   ) : null}
                 </Button>
                 {notesOpen ? (
@@ -311,11 +309,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                     id={panelId}
                     role="region"
                     aria-label="Panel de notificaciones"
-                    className="absolute right-0 z-20 mt-2 max-h-96 w-80 overflow-y-auto rounded-md border border-mt-border bg-mt-surface p-3"
+                    className="mt-notify-panel"
                   >
-                    <div className="mb-2 flex items-center justify-between gap-2 border-b border-mt-border pb-2">
+                    <div className="mb-1 flex items-center justify-between gap-2 border-b border-mt-border pb-2">
                       <h2 className="text-sm font-semibold text-mt-fg">Notificaciones</h2>
-                      <Button variant="ghost" onClick={() => void notesQuery.refetch()}>
+                      <Button variant="ghost" className="shrink-0 px-2 py-1 text-xs" onClick={() => void notesQuery.refetch()}>
                         Actualizar
                       </Button>
                     </div>
@@ -329,46 +327,45 @@ export function AppShell({ children }: { children: ReactNode }) {
                     ) : null}
                     {notes.map((entry) => {
                       const when = entry.created_at ? formatRelative(entry.created_at) : "";
-                      const body = (
-                        <>
-                          <Badge variant={entry.kind}>
-                            {kindLabel(entry.kind)} — {entry.target}
-                          </Badge>
-                          <span className="mt-1 block text-xs text-mt-muted">
-                            {entry.total_assets} recurso(s) · {entry.total_findings} hallazgo(s)
-                            {when ? ` · ${when}` : ""}
-                          </span>
-                          {entry.error_message && (entry.kind === "failed" || entry.kind === "aborted") ? (
-                            <span className="mt-1 block text-xs break-words text-mt-muted">
-                              {truncate(entry.error_message, 150)}
-                            </span>
-                          ) : null}
-                        </>
+                      const target = (
+                        <span className="mt-notify-target mt-tech" title={entry.target}>
+                          {entry.target}
+                        </span>
                       );
                       return (
-                        <div
-                          key={entry.id}
-                          className="flex items-start justify-between gap-2 border-b border-mt-border py-3"
-                        >
+                        <div key={entry.id} className="mt-notify-item">
+                          <div className="mt-notify-item-head">
+                            <Badge variant={entry.kind}>{kindLabel(entry.kind)}</Badge>
+                            {actor === "operator" ? (
+                              <Button
+                                variant="ghost"
+                                className="mt-notify-dismiss px-2 py-1 text-xs"
+                                aria-label="Descartar notificación"
+                                onClick={() => void dismiss(entry.id)}
+                              >
+                                Descartar
+                              </Button>
+                            ) : null}
+                          </div>
                           {entry.run_id ? (
                             <Link
                               href={`/runs/${encodeURIComponent(entry.run_id)}`}
                               className="min-w-0 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-mt-focus"
                               onClick={() => setNotesOpen(false)}
                             >
-                              {body}
+                              {target}
                             </Link>
                           ) : (
-                            <div className="min-w-0">{body}</div>
+                            target
                           )}
-                          {actor === "operator" ? (
-                            <Button
-                              variant="ghost"
-                              aria-label="Descartar notificación"
-                              onClick={() => void dismiss(entry.id)}
-                            >
-                              Descartar
-                            </Button>
+                          <span className="text-xs text-mt-muted">
+                            {entry.total_assets} recurso(s) · {entry.total_findings} hallazgo(s)
+                            {when ? ` · ${when}` : ""}
+                          </span>
+                          {entry.error_message && (entry.kind === "failed" || entry.kind === "aborted") ? (
+                            <span className="text-xs break-words text-mt-muted">
+                              {truncate(entry.error_message, 150)}
+                            </span>
                           ) : null}
                         </div>
                       );

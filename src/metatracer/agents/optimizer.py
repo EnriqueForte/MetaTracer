@@ -16,8 +16,9 @@ Hard rules enforced here:
 - ~1.500-token budget per call, estimated as ``len(text) // 4``; an oversized
   snippet is truncated with a marker and the cut is logged.
 - Cost cap (subtask 5.1.4): at most ``max_findings`` per run; the excess is
-  prioritized by type (gps -> internal_path -> debug_comment -> email ->
-  software_version) and the cut is logged. Cut findings keep their TASK-03
+  prioritized by type (secret -> gps -> cloud_storage -> internal_path ->
+  internal_endpoint -> debug_comment -> email -> software_version) and the
+  cut is logged. Cut findings keep their TASK-03
   heuristic baseline untouched.
 """
 
@@ -37,13 +38,14 @@ _SNIPPET_MARK = "..."
 
 # Subtask 5.1.4: priority order when the run has more findings than the cap.
 _TYPE_PRIORITY: dict[FindingType, int] = {
-    FindingType.gps: 0,
-    FindingType.cloud_storage: 1,
-    FindingType.internal_path: 2,
-    FindingType.internal_endpoint: 3,
-    FindingType.debug_comment: 4,
-    FindingType.email: 5,
-    FindingType.software_version: 6,
+    FindingType.secret: 0,
+    FindingType.gps: 1,
+    FindingType.cloud_storage: 2,
+    FindingType.internal_path: 3,
+    FindingType.internal_endpoint: 4,
+    FindingType.debug_comment: 5,
+    FindingType.email: 6,
+    FindingType.software_version: 7,
 }
 
 # The closed set of payload keys (subtask 5.1.1). Anything else — finding ids,

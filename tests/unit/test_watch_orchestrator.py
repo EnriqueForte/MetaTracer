@@ -121,6 +121,8 @@ async def test_watch_terminal_event_carries_delta_count(session_factory) -> None
     call = capture.calls[0]
     assert call["run_id"] == watch_run.id
     assert call["new_findings"] == 1
+    assert call["resolved_findings"] == 0
+    assert call["severity_up_count"] == 0
 
 
 async def test_non_watch_terminal_event_reports_zero_delta(session_factory) -> None:

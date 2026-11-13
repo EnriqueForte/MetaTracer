@@ -32,6 +32,7 @@ _TYPE_LABELS: dict[FindingType, str] = {
     FindingType.debug_comment: "Debug Comment",
     FindingType.internal_endpoint: "Internal Endpoint",
     FindingType.cloud_storage: "Cloud Storage",
+    FindingType.secret: "Secret",
 }
 
 SearchKind = Literal["findings", "metadata", "all"]

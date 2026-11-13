@@ -3,7 +3,8 @@
 A shared value is not a shared identity. This module only decides which
 already-stored fields are worth grouping. It does not create findings and
 does not assign severity. ``internal_endpoint`` findings are grouped under
-that correlation kind. ``cloud_storage`` stays a finding, not a correlation kind.
+that correlation kind. ``cloud_storage`` and ``secret`` stay findings, not
+correlation kinds.
 """
 
 from __future__ import annotations

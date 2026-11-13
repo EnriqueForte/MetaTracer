@@ -90,7 +90,7 @@ export function LoginForm() {
   return (
     <AuthPanel
       title="Iniciar sesión"
-      lede="Panel de control para el descubrimiento autorizado de metadatos. Un escaneo sigue exigiendo un alcance confirmado."
+      lede="Descubrimiento autorizado de metadatos. Cada escaneo sigue pidiendo alcance confirmado."
       note={
         <p>La autenticación protege la interfaz web y la API. La CLI en localhost no requiere inicio de sesión.</p>
       }

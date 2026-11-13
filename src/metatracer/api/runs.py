@@ -161,8 +161,14 @@ async def get_run(run_id: str, request: Request) -> RunStatusResponse:
             raise HTTPException(status_code=404, detail="run not found")
         assets = await AssetRepository(session).list_by_run(run_id)
         investigation_name = await _investigation_name(session, run.investigation_id)
+        previous_run_id = await RunRepository(session).latest_completed_id_with_scope(
+            run.allowed_scope, exclude_id=run.id
+        )
     return RunStatusResponse.from_models(
-        run, assets, investigation_name=investigation_name
+        run,
+        assets,
+        investigation_name=investigation_name,
+        previous_run_id=previous_run_id,
     )
 
 
@@ -208,8 +214,14 @@ async def abort_run(run_id: str, request: Request) -> RunStatusResponse:
             raise HTTPException(status_code=404, detail="run not found")
         assets = await AssetRepository(session).list_by_run(run_id)
         investigation_name = await _investigation_name(session, run.investigation_id)
+        previous_run_id = await RunRepository(session).latest_completed_id_with_scope(
+            run.allowed_scope, exclude_id=run.id
+        )
     return RunStatusResponse.from_models(
-        run, assets, investigation_name=investigation_name
+        run,
+        assets,
+        investigation_name=investigation_name,
+        previous_run_id=previous_run_id,
     )
 
 

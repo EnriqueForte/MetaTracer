@@ -147,16 +147,16 @@ export function SearchView() {
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-6">
-      <div>
-        <h1 className="mt-title">Buscar</h1>
-        <p className="text-sm text-mt-fg">
-          Hallazgos y metadatos ya guardados. No inicia un escaneo ni descarga archivos.
-        </p>
+    <div className="flex min-w-0 flex-col gap-4">
+      <div className="mt-page-head">
+        <div>
+          <h1 className="mt-page-title">Buscar</h1>
+          <p className="mt-meta">Hallazgos y metadatos ya guardados. No inicia un escaneo.</p>
+        </div>
       </div>
       <form className="flex flex-col gap-3" onSubmit={onSubmit}>
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="flex min-w-60 flex-1 flex-col gap-1 text-sm text-mt-muted">
+        <div className="mt-command">
+          <label className="mt-command-field text-sm text-mt-muted">
             Consulta
             <Input
               value={draft}
@@ -166,7 +166,9 @@ export function SearchView() {
               placeholder="Email, GPS, clave EXIF…"
             />
           </label>
-          <Button type="submit">Buscar</Button>
+          <Button type="submit" className="mt-command-start">
+            Buscar
+          </Button>
         </div>
         <div className="flex flex-wrap gap-3 text-sm">
           <FilterSelect
@@ -229,11 +231,9 @@ export function SearchView() {
         </div>
       </form>
       {filters.q.trim().length === 0 ? (
-        <EmptyState title="Escribe una consulta">
-          Busca un correo, unas coordenadas o una clave de metadatos en todos los escaneos locales.
-        </EmptyState>
+        <EmptyState title="Escribe una consulta">No inicia un escaneo.</EmptyState>
       ) : search.isLoading ? (
-        <LoadingState label="Buscando" />
+        <LoadingState label="Buscando" variant="list" />
       ) : search.isError ? (
         <ErrorState message={errorMessage(search.error, "No se pudo completar la búsqueda")} onRetry={() => void search.refetch()} />
       ) : search.data && search.data.findings.total === 0 && search.data.metadata.total === 0 ? (
@@ -260,7 +260,7 @@ function FilterSelect({
     <label className="flex flex-col gap-1 text-mt-muted">
       {label}
       <select
-        className="rounded-sm border border-mt-border bg-mt-surface px-2 py-1 text-mt-fg"
+        className="rounded-sm border border-mt-border-strong bg-mt-bg px-2 py-1 text-mt-fg"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       >
@@ -282,8 +282,8 @@ function Results({ data }: { data: GlobalSearchResponse }) {
           <h2 className="mt-section-title mb-3">Hallazgos ({data.findings.total})</h2>
           <ul className="flex flex-col gap-2">
             {data.findings.items.map((hit) => (
-              <li key={hit.id} className="rounded-md border border-mt-border bg-mt-surface px-3 py-2">
-                <Link className="text-sm text-mt-accent" href={`/runs/${encodeURIComponent(hit.run_id)}/findings`}>
+              <li key={hit.id} className="mt-card px-3 py-2">
+                <Link className="text-sm text-mt-fg underline" href={`/runs/${encodeURIComponent(hit.run_id)}/findings`}>
                   {hit.title || hit.type_label}
                 </Link>
                 <p className="mt-tech mt-1 text-xs text-mt-muted">
@@ -291,7 +291,7 @@ function Results({ data }: { data: GlobalSearchResponse }) {
                   {hit.severity ? ` · ${SEVERITY_LABEL[hit.severity as keyof typeof SEVERITY_LABEL] ?? hit.severity}` : ""}
                   {` · ${TRIAGE_LABEL[hit.triage_status as keyof typeof TRIAGE_LABEL] ?? hit.triage_status}`}
                 </p>
-                <p className="mt-tech mt-1 break-all text-sm text-mt-fg">{hit.evidence_snippet}</p>
+                <p className="mt-evidence mt-1 break-all text-sm">{hit.evidence_snippet}</p>
                 <p className="mt-tech mt-1 break-all text-xs text-mt-faint">{hit.asset_url}</p>
               </li>
             ))}
@@ -303,8 +303,8 @@ function Results({ data }: { data: GlobalSearchResponse }) {
           <h2 className="mt-section-title mb-3">Metadatos ({data.metadata.total})</h2>
           <ul className="flex flex-col gap-2">
             {data.metadata.items.map((hit) => (
-              <li key={`${hit.run_id}-${hit.id}`} className="rounded-md border border-mt-border bg-mt-surface px-3 py-2">
-                <Link className="text-sm text-mt-accent" href={`/runs/${encodeURIComponent(hit.run_id)}/metadata`}>
+              <li key={`${hit.run_id}-${hit.id}`} className="mt-card px-3 py-2">
+                <Link className="text-sm text-mt-fg underline" href={`/runs/${encodeURIComponent(hit.run_id)}/metadata`}>
                   {hit.namespace}:{hit.key}
                 </Link>
                 <p className="mt-tech mt-1 break-all text-sm text-mt-fg">{hit.value}</p>

@@ -98,6 +98,7 @@ _TYPE_LABELS: dict[FindingType, str] = {
     FindingType.debug_comment: "Debug Comment",
     FindingType.internal_endpoint: "Internal Endpoint",
     FindingType.cloud_storage: "Cloud Storage",
+    FindingType.secret: "Secret",
 }
 
 # One-line card titles (4.2, item 1), suffixed with the asset context.
@@ -109,6 +110,7 @@ _TYPE_TITLES: dict[FindingType, str] = {
     FindingType.debug_comment: "Debug Comment Disclosure",
     FindingType.internal_endpoint: "Internal Endpoint Disclosure",
     FindingType.cloud_storage: "Cloud Storage Reference",
+    FindingType.secret: "Credential Disclosure",
 }
 
 _SLUG_INVALID_RE = re.compile(r"[^a-z0-9.-]+")

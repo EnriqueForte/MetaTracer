@@ -49,6 +49,7 @@ from metatracer.db.models import (
     Severity,
 )
 from metatracer.detectors.base import collapse_whitespace
+from metatracer.detectors.patterns import snippet_has_closed_secret
 
 logger = logging.getLogger("metatracer.agents.guard")
 
@@ -164,6 +165,18 @@ class EvidenceGuard:
             )
             severity = heuristic
 
+        rejected = False
+        if finding_type is FindingType.secret and not snippet_has_closed_secret(snippet):
+            notes.append(
+                "secret finding has no closed-allowlist pattern in the snippet; "
+                "proposal rejected"
+            )
+            logger.warning(
+                "evidence guard: rejected secret finding without an allowlist pattern"
+            )
+            severity = heuristic
+            rejected = True
+
         # Operator feedback is applied when the finding was classified, so the
         # persisted baseline can be stricter than a fresh heuristic. The model
         # must not undo that correction (TASK-29).
@@ -240,6 +253,7 @@ class EvidenceGuard:
             impact_analysis=impact_analysis,
             remediation=remediation,
             notes=notes,
+            rejected=rejected,
         )
 
     def sanitize_title(self, title: str, payload: dict[str, str]) -> tuple[str, list[str]]:
@@ -302,6 +316,9 @@ _FALLBACK_TITLES: dict[FindingType, str] = {
     FindingType.internal_path: "Internal filesystem path",
     FindingType.software_version: "Software version disclosure",
     FindingType.debug_comment: "Debug or comment leftover",
+    FindingType.internal_endpoint: "Internal endpoint",
+    FindingType.cloud_storage: "Cloud storage reference",
+    FindingType.secret: "Embedded credential",
 }
 
 

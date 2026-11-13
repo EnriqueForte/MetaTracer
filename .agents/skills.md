@@ -263,7 +263,7 @@ impacto/remediación, o los prompts y validadores del agente.
   que no basta" para cada nivel.
 - Techos heurísticos obligatorios: GPS máx. `high`; `software_version` máx. `low`; email máx.
   `medium`; `internal_path` con username/UNC → `high`, `/var/www` sin usuario → `medium`;
-  `debug_comment` con `password|secret|api[_-]?key|token|credential` → `critical`.
+  `debug_comment` con valor de secreto en el snippet → `critical`; `secret` (AKIA / `ghp_` / PEM / JWT) → `critical`.
 - Anclaje anti-alucinación: snippet vacío o no substring de la metadata → `info`; ante
   ambigüedad, un nivel menos; prohibido subir sin texto que lo justifique.
 - `HeuristicRiskClassifier`: sin I/O, determinista (mismos inputs → misma salida), plantillas

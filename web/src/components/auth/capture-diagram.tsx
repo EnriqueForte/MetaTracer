@@ -6,14 +6,14 @@ const POINT_Y = CY - 16;
 const POINT_R = 6;
 
 const NODES = [
-  { kicker: "Puerta", label: "Alcance confirmado", x: 340, y: 78, delay: "0.05s" },
-  { kicker: "Captura", label: "GET in-scope", x: 92, y: 175, delay: "0.12s" },
-  { kicker: "Extrae", label: "EXIF · PDF · JS", x: 92, y: 350, delay: "0.18s" },
-  { kicker: "Detecta", label: "GPS", x: 92, y: 525, delay: "0.24s" },
-  { kicker: "Detecta", label: "Correo", x: 230, y: 640, delay: "0.3s" },
-  { kicker: "Detecta", label: "Ruta interna", x: 430, y: 640, delay: "0.36s" },
-  { kicker: "Detecta", label: "Versión · debug", x: 575, y: 175, delay: "0.42s" },
-  { kicker: "Exporta", label: "Informe bounty", x: 575, y: 525, delay: "0.48s" },
+  { kicker: "Puerta", label: "Alcance confirmado", x: 340, y: 78 },
+  { kicker: "Captura", label: "GET in-scope", x: 92, y: 175 },
+  { kicker: "Extrae", label: "EXIF · PDF · JS", x: 92, y: 350 },
+  { kicker: "Detecta", label: "GPS", x: 92, y: 525 },
+  { kicker: "Detecta", label: "Correo", x: 230, y: 640 },
+  { kicker: "Detecta", label: "Ruta interna", x: 430, y: 640 },
+  { kicker: "Detecta", label: "Versión · debug", x: 575, y: 175 },
+  { kicker: "Exporta", label: "Informe bounty", x: 575, y: 525 },
 ] as const;
 
 const FIELDS = [
@@ -80,7 +80,6 @@ export function CaptureDiagram({
           pathLength={1}
           className="mt-auth-spoke stroke-mt-border-strong"
           strokeWidth={1.25}
-          style={{ animationDelay: node.delay }}
         />
       ))}
       <circle cx={CX} cy={CY} r={86} className="fill-mt-elevated stroke-mt-accent" strokeWidth={1.75} />
@@ -100,11 +99,6 @@ export function CaptureDiagram({
         <circle r={POINT_R} className="fill-mt-accent stroke-none" />
         <path d="M0 -34 V-24 M0 24 V34 M-34 0 H-24 M24 0 H34" />
       </g>
-      {path ? (
-        <circle key={path} r={5} className="mt-auth-signal fill-mt-accent stroke-none">
-          <animateMotion dur="1.1s" begin="0.55s" fill="freeze" path={path} />
-        </circle>
-      ) : null}
       <text x={CX} y={CY + 30} textAnchor="middle" className="fill-mt-fg" fontSize={15} fontWeight={600}>
         MetaTracer
       </text>
@@ -116,7 +110,6 @@ export function CaptureDiagram({
           key={node.label}
           className="mt-auth-node"
           transform={`translate(${node.x} ${node.y})`}
-          style={{ animationDelay: node.delay }}
         >
           <rect
             x={-88}

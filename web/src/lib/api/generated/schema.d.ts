@@ -1700,7 +1700,7 @@ export interface components {
          * FindingType
          * @enum {string}
          */
-        FindingType: "gps" | "email" | "internal_path" | "software_version" | "debug_comment" | "internal_endpoint" | "cloud_storage";
+        FindingType: "gps" | "email" | "internal_path" | "software_version" | "debug_comment" | "internal_endpoint" | "cloud_storage" | "secret";
         /**
          * FindingsResponse
          * @description GET /api/runs/{run_id}/findings: the report-ordered list.
@@ -2188,14 +2188,18 @@ export interface components {
             investigation_id?: string | null;
             /** Investigation Name */
             investigation_name?: string | null;
+            /** Previous Run Id */
+            previous_run_id?: string | null;
         };
         /**
          * ScanRequest
          * @description Validated scan parameters; also the exact POST /api/runs body (6.3).
          *
-         *     At least one target and one confirmed scope source are required, and the
-         *     scope is a deliberate operator input — it is never derived from the
-         *     targets. The scope source is exactly one of: manual `scope_domains`
+         *     At least one HTTP target **or** one local path, and one confirmed scope
+         *     source, are required. The scope is a deliberate operator input — it is
+         *     never derived from the targets or from disk paths. ``local_paths`` and
+         *     ``targets`` are mutually exclusive (TASK-51): local ingest never opens
+         *     HTTP. The scope source is exactly one of: manual `scope_domains`
          *     (v1.x), a single saved `scope_id` (TASK-10, v2.0) or the union of many
          *     saved scopes `scope_ids` (TASK-21, v2.4); never a mix. `scope_id` is
          *     kept as an alias of ``scope_ids=[scope_id]`` at the boundary, so none of
@@ -2206,7 +2210,7 @@ export interface components {
          */
         ScanRequest: {
             /** Targets */
-            targets: string[];
+            targets?: string[];
             /** Scope Domains */
             scope_domains?: string[] | null;
             /** Scope Confirmed */
@@ -2223,6 +2227,8 @@ export interface components {
              */
             watch: boolean;
             budget?: components["schemas"]["CrawlBudget"] | null;
+            /** Local Paths */
+            local_paths?: string[] | null;
         };
         /**
          * ScopeCreate
