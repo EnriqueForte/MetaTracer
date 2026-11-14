@@ -1,4 +1,4 @@
-# Producto ahora — MetaTracer v3.2 (overlay v3.4; spec 53 lab closed)
+# Producto ahora — MetaTracer v3.2 (overlay v3.4; spec 54 lab host active)
 
 Herramienta de descubrimiento de metadata sensible para bug bounty y red team **autorizados**.
 Pipeline: ingest → detectores deterministas → clasificador heurístico → agente LangGraph
@@ -15,4 +15,5 @@ opcional (guard post-LLM) → reportes. Un solo orquestador; CLI y API/UI muestr
 ## Lo que el overlay no pide ahora (código)
 
 Producto nuevo (ZIP, Wayback seed, HEIC, grafo) sigue fuera de alcance. El lab
-`lab/puertomontevideo` (spec 53 closed) no toca `src/` ni `web/`.
+`lab/puertomontevideo` (spec 53 closed; spec 54 host público) no toca `src/` ni
+`web/`.

@@ -10,7 +10,7 @@ Este directorio descompone el MVP en tareas implementables. Cada archivo es un c
 Las features del PRD definen *qué* debe existir. Estas tasks definen *cómo* construirlo sin contradecir el PRD.
 
 > **Gobernanza (2026-11-14):** TASK-00–35 y specs 36–53 están **closed**.
-> Lab `puertomontevideo` (no producto). No mover TASK-00–53 a `archive/`.
+> Spec 54 **active**: host público del lab (no producto). No mover TASK-00–53 a `archive/`.
 
 ---
 

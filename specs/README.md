@@ -42,6 +42,7 @@ Estados: `reserved` \| `active` \| `closed`.
 | [51-local-ingest](51-local-ingest.md) | closed | carpeta local, cero red, mismos extractores | [TASK-51](../.aicontext/tasks/51-local-ingest.md) | `metadata-extraction` | `pipeline-engineer` |
 | [52-ui-polish](52-ui-polish.md) | closed | pulido visual (jerarquía, cromo, login) | [TASK-52](../.aicontext/tasks/52-ui-polish.md) | `metatracer-ui` | `v2-ui-engineer` |
 | [53-lab-target](53-lab-target.md) | closed | semanario lab Puertomontevideo | [TASK-53](../.aicontext/tasks/53-lab-target.md) | `metadata-extraction` + `detector-patterns` | lab (no `v2-ui-engineer`) |
+| [54-lab-host](54-lab-host.md) | active | host HTTPS gratuito del lab | [TASK-54](../.aicontext/tasks/54-lab-host.md) | — | lab |
 
 ## Qué es histórico (no contrato)
 

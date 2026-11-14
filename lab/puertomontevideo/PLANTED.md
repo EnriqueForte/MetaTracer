@@ -3,6 +3,10 @@
 Laboratorio sintético. Nada de esto es una credencial real ni PII de una
 persona viva. GPS: **Puerto de Montevideo**, lat `-34.9014`, lon `-56.2117`.
 
+Host público (spec 54): `https://puertomontevideo-lab.serious-radius.workers.dev`
+(reclamar la cuenta Cloudflare en 60 min o caduca). Alcance:
+`puertomontevideo-lab.serious-radius.workers.dev`.
+
 Defaults de MetaTracer (`depth=1`, `max_pages=1`): todo lo de la tabla está
 enlazado desde la portada (`/`).
 

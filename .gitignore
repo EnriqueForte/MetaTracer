@@ -37,6 +37,7 @@ lab/puertomontevideo/dist/
 lab/puertomontevideo/public/media/*
 !lab/puertomontevideo/public/media/.gitkeep
 lab/puertomontevideo/.cache/
+lab/puertomontevideo/.wrangler/
 web/test-results/
 web/playwright-report/
 web/tsconfig.tsbuildinfo
