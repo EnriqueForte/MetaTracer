@@ -31,7 +31,7 @@ Fuente de verdad: `.aicontext/tasks/README.md`. Valores **en minúsculas** en ba
 
 No añadir valores sin actualizar antes `.aicontext/tasks/README.md`.
 
-**Reserved:** no hay specs reserved en el overlay v3.4. Specs 36–52 closed.
+**Reserved:** no hay specs reserved en el overlay v3.4. Specs 36–53 closed.
 Ver `MEMORY.md` y `specs/`.
 
 ## Ciclo de vida de severity

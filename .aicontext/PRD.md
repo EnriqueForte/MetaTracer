@@ -9,7 +9,7 @@
 Índice del PRD. Cada archivo es una especificación: alcance, requisitos y criterios de aceptación donde aplica.
 
 > **v3.2 cerrado** (2026-10-05). Dashboard, Web V2 en origen, auth y watch `--interval` ya existen.
-> Specs 36–52 closed. Overlay v3.4 sin reserved. Código de producto exige spec
+> Specs 36–53 closed. Overlay v3.4 sin reserved. Código de producto exige spec
 > `active` + TASK-NN. `secret` es `finding_type` (TASK-49).
 
 **Nota de convención:** los nombres de archivo y la carpeta `features/` se mantienen en **inglés**; el contenido de la documentación está en **español**. Los enlaces apuntan a las mismas rutas, así que no hay descuadre entre el índice y los specs.

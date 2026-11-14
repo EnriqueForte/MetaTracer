@@ -1,0 +1,489 @@
+:root {
+  --water: #0f4c5c;
+  --hull: #d23a2e;
+  --crane: #f0b429;
+  --tile: #1f7a62;
+  --paper: #dce6ea;
+  --ink: #142328;
+  --foam: #f4efe4;
+  --sand: #e4c99a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: Asap, "Segoe UI", sans-serif;
+  line-height: 1.55;
+}
+
+a {
+  color: var(--water);
+}
+
+a:hover {
+  color: var(--hull);
+}
+
+a:focus-visible {
+  outline: 3px solid var(--crane);
+  outline-offset: 3px;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+.lab-banner {
+  background: var(--hull);
+  color: var(--foam);
+  font-size: 0.88rem;
+  padding: 0.55rem 1.25rem;
+  text-align: left;
+}
+
+.harbor-stripe {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1.1fr 1fr;
+  height: 14px;
+}
+
+.harbor-stripe span:nth-child(1) {
+  background: var(--water);
+}
+
+.harbor-stripe span:nth-child(2) {
+  background: var(--hull);
+}
+
+.harbor-stripe span:nth-child(3) {
+  background: var(--crane);
+}
+
+.harbor-stripe span:nth-child(4) {
+  background: var(--tile);
+}
+
+.masthead {
+  background-color: var(--water);
+  background-image: url("/media/grua4.jpg");
+  background-size: cover;
+  background-position: 48% 18%;
+  background-blend-mode: multiply;
+  color: var(--foam);
+  padding: 1.15rem clamp(1rem, 4vw, 2.4rem) 0.35rem;
+}
+
+.masthead-kicker {
+  font-size: 0.92rem;
+  color: var(--sand);
+  margin: 0;
+}
+
+.masthead h1 {
+  font-family: "Andada Pro", Georgia, serif;
+  font-weight: 800;
+  font-size: clamp(2.5rem, 8vw, 4.8rem);
+  line-height: 0.88;
+  letter-spacing: -0.03em;
+  margin: 0.25rem 0 0.55rem;
+}
+
+.masthead h1 a {
+  color: var(--foam);
+  text-decoration: none;
+}
+
+.masthead h1 a:hover {
+  color: var(--crane);
+}
+
+.masthead-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.92rem;
+  padding: 0.55rem 0 0.85rem;
+  border-top: 4px solid var(--crane);
+}
+
+nav.sections {
+  display: flex;
+  gap: 0.35rem 1.15rem;
+  flex-wrap: wrap;
+  padding: 0.65rem clamp(1rem, 4vw, 2.4rem) 0.85rem;
+  background: #0b3a47;
+}
+
+nav.sections a {
+  color: var(--foam);
+  text-decoration: none;
+  padding: 0.15rem 0;
+  border-bottom: 3px solid transparent;
+}
+
+nav.sections a:hover,
+nav.sections a[aria-current="page"],
+nav.sections a.is-current {
+  color: var(--crane);
+  border-bottom-color: var(--crane);
+}
+
+.wrap {
+  padding: 0 0 3.2rem;
+}
+
+.page {
+  width: min(1120px, calc(100% - 2rem));
+  margin-inline: auto;
+}
+
+.hero {
+  position: relative;
+  color: var(--foam);
+}
+
+.hero figure {
+  margin: 0;
+}
+
+.frame {
+  display: block;
+  overflow: hidden;
+  background: var(--water);
+}
+
+.frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.frame--hero {
+  width: 100%;
+  height: min(78vh, 42rem);
+}
+
+.frame--hero img {
+  object-position: 48% 30%;
+}
+
+.hero-copy {
+  position: absolute;
+  inset: auto 0 0;
+  padding: 5.5rem clamp(1rem, 4vw, 2.4rem) 1.35rem;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(20, 35, 40, 0.45) 38%,
+    rgba(20, 35, 40, 0.94) 100%
+  );
+}
+
+.hero-copy h2,
+.lede {
+  text-shadow: 0 1px 18px rgba(0, 0, 0, 0.35);
+}
+
+.hero-copy h2 {
+  font-family: "Andada Pro", Georgia, serif;
+  font-weight: 800;
+  font-size: clamp(1.7rem, 4.2vw, 3.1rem);
+  line-height: 1.05;
+  margin: 0 0 0.45rem;
+  max-width: 18ch;
+}
+
+.lede {
+  font-size: 1.08rem;
+  max-width: 42rem;
+  margin: 0 0 0.55rem;
+}
+
+.hero figcaption,
+.story figcaption,
+.gallery figcaption {
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #3a4f55;
+}
+
+.hero figcaption {
+  color: var(--sand);
+  margin: 0;
+}
+
+.ledger {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 1.4rem 1.6rem;
+  width: min(1120px, calc(100% - 2rem));
+  margin: 1.75rem auto 0;
+}
+
+.story h3 {
+  font-family: "Andada Pro", Georgia, serif;
+  font-weight: 700;
+  font-size: 1.55rem;
+  line-height: 1.15;
+  margin: 0.7rem 0 0.35rem;
+}
+
+.story h3 a {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.story h3 a:hover {
+  color: var(--hull);
+}
+
+.story p {
+  margin: 0 0 0.75rem;
+  max-width: 38rem;
+}
+
+.story h2 {
+  font-family: "Andada Pro", Georgia, serif;
+  font-weight: 800;
+  font-size: clamp(1.7rem, 3.4vw, 2.35rem);
+  line-height: 1.1;
+  margin: 0 0 0.7rem;
+}
+
+.story--wide {
+  grid-column: 1 / -1;
+}
+
+.story--wide .frame--mercado {
+  max-height: 22rem;
+}
+
+.lugares {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  list-style: none;
+  margin: 0 0 1.2rem;
+  padding: 0;
+}
+
+.lugares li {
+  background: var(--water);
+  color: var(--foam);
+  padding: 0.35rem 0.65rem;
+  font-size: 0.92rem;
+}
+
+.frame--rambla {
+  aspect-ratio: 4 / 3;
+}
+
+.frame--rambla img {
+  object-position: 38% 78%;
+}
+
+.frame--bahia {
+  aspect-ratio: 3 / 4;
+}
+
+.frame--bahia img {
+  object-position: 82% 42%;
+}
+
+.frame--mercado {
+  aspect-ratio: 16 / 10;
+}
+
+.frame--mercado img {
+  object-position: 50% 68%;
+}
+
+.frame--wide {
+  aspect-ratio: 21 / 9;
+}
+
+.frame--wide img {
+  object-position: 40% 72%;
+}
+
+.frame--gif {
+  aspect-ratio: 16 / 9;
+}
+
+.frame--gif img {
+  object-position: 50% 28%;
+}
+
+.gallery {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 1.15rem 1.25rem;
+  width: min(1120px, calc(100% - 2rem));
+  margin: 1.4rem auto 0;
+}
+
+.gallery figure {
+  margin: 0;
+}
+
+.gallery .span-2 {
+  grid-column: 1 / -1;
+}
+
+.gallery figcaption {
+  color: #3a4f55;
+  margin-top: 0.45rem;
+}
+
+.manifiesto {
+  width: min(1120px, calc(100% - 2rem));
+  margin: 2.2rem auto 0;
+  background: var(--water);
+  color: var(--foam);
+  padding: 1.35rem 1.4rem 1.5rem;
+}
+
+.manifiesto h3,
+.manifiesto h2 {
+  font-family: "Andada Pro", Georgia, serif;
+  font-weight: 700;
+  margin: 0 0 0.45rem;
+}
+
+.manifiesto p {
+  margin: 0 0 0.85rem;
+  color: var(--sand);
+}
+
+.manifiesto ol,
+.manifiesto ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.manifiesto li {
+  display: grid;
+  grid-template-columns: 4.2rem minmax(0, 1fr);
+  gap: 0.85rem;
+  padding: 0.62rem 0;
+  border-top: 1px solid rgba(244, 239, 228, 0.18);
+}
+
+.manifiesto li:first-of-type {
+  border-top: 0;
+}
+
+.manifiesto .kind {
+  color: var(--crane);
+  font-weight: 600;
+}
+
+.manifiesto a {
+  color: var(--foam);
+}
+
+.manifiesto a:hover {
+  color: var(--sand);
+}
+
+.prose {
+  width: min(40rem, calc(100% - 2rem));
+  margin: 1.5rem auto 0;
+}
+
+.prose h2 {
+  font-family: "Andada Pro", Georgia, serif;
+  font-weight: 800;
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+  line-height: 1.1;
+  margin: 0 0 0.85rem;
+}
+
+.prose p {
+  margin: 0 0 1rem;
+}
+
+.prose a {
+  font-weight: 600;
+}
+
+.staff {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0 0 1.2rem;
+}
+
+.staff span,
+.staff a {
+  background: var(--tile);
+  color: var(--foam);
+  padding: 0.55rem 0.75rem;
+  text-decoration: none;
+}
+
+.staff a:hover {
+  background: var(--water);
+  color: var(--crane);
+}
+
+.mark {
+  margin: 1.2rem 0 0;
+  background: var(--water);
+  display: inline-block;
+  padding: 0.4rem;
+}
+
+footer.site {
+  background: #0b3a47;
+  color: var(--sand);
+  padding: 1.1rem clamp(1rem, 4vw, 2.4rem) 1.8rem;
+  font-size: 0.88rem;
+}
+
+#js-stamp[data-ready="1"]::after {
+  content: " / mesa en línea";
+}
+
+@media (max-width: 800px) {
+  .masthead-meta {
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .ledger,
+  .gallery {
+    grid-template-columns: 1fr;
+  }
+
+  .frame--bahia {
+    aspect-ratio: 16 / 10;
+  }
+
+  .frame--hero {
+    height: 70vw;
+    min-height: 16rem;
+    max-height: 26rem;
+  }
+
+  .hero-copy h2 {
+    max-width: none;
+  }
+
+  .gallery .span-2 .frame--wide {
+    aspect-ratio: 16 / 9;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto;
+  }
+}

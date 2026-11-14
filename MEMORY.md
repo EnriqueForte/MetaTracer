@@ -3,14 +3,14 @@
 Memoria de trabajo para agentes. No es un PRD. Si un hecho no cabe aquí, vive en
 `specs/`, `.aicontext/` o el código.
 
-**Última actualización:** 2026-11-13 (spec 52 closed: pulido visual UI)
+**Última actualización:** 2026-11-14 (spec 53 closed: lab Puertomontevideo)
 
 ## Estado del producto
 
 - Versión: **v3.2 cerrada** (2026-10-05). Suite rechecked 2026-10-23: 787 passed, 6 skipped, cobertura 91.30%.
 - UI: **Web V2** (Next.js 16 + React 19 + Tailwind 4) en `web/`, servida desde la **raíz del origen**. FastAPI es solo-API. Web V1 (Jinja + Alpine) retirada (ADR-0016).
 - Trabajo **activo** (gobernanza): [`specs/`](specs/README.md). Backlog de producto: [`specs/backlog.md`](specs/backlog.md). One-pager: [`specs/current.md`](specs/current.md).
-- TASK-00 → TASK-35 y TASK-36–52 están **cerradas**. Overlay v3.4 sin reserved.
+- TASK-00 → TASK-35 y TASK-36–53 están **cerradas**. Lab: `lab/puertomontevideo` (no es producto).
 
 ## Dónde está la verdad
 
@@ -28,7 +28,7 @@ Las specs **no duplican** enums: enlazan.
 
 ## Prohibición (specs reserved)
 
-Specs 46–52 están **closed**. No hay specs reserved en el overlay v3.4.
+No hay specs reserved ni active. Specs 36–53 **closed**.
 
 ## Specs
 
@@ -52,6 +52,7 @@ Specs 46–52 están **closed**. No hay specs reserved en el overlay v3.4.
 | [50-watch-deltas](specs/50-watch-deltas.md) | closed |
 | [51-local-ingest](specs/51-local-ingest.md) | closed |
 | [52-ui-polish](specs/52-ui-polish.md) | closed |
+| [53-lab-target](specs/53-lab-target.md) | closed |
 
 ## Docs stale (no reintroducir como contrato)
 
@@ -92,3 +93,4 @@ Las 7 reglas de `safety-invariants.mdc`. Loopback bloqueado salvo `METATRACER_AL
 - 2026-11-13 — TASK-51: ingesta local (`--local` / `local_paths`), cero red, mismos sniff/extractores. Spec 51 closed. Unpack ZIP OOS.
 - 2026-11-13 — spec 52 reserved: contrato de pulido UI (`.aicontext/ui/polish-contract.md`). Sin código.
 - 2026-11-13 — TASK-52: pulido Web V2 (jerarquía, cromo de run, wizard sin Recorrido, login estático). Spec 52 closed.
+- 2026-11-14 — TASK-53: lab `puertomontevideo` (fotos Commons, actas inventadas, toponimia de Montevideo, preview local). Spec 53 closed. Deploy público y scan loopback OOS.

@@ -8,7 +8,7 @@
 Si este contrato y el CSS discrepan en **color**, manda `web/src/app/globals.css`.  
 Si discrepan en **jerarquía o cromo de estas superficies**, manda este documento.
 
-Specs 36–52 closed. Overlay v3.4 sin reserved. No inventa producto.
+Specs 36–53 closed. Overlay v3.4 sin reserved. No inventa producto.
 
 ---
 

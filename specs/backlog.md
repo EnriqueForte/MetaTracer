@@ -1,7 +1,7 @@
 # Backlog abierto (v3.4+)
 
 Solo ítems con spec. Prioridad de producto 2026-11-12 (búsqueda y operador primero).
-TASK-00–35 y specs 36–52 están **closed**. Overlay v3.4 sin reserved.
+TASK-00–35 y specs 36–53 están **closed**. No hay spec active.
 
 | # | Spec | Tema | Estado | Depende de |
 | :--- | :--- | :--- | :--- | :--- |
@@ -23,5 +23,6 @@ TASK-00–35 y specs 36–52 están **closed**. Overlay v3.4 sin reserved.
 | 50 | [50-watch-deltas](50-watch-deltas.md) | Watch desaparecido / severity-up | closed | 44 |
 | 51 | [51-local-ingest](51-local-ingest.md) | Ingesta de carpeta local | closed | extractores actuales |
 | 52 | [52-ui-polish](52-ui-polish.md) | Pulido visual Web V2 | closed | contrato `polish-contract.md` |
+| 53 | [53-lab-target](53-lab-target.md) | Target lab Puertomontevideo | closed | extractores cerrados |
 
-Orden: **36–52 closed**. Overlay v3.4 sin reserved.
+Orden: **36–53 closed**. Lab en `lab/puertomontevideo` (fuera de `src/` y `web/`).

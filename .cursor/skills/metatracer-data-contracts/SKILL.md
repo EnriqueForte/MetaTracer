@@ -9,7 +9,7 @@ Referencia completa: `.aicontext/tasks/README.md` (contratos compartidos) y `.ai
 
 ## Regla de oro
 
-Enums en **minúsculas** en DB, JSON, API y Pydantic. La presentación (CLI/UI/Markdown) puede usar Title Case. Los enums son **cerrados**: no añadir valores sin actualizar `.aicontext/tasks/README.md` primero. Specs 36–52 closed. Overlay v3.4 sin reserved. Ver `MEMORY.md`.
+Enums en **minúsculas** en DB, JSON, API y Pydantic. La presentación (CLI/UI/Markdown) puede usar Title Case. Los enums son **cerrados**: no añadir valores sin actualizar `.aicontext/tasks/README.md` primero. Specs 36–53 closed. Overlay v3.4 sin reserved. Ver `MEMORY.md`.
 
 | Contrato | Valores |
 | :--- | :--- |

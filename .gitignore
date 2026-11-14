@@ -32,6 +32,11 @@ spikes/web-v2-contract/node_modules/
 spikes/web-v2-contract/*.db
 web/node_modules/
 web/.next/
+lab/puertomontevideo/node_modules/
+lab/puertomontevideo/dist/
+lab/puertomontevideo/public/media/*
+!lab/puertomontevideo/public/media/.gitkeep
+lab/puertomontevideo/.cache/
 web/test-results/
 web/playwright-report/
 web/tsconfig.tsbuildinfo

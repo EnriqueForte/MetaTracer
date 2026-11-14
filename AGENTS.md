@@ -8,7 +8,7 @@ Este archivo es el **punto de entrada** para cualquier agente. No duplica las
 reglas: apunta a ellas.
 
 **Antes de código:** [`MEMORY.md`](MEMORY.md) (qué está abierto) y
-[`specs/README.md`](specs/README.md) (ritual SDD). TASK-00–35 están cerradas.
+[`specs/README.md`](specs/README.md) (ritual SDD). TASK-00–53 están cerradas.
 
 ## Lo inviolable (léelo antes de tocar código)
 
@@ -18,7 +18,7 @@ Dos rules se aplican siempre, sin excepción:
   confirmado y por el wrapper único, cero binarios, redirects in-scope, un asset
   fallido no tumba el run, los agentes no inventan evidencia, loopback bloqueado).
 - `.cursor/rules/data-contracts.mdc` — enums cerrados en minúsculas, `severity`
-  NULL hasta clasificar, `dedup_signature`, idiomas por capa. Specs 36–51 closed.
+  NULL hasta clasificar, `dedup_signature`, idiomas por capa. Specs 36–53 closed.
   Overlay v3.4 sin reserved. `secret` es `finding_type` (TASK-49). Findings
   `internal_endpoint`/`cloud_storage` y namespaces `ooxml`/`odf` están en TASK-37.
 
@@ -38,9 +38,10 @@ Si una petición exigiría violarlas, **para** y explica el conflicto.
 | `src/metatracer/reports/` | Exportadores Markdown/JSON/HTML/CSV/Bounty |
 | `src/metatracer/services/`, `cli/`, `api/` | Orquestador único, CLI Typer, **API FastAPI (solo-API)** |
 | `web/` | **La Web UI** (Next.js 16 + React 19 + Tailwind 4). Servida desde la raíz |
+| `lab/puertomontevideo/` | Target sintético (spec 53). No es producto. Preview local. |
 | `deploy/` | `Caddyfile` (un solo origen: `/api` → FastAPI, resto → Next) |
 | `tests/` | `unit/`, `agents/`, `integration/` (+ e2e). Ver `tests/README.md` |
-| `.aicontext/` | PRD, features, backlog cerrado (`tasks/` 00–35), ADR, arquitectura |
+| `.aicontext/` | PRD, features, backlog cerrado (`tasks/` 00–53), ADR, arquitectura |
 | `.aicontext/ui/design-system-v2.md` | **Contrato visual vigente** (tokens `--mt-*`, densidad, panel, procedencia) |
 | `.agents/agents.md` | Catálogo de subagentes y modelo de amenazas (§4.2) |
 

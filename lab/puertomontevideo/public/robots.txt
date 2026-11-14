@@ -1,0 +1,3 @@
+# Cortesía. No autoriza el crawl ni amplía el scope de MetaTracer.
+User-agent: *
+Allow: /

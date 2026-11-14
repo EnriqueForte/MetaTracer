@@ -1,0 +1,26 @@
+{
+  "name": "puertomontevideo-lab",
+  "private": true,
+  "description": "Synthetic lab news target for MetaTracer. Not the product UI.",
+  "type": "module",
+  "scripts": {
+    "generate": "python generate_media.py",
+    "dev": "vite",
+    "build": "vite build && node scripts/prerender.mjs",
+    "preview": "vite preview --host 127.0.0.1 --port 4173",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-router-dom": "7.9.4"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "5.1.0",
+    "esbuild": "0.25.11",
+    "typescript": "5.9.3",
+    "vite": "7.1.12"
+  }
+}

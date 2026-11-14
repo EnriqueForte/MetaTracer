@@ -41,6 +41,7 @@ Estados: `reserved` \| `active` \| `closed`.
 | [50-watch-deltas](50-watch-deltas.md) | closed | desaparecido / severity-up + `PAYLOAD_KEYS` | [TASK-50](../.aicontext/tasks/50-watch-deltas.md) | `metatracer-platform` | `pipeline-engineer` |
 | [51-local-ingest](51-local-ingest.md) | closed | carpeta local, cero red, mismos extractores | [TASK-51](../.aicontext/tasks/51-local-ingest.md) | `metadata-extraction` | `pipeline-engineer` |
 | [52-ui-polish](52-ui-polish.md) | closed | pulido visual (jerarquía, cromo, login) | [TASK-52](../.aicontext/tasks/52-ui-polish.md) | `metatracer-ui` | `v2-ui-engineer` |
+| [53-lab-target](53-lab-target.md) | closed | semanario lab Puertomontevideo | [TASK-53](../.aicontext/tasks/53-lab-target.md) | `metadata-extraction` + `detector-patterns` | lab (no `v2-ui-engineer`) |
 
 ## Qué es histórico (no contrato)
 
