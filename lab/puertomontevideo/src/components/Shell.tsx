@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { NavLink, Outlet } from "react-router-dom";
+import { Credit } from "./Credit";
 
 const NAV = [
   { to: "/", label: "Portada", end: true },
@@ -19,8 +20,9 @@ function Chrome({ nav, children }: { nav: ReactNode; children: ReactNode }) {
         <span />
       </div>
       <div className="lab-banner">
-        Sitio de laboratorio de MetaTracer. Semanario ficticio: no es un medio
-        real ni la autoridad portuaria.
+        Laboratorio de MetaTracer. Este sitio es <strong>ficticio</strong>: no
+        es un medio de prensa, no es la ANP ni Montecon, y no representa a
+        ninguna autoridad. Solo sirve para probar detección de metadata.
       </div>
       <header className="masthead">
         <p className="masthead-kicker">Ciudad Vieja / Rambla 25 de Agosto / TCP</p>
@@ -37,8 +39,11 @@ function Chrome({ nav, children }: { nav: ReactNode; children: ReactNode }) {
       </nav>
       <main className="wrap">{children}</main>
       <footer className="site">
-        Mesa del Muelle, Ciudad Vieja. Actas inventadas; muelles y barrios
-        reales. Fotos Wikimedia Commons. GPS: puerto de Montevideo.
+        <p>
+          Semanario inventado para un laboratorio. Textos y actas son ficción;
+          muelles y barrios de Montevideo son reales. Fotos Wikimedia Commons.
+        </p>
+        <Credit />
       </footer>
     </>
   );

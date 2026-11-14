@@ -18,9 +18,13 @@ export function RedaccionPage() {
     <article className="prose">
       <h2>Mesa del Muelle</h2>
       <p>
-        Redacción ficticia en Ciudad Vieja, a dos cuadras de la Rambla 25 de
-        Agosto de 1825. Los cargos son inventados. No hay nombres de
-        periodistas reales.
+        Esto no es una redacción real. Es un laboratorio de MetaTracer: cargos,
+        juntas y correos son inventados. No hay periodistas reales ni vínculo
+        con la ANP, TCP o Montecon.
+      </p>
+      <p>
+        Ciudad Vieja, a dos cuadras de la Rambla 25 de Agosto de 1825, es el
+        marco geográfico del relato.
       </p>
       <div className="staff">
         <span>Secretaría de edición, cargo inventado</span>
