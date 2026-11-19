@@ -8,8 +8,9 @@ Este archivo es el **punto de entrada** para cualquier agente. No duplica las
 reglas: apunta a ellas.
 
 **Antes de código:** [`MEMORY.md`](MEMORY.md) (qué está abierto) y
-[`specs/README.md`](specs/README.md) (ritual SDD). TASK-00–53 están cerradas.
-Spec 56 (instalador/lanzador) está **closed**.
+[`specs/README.md`](specs/README.md) (ritual SDD). TASK-00–53 y TASK-55–56
+están **cerradas**. TASK-54 (host público del lab) está **activa** y no toca
+`src/` ni `web/`.
 
 ## Lo inviolable (léelo antes de tocar código)
 
@@ -19,8 +20,8 @@ Dos rules se aplican siempre, sin excepción:
   confirmado y por el wrapper único, cero binarios, redirects in-scope, un asset
   fallido no tumba el run, los agentes no inventan evidencia, loopback bloqueado).
 - `.cursor/rules/data-contracts.mdc` — enums cerrados en minúsculas, `severity`
-  NULL hasta clasificar, `dedup_signature`, idiomas por capa. Specs 36–53 closed.
-  Overlay v3.4 sin reserved. Spec 56 clone/install **closed**. `secret` es
+  NULL hasta clasificar, `dedup_signature`, idiomas por capa. Specs 36–53 y
+  55–56 closed. No hay reserved. Spec 54 (lab host) **active**. `secret` es
   `finding_type` (TASK-49). Findings
   `internal_endpoint`/`cloud_storage` y namespaces `ooxml`/`odf` están en TASK-37.
 
@@ -31,7 +32,7 @@ Si una petición exigiría violarlas, **para** y explica el conflicto.
 | Ruta | Qué es |
 | :--- | :--- |
 | `MEMORY.md` | Memoria de trabajo (versión, specs, prohibiciones) |
-| `specs/` | Overlay SDD: specs activas y reserved |
+| `specs/` | Overlay SDD (closed / active / reserved). Índice: `specs/README.md` |
 | `src/metatracer/core/` | Configuración, logging, safety core (`safety/scope.py`, `guard.py`, `http.py`) |
 | `src/metatracer/extractors/` | Ingesta, crawler, allowlist por magic bytes, PDF/imagen/HTML/JS/headers/office |
 | `src/metatracer/detectors/` | Detectores deterministas (sin severity), incl. `network.py` |
@@ -45,7 +46,7 @@ Si una petición exigiría violarlas, **para** y explica el conflicto.
 | `install.cmd` / `install.sh` | Instalador post-clone (Windows / Linux-Parrot). Spec 56. |
 | `MetaTracer.cmd` / `run.sh` | Lanzador de la app (API + Web UI). Spec 56. |
 | `tests/` | `unit/`, `agents/`, `integration/` (+ e2e). Ver `tests/README.md` |
-| `.aicontext/` | PRD, features, backlog cerrado (`tasks/` 00–53), ADR, arquitectura |
+| `.aicontext/` | PRD, features, tasks 00–56, ADR, arquitectura |
 | `.aicontext/ui/design-system-v2.md` | **Contrato visual vigente** (tokens `--mt-*`, densidad, panel, procedencia) |
 | `.agents/agents.md` | Catálogo de subagentes y modelo de amenazas (§4.2) |
 
@@ -92,8 +93,8 @@ cobertura ≥ 85% en `core`/`detectors`/`extractors`/`reports`, y
 
 ## Skills y subagentes
 
-- Skills (just-in-time): `.cursor/skills/` — 13 materializadas (incluye
-  `metatracer-investigations`), catálogo en `.agents/skills.md`.
+- Skills (just-in-time): `.cursor/skills/` — 14 materializadas (incluye
+  `metatracer-investigations` y `metatracer-onnx`), catálogo en `.agents/skills.md`.
 - Subagentes: `.cursor/agents/` — `safety-guardian` (veto), `pipeline-engineer`,
   `llm-agent-engineer`, `ui-engineer` (CLI+API), `v2-ui-engineer` (Web UI, único
   dueño del navegador), `ui-architect` (V2, readonly, contratos visuales),

@@ -3,9 +3,9 @@
 **Proyecto:** MetaTracer  
 **PRD:** [volver al índice](../PRD.md)
 
-> **v3.2 cerrado** (2026-10-05). Specs 36–45 closed. Overlay v3.4: specs 46–51
-> **reserved** — [`MEMORY.md`](../../MEMORY.md) y [`specs/`](../../specs/README.md).
-> No hay código de 46–51 hasta spec `active` + TASK-NN.
+> **v3.2 cerrado** (2026-10-05). Specs 36–53 y 55–56 **closed**. Spec **54**
+> **active** (host público del lab; no es producto). Estado:
+> [`MEMORY.md`](../../MEMORY.md) y [`specs/backlog.md`](../../specs/backlog.md).
 
 ## Esfuerzo estimado
 
@@ -47,6 +47,9 @@ El orden es orientativo; cada slice debe poder demostrarse.
 | v3.3 | Spec-driven (closed) | Investigations, detectores, conectores, redacción, ONNX, ops, UI operador / investigations, watch cron, UI ES | **Cerrada.** Specs 36–45 closed. |
 | v3.4 | Spec-driven (closed) | Búsqueda global, workspace operador, superficie de extracción, `secret`, watch deltas, ingest local | **Cerrada 2026-11-13.** Specs 46–51 closed. |
 | v3.4+ | Pulido UI | Jerarquía, cromo, login estático | **Cerrada 2026-11-13.** [spec 52](../../specs/52-ui-polish.md). |
+| — | Lab | Target sintético Puertomontevideo | **Cerrada 2026-11-14.** [spec 53](../../specs/53-lab-target.md). Host público: [spec 54](../../specs/54-lab-host.md) **active**. |
+| — | Grafos del scan | Crawl + correlación en la ficha del run | **Cerrada 2026-11-19.** [spec 55](../../specs/55-scan-live-graph.md). |
+| — | Clone / instalador | `install` + lanzador Windows y Linux/Parrot | **Cerrada 2026-11-19.** [spec 56](../../specs/56-clone-install.md). |
 
 ## Mapeo a características del MVP
 

@@ -2,7 +2,7 @@
 
 **Proyecto:** MetaTracer
 **Ámbito:** auditoría completa (auditoría de repo 2026-09-16) — core/, extractors/, detectors/, classification/, agents/, api/, services/, pyproject.toml, .env.example, Dockerfile, compose, CI
-**Método:** revisión estática del código contra las [7 reglas inviolables](README.md) y el modelo de amenazas. No se ejecutó código.
+**Método:** revisión estática del código contra las [7 reglas inviolables](tasks/README.md#reglas-inviolables) y el modelo de amenazas. No se ejecutó código.
 **Veredicto:** ✅ **PASS CON OBSERVACIONES** — sin hallazgos críticos, sin violaciones de reglas inviolables.
 
 ## Veredicto por regla

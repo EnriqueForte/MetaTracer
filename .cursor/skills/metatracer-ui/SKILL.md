@@ -5,7 +5,7 @@ description: Stack y reglas de la Web UI de MetaTracer (Next.js/React en web/, t
 
 # UI de MetaTracer — stack y seguridad
 
-Cubre las amenazas 10, 11, 12 y 15 del modelo de amenazas ([.agents/agents.md](../.agents/agents.md)).
+Cubre las amenazas 10, 11, 12 y 15 del modelo de amenazas ([.agents/agents.md](../../../.agents/agents.md)).
 Fuentes: `.aicontext/tasks/06-interfaces.md`, `20-ui-polish.md`, `26-ui-redesign.md`,
 `35-ui-ux-improvements.md` y `.aicontext/ui/`.
 

@@ -2,9 +2,9 @@
 
 **Proyecto:** MetaTracer  
 **Audiencia:** entrevista técnica o demo del MVP  
-**Estado del producto:** v1.0–v1.2, v2.0, v2.1+, v2.2, v2.3 y v2.4 cerrados. **v3.0 cerrada** (watch/headless, PostgreSQL+pgvector, auth básica). **v3.1 cerrada** (multi-usuario + rediseño de la Web UI). **v3.2 cerrada** (hardening post-auditoría 2026-10-03, TASK-27 → TASK-35). Suite verificada: **787 passed, 6 skipped** · cobertura **91.30%** (≥85% DoD) · ruff limpio.
+**Estado del producto:** este texto llega a **v3.2** (2026-10-05). Lo posterior (tipos `internal_endpoint`, `cloud_storage` y `secret`, UI en español, ingesta local, grafos, instalador, lab) está en [`MEMORY.md`](../MEMORY.md) y [`specs/current.md`](../specs/current.md). Suite citada aquí: **787 passed, 6 skipped** · cobertura **91.30%** (2026-10-23).
 
-Este recorrido no abre `src/`. Las tasks son la fuente de verdad; aquí solo el *por qué*.
+Este recorrido no abre `src/`. El diagrama de abajo es el pipeline del MVP (cinco detectores). Hoy hay ocho `finding_type`; la lista cerrada está en [tasks/README.md](tasks/README.md).
 
 ## 1. Qué es (30 s)
 
@@ -119,11 +119,12 @@ las cabeceras de recon de cualquier descarga `ok` van al namespace `http`
 `.js` in-scope van a `js`. Cero `finding_type` nuevos. Cero dependencias runtime nuevas.
 `author_name` sigue fuera.
 
-## 7. v3.1 y v3.2 en una frase (1 min)
+## 8. v3.1 y v3.2 en una frase (1 min)
 
 **v3.1** añadió multi-usuario (first-run setup, panel de admin, invitaciones de un solo uso)
-y el rediseño visual de la Web UI (design system `.mt-*`, Tailwind compilado offline y
-Alpine CSP vendored en `/static`, sin CDN). **v3.2** cerró el hardening de la auditoría de
+y un rediseño visual. Esa entrega usaba Alpine en `/static`; [ADR-0016](decisions/0016-web-v2-replaces-v1.md)
+la retiró. La UI vigente es Next.js en `web/` (contrato [design-system-v2](ui/design-system-v2.md)).
+**v3.2** cerró el hardening de la auditoría de
 2026-10-03: `trust_env=False` (P0-1), auth obligatoria en bind público, HMAC real en
 webhooks, CSV anti-fórmula, tope pre-inflate de XMP, recovery/abort de runs, integridad del
 agente (guard de prosa, techo con feedback), retención GDPR, authz del API, higiene de

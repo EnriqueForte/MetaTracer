@@ -250,10 +250,22 @@ Windows: `.venv\Scripts\python.exe`. Cobertura DoD ≥ 85 % en
 
 ## Documentación interna
 
-- Recorrido de arquitectura (español): [`.aicontext/walkthrough.md`](.aicontext/walkthrough.md)
-- Memoria de producto: [`MEMORY.md`](MEMORY.md)
-- Specs: [`specs/`](specs/)
-- Tests: [`tests/README.md`](tests/README.md)
+El estado vigente está en [`MEMORY.md`](MEMORY.md). El resto cuelga de ahí:
+
+| Documento | Qué es |
+| --- | --- |
+| [`specs/current.md`](specs/current.md) | Qué hace el producto ahora |
+| [`specs/README.md`](specs/README.md) | Ritual SDD y mapa de specs |
+| [`specs/backlog.md`](specs/backlog.md) | Specs 00 y 36–56, con estado |
+| [`.aicontext/tasks/README.md`](.aicontext/tasks/README.md) | Contratos, enums y tasks |
+| [`.aicontext/PRD.md`](.aicontext/PRD.md) | Índice histórico del PRD (hasta v3.2) |
+| [`.aicontext/ui/design-system-v2.md`](.aicontext/ui/design-system-v2.md) | Contrato visual de la Web UI |
+| [`AGENTS.md`](AGENTS.md) | Punto de entrada para agentes |
+| [`tests/README.md`](tests/README.md) | Marcas, loopback de test y cobertura |
+| [`lab/puertomontevideo/README.md`](lab/puertomontevideo/README.md) | Target sintético (spec 53; host público en spec 54) |
+| [`.aicontext/walkthrough.md`](.aicontext/walkthrough.md) | Recorrido de arquitectura hasta v3.2 |
+
+El walkthrough no sustituye a `MEMORY.md`: los tipos de hallazgo vigentes y las specs 36–56 están en la memoria y en `specs/`.
 
 **Tecnologías:** Python · FastAPI · Next.js · React · TypeScript · LangGraph · SQLite / PostgreSQL.
 

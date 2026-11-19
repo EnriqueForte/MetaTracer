@@ -58,10 +58,10 @@ Toda la configuración se navega desde aquí, aunque no toda pueda vivir en la m
 | Documento | Ruta | Contenido |
 | :--- | :--- | :--- |
 | Este archivo | `.agents/agents.md` | Capas, perfil base, modelo de amenazas, agentes, flujo |
-| Diseño de skills | [`.agents/skills.md`](skills.md) | Catálogo de las 13 skills y matriz skill × agente |
+| Diseño de skills | [`.agents/skills.md`](skills.md) | Catálogo de las 14 skills y matriz skill × agente |
 | PRD y features | [`.aicontext/`](../.aicontext/PRD.md) | Especificación de producto (histórico hasta v3.2) |
-| Backlog de tasks | [`.aicontext/tasks/`](../.aicontext/tasks/README.md) | Contratos `TASK-00` → `TASK-35` (cerrados) + enums |
-| Memoria / specs | [`MEMORY.md`](../MEMORY.md), [`specs/`](../specs/README.md) | Overlay SDD; 36–53 closed |
+| Backlog de tasks | [`.aicontext/tasks/`](../.aicontext/tasks/README.md) | Contratos `TASK-00` → `TASK-56` + enums |
+| Memoria / specs | [`MEMORY.md`](../MEMORY.md), [`specs/`](../specs/README.md) | Overlay SDD; 36–53 y 55–56 closed; 54 active |
 
 ### Por qué no está todo en `.agents/`
 
@@ -346,6 +346,6 @@ Reglas de orquestación:
 | 3 — Cierre MVP | 5 | Crear skill `metatracer-testing`; entran `test-engineer` y `docs-architect`; activar `bugbot`/`security-review` en PRs |
 | 4 — Post-MVP | 6-7 | TASK-08 y TASK-09 **cerradas**. Skills 4–10 materializadas. |
 | 5 — Plataforma | 8+ | TASK-10 → TASK-35 **cerradas**. Skill `metatracer-platform` cubre lo ya construido. |
-| 6 — SDD | — | Overlay `specs/` + `MEMORY.md` + skills 11–12 (2026-11-05). Producto 36–43 reserved. |
+| 6 — SDD | — | Overlay `specs/` + `MEMORY.md` (2026-11-05). Specs 36–53 y 55–56 closed; 54 active. Ver `MEMORY.md`. |
 
 Las skills de slices 36–43 ya existen o reutilizan las transversales.

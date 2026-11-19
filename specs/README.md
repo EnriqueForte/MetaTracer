@@ -1,7 +1,8 @@
-# Specs activas — MetaTracer
+# Specs — MetaTracer
 
 Overlay Spec-Driven Development. El corpus histórico vive en [`.aicontext/`](../.aicontext/PRD.md).
-Este directorio es **solo trabajo abierto o reserved explícito**.
+Este directorio guarda el overlay completo (`reserved`, `active` y `closed`).
+Ahora no hay `reserved`: la spec **54** está `active`; **36–53** y **55–56** están `closed`.
 
 Memoria de sesión: [`MEMORY.md`](../MEMORY.md). Producto ahora: [`current.md`](current.md).
 Backlog abierto: [`backlog.md`](backlog.md).

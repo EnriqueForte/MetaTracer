@@ -119,11 +119,22 @@ Aplican a **todas** las tasks. Un PR que las viole no está done.
 | **TASK-37** | [37-new-detectors.md](37-new-detectors.md) | Detectores `internal_endpoint`/`cloud_storage` + extractores OOXML/ODF — **cerrada 2026-11-05** | TASK-02, TASK-03, v3.2 |
 | **TASK-38** | [38-connectors.md](38-connectors.md) | Conectores de egreso (RDAP/Wayback/CC) — **cerrada 2026-11-05** | TASK-15 |
 | **TASK-39** | [39-export-redaction.md](39-export-redaction.md) | Redacción de exports (`export.redaction`) — **cerrada 2026-11-05** | TASK-04, TASK-18 |
+| **TASK-40** | [40-onnx-embeddings.md](40-onnx-embeddings.md) | Embeddings MiniLM ONNX 384-d; fallback hashing-trick — **cerrada 2026-11-05** | TASK-23 |
 | **TASK-41** | [41-ops-hygiene.md](41-ops-hygiene.md) | Lock durable, resume abort, métricas, `/api/v1` — **cerrada 2026-11-05** | TASK-28, TASK-33 |
+| **TASK-42** | [42-ui-operator.md](42-ui-operator.md) | Triage masivo, densidad, atajo `x` — **cerrada 2026-11-05** | TASK-35 |
 | **TASK-43** | [43-ui-investigations.md](43-ui-investigations.md) | UI de investigations: listado y ficha en Web V2 — **cerrada 2026-11-05** | TASK-36 |
+| **TASK-44** | [44-watch-cron.md](44-watch-cron.md) | `watch --cron` UTC (5 campos) + unit systemd — **cerrada 2026-11-05** | TASK-22 |
+| **TASK-45** | [45-ui-spanish.md](45-ui-spanish.md) | Web UI en español; reportes y CLI siguen en inglés — **cerrada 2026-11-11** | TASK-42, TASK-43 |
+| **TASK-46** | [46-global-search.md](46-global-search.md) | `GET /api/search`, CLI `search`, UI `/search` — **cerrada 2026-11-12** | TASK-45 |
+| **TASK-47** | [47-operator-workspace.md](47-operator-workspace.md) | Split pane, nav Comparar, rollups MIME/autor — **cerrada 2026-11-12** | TASK-42, TASK-45 |
+| **TASK-48** | [48-extraction-surface.md](48-extraction-surface.md) | GIF/SVG metadata, GPS IPTC, URI cloud, `url()` CSS — **cerrada 2026-11-12** | TASK-37 |
 | **TASK-49** | [49-secret-finding.md](49-secret-finding.md) | `finding_type: secret` (allowlist AKIA/`ghp_`/PEM/JWT) — **cerrada 2026-11-13** | TASK-02, TASK-03, TASK-05 |
 | **TASK-50** | [50-watch-deltas.md](50-watch-deltas.md) | Watch `resolved_findings` / `severity_up_count` en `PAYLOAD_KEYS` — **cerrada 2026-11-13** | TASK-22, TASK-44 |
 | **TASK-51** | [51-local-ingest.md](51-local-ingest.md) | Ingesta local de carpeta (cero red, mismos extractores) — **cerrada 2026-11-13** | TASK-01, TASK-09 |
+| **TASK-52** | [52-ui-polish.md](52-ui-polish.md) | Pulido Web V2 (jerarquía, cromo, login) — **cerrada 2026-11-13** | TASK-45 |
+| **TASK-53** | [53-lab-target.md](53-lab-target.md) | Lab `puertomontevideo` (no producto) — **cerrada 2026-11-14** | extractores cerrados |
+| **TASK-54** | [54-lab-host.md](54-lab-host.md) | Host HTTPS del lab — **activa** (no toca `src/` ni `web/`) | TASK-53 |
+| **TASK-55** | [55-scan-live-graph.md](55-scan-live-graph.md) | Grafos de crawl y correlación en la ficha del run — **cerrada 2026-11-19** | TASK-36, TASK-47, TASK-51 |
 | **TASK-56** | [56-clone-install.md](56-clone-install.md) | Instalador y lanzador post-clone (Windows + Linux/Parrot) — **cerrada 2026-11-19** | T11, TASK-07 |
 
 `TASK-04` **no** depende de `TASK-05`: el motor de reportes debe funcionar con clasificaciones heurísticas (campos de explicación vacíos o plantilla). `TASK-05` rellena justificación, impacto, remediación y repro. `TASK-06` orquesta el pipeline completo.
@@ -144,7 +155,7 @@ La UI/CLI son el **punto de entrada y de presentación**, no una etapa de datos 
  Ingest + Extract (TASK-01+09)  rate-limit → PDF / EXIF / HTML / HTTP / JS → RawMetadataItem
         │
         ▼
- Detectors     (TASK-02)     5 tipos → Finding (severity = null)
+ Detectors     (TASK-02+37+49)  8 tipos → Finding (severity = null)
         │
         ▼
  Classify      (TASK-03)     heurístico siempre disponible
@@ -196,6 +207,11 @@ Alineado con [Timeline y roadmap](../features/10-timeline-and-roadmap.md).
 | 25 | v3.2 | `TASK-27` → `TASK-35` | Hardening post-[auditoría 2026-10-03](../audit-2026-10-03.md): P0 seguridad, recovery/abort, integridad del agente, retención, authz del API, higiene de core/backend, precisión de detectores y mejoras UI/UX de la Web V2 — **cerrada 2026-10-05**. Orden ejecutado: 27 → 28 → 31 → 29 → 30 → 34 → 32 → 33; TASK-35 en paralelo (35.1–35.3 sin dependencias de backend) |
 | 26 | v3.3 | `TASK-36` | Investigations + correlación: contrato SDD y CLI `metatracer investigation` (backend/API ya existían) |
 | 27 | v3.3 | `TASK-43` | UI de investigations: `/investigations` y ficha de grupo en Web V2 |
+| 28 | v3.3 | `TASK-37`–`TASK-42`, `TASK-44` | Detectores, conectores, redacción, ONNX, ops, triage masivo, `watch --cron` — **cerradas 2026-11-05** |
+| 29 | v3.4 | `TASK-45`–`TASK-51` | UI en español, búsqueda, workspace, extracción, `secret`, deltas, ingesta local — **cerradas 2026-11-11 a 2026-11-13** |
+| 30 | v3.4+ | `TASK-52`, `TASK-53` | Pulido UI y lab local — **cerradas 2026-11-13 / 2026-11-14** |
+| 31 | — | `TASK-54` | Host público del lab — **activa** |
+| 32 | — | `TASK-55`, `TASK-56` | Grafos del scan e instalador post-clone — **cerradas 2026-11-19** |
 
 Si hay que recortar, proteger los [criterios de éxito](../features/09-success-criteria.md) antes que pulido de UI.
 
