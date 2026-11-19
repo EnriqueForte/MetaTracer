@@ -33,6 +33,14 @@ Prohibido: estética de terminal con verde neón dominante, glassmorphism, gradi
 partículas, gráficos sin dato, contadores que "cuentan" hasta el número, grafos sin una pregunta
 del analista detrás.
 
+**Grafos permitidos (spec 55).** Solo en la ficha del run, y solo si responden a una de estas
+preguntas: (1) ¿desde qué página in-scope salió este documento?; (2) ¿qué activos comparten el
+mismo valor (`correlation.kind` — valor, no identidad)?; (3) ¿cómo se llena el inventario (MIME /
+tipo de hallazgo / estado de extracción) mientras corre? Canvas empaquetado (ECharts métricas,
+Cytoscape redes), tokens `--mt-*`, labels de texto, URLs por `safeUrl()`, `animate: false` y
+`prefers-reduced-motion`. Sin swarm, sin neón, sin HTML del target en tooltips. El wizard vacío
+no monta canvas.
+
 ---
 
 ## 2. Tokens

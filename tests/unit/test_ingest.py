@@ -22,7 +22,12 @@ from metatracer.core.config import Settings
 from metatracer.core.exceptions import ScopeNotConfirmedError
 from metatracer.db.engine import create_db_engine, create_session_factory, init_db
 from metatracer.db.models import ExtractionStatus, Run, SkipReason
-from metatracer.db.repositories import AssetRepository, RawMetadataRepository, RunRepository
+from metatracer.db.repositories import (
+    AssetRepository,
+    DiscoveryEdgeRepository,
+    RawMetadataRepository,
+    RunRepository,
+)
 from metatracer.extractors.budget import BudgetTracker
 from metatracer.extractors.ingest import IngestionPipeline
 from tests.fixtures.builders import make_jpeg_bytes, make_pdf_bytes
@@ -157,6 +162,11 @@ async def test_bare_domain_is_crawled_and_documents_discovered(
         "https://target.com/a.pdf",
         "https://target.com/p.jpg",
     }
+    async with session_factory() as session:
+        edges = await DiscoveryEdgeRepository(session).list_by_run(run_id)
+    pairs = {(edge.from_url, edge.to_url, str(edge.kind)) for edge in edges}
+    assert ("https://target.com/", "https://target.com/a.pdf", "document") in pairs
+    assert ("https://target.com/", "https://target.com/p.jpg", "document") in pairs
 
 
 async def test_html_page_and_js_and_headers_persisted(

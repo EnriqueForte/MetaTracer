@@ -59,8 +59,20 @@ from metatracer.core.safety.http import (
     safe_httpx_request,
 )
 from metatracer.core.safety.scope import ScopeValidator
-from metatracer.db.models import Asset, ExtractionStatus, RawMetadataItem, Run, SkipReason
-from metatracer.db.repositories import AssetRepository, RawMetadataRepository, RunRepository
+from metatracer.db.models import (
+    Asset,
+    DiscoveryEdgeKind,
+    ExtractionStatus,
+    RawMetadataItem,
+    Run,
+    SkipReason,
+)
+from metatracer.db.repositories import (
+    AssetRepository,
+    DiscoveryEdgeRepository,
+    RawMetadataRepository,
+    RunRepository,
+)
 from metatracer.extractors.budget import LIMIT_BYTES, BudgetTracker, CrawlBudget
 from metatracer.extractors.crawler import FetchedPage, PublicDocCrawler, reference_kind
 from metatracer.extractors.fields import ExtractedField
@@ -68,7 +80,7 @@ from metatracer.extractors.headers import extract_http_headers
 from metatracer.extractors.html import HtmlMetadataExtractor
 from metatracer.extractors.image import ImageMetadataExtractor
 from metatracer.extractors.javascript import JavaScriptMetadataExtractor
-from metatracer.extractors.local import LOCAL_SOURCE, LocalEntry, list_local_entries
+from metatracer.extractors.local import LOCAL_SOURCE, LocalEntry, file_uri, list_local_entries
 from metatracer.extractors.normalize import apply_normalization
 from metatracer.extractors.office import NotOfficePackage, OfficeMetadataExtractor
 from metatracer.extractors.pdf import PdfMetadataExtractor
@@ -129,6 +141,21 @@ def sweep_stale_tempfiles(max_age_seconds: int = _STALE_TEMP_SECONDS) -> int:
 # Fail-closed placeholder: an asset row exists between download and extraction;
 # if the process dies in between, the row must not claim success.
 _EXTRACTION_INCOMPLETE = "extraction did not complete"
+
+
+def _local_parent_uri(root_uris: list[str], child_uri: str) -> str:
+    """Longest local root URI that prefixes ``child_uri``; else the first root."""
+    matches: list[str] = []
+    for root in root_uris:
+        if child_uri == root:
+            matches.append(root)
+            continue
+        prefix = root if root.endswith("/") else f"{root}/"
+        if child_uri.startswith(prefix):
+            matches.append(root)
+    if not matches:
+        return root_uris[0] if root_uris else child_uri
+    return max(matches, key=len)
 
 
 @dataclass(frozen=True, slots=True)
@@ -440,6 +467,7 @@ class IngestionPipeline:
             if fetched is None:
                 continue
             preloaded.append(fetched)
+            await self._record_page_edges(run.id, fetched)
             # The crawler tells us whether the per-page cap cut the link scan;
             # if so, the asset limit was reached even when the queue looks full.
             if fetched.discovery_truncated:
@@ -595,6 +623,7 @@ class IngestionPipeline:
         if not isinstance(roots, list) or not all(isinstance(item, str) for item in roots):
             roots = _loads_str_list(run.target_input, "target_input")
         entries = list_local_entries([str(item) for item in roots])
+        root_uris = [file_uri(Path(item)) for item in roots]
         seen_hashes = await self._known_hashes(run.id)
         ok = failed = skipped = 0
         discovered = 0
@@ -612,6 +641,7 @@ class IngestionPipeline:
                 )
                 break
             discovered += 1
+            await self._record_local_edge(run.id, root_uris, entry.uri)
             status = await self._process_local_entry(run, entry, seen_hashes, tracker)
             tracker.assets_processed += 1
             if status is ExtractionStatus.ok:
@@ -1168,6 +1198,39 @@ class IngestionPipeline:
         async with self._session_factory() as session:
             assets = await AssetRepository(session).list_by_run(run_id)
         return {asset.file_hash_sha256 for asset in assets if asset.file_hash_sha256}
+
+    async def _record_page_edges(self, run_id: str, fetched: FetchedPage) -> None:
+        """Persist in-scope parent→child URLs. A failure never aborts the run."""
+        parent = fetched.url or fetched.source_url
+        rows: list[tuple[str, str, DiscoveryEdgeKind]] = [
+            *[(parent, url, DiscoveryEdgeKind.document) for url in fetched.document_urls],
+            *[(parent, url, DiscoveryEdgeKind.script) for url in fetched.script_urls],
+            *[(parent, url, DiscoveryEdgeKind.probe) for url in fetched.probe_urls],
+            *[(parent, url, DiscoveryEdgeKind.page) for url in fetched.page_urls],
+        ]
+        await self._persist_discovery_edges(run_id, rows)
+
+    async def _record_local_edge(self, run_id: str, root_uris: list[str], child_uri: str) -> None:
+        """Star edge from the matching local root. Self-loops (file-as-root) are skipped."""
+        parent = _local_parent_uri(root_uris, child_uri)
+        if parent == child_uri:
+            return
+        await self._persist_discovery_edges(
+            run_id, [(parent, child_uri, DiscoveryEdgeKind.local)]
+        )
+
+    async def _persist_discovery_edges(
+        self,
+        run_id: str,
+        rows: list[tuple[str, str, DiscoveryEdgeKind]],
+    ) -> None:
+        if not rows:
+            return
+        try:
+            async with self._session_factory() as session:
+                await DiscoveryEdgeRepository(session).add_many(run_id, rows)
+        except Exception as exc:
+            logger.warning("discovery edges not persisted: %s", sanitize_for_log(exc))
 
     async def _create_asset(
         self,

@@ -3,6 +3,7 @@ export const queryKeys = {
   notifications: ["notifications"] as const,
   runs: ["runs"] as const,
   run: (runId: string) => ["run", runId] as const,
+  graph: (runId: string) => ["run", runId, "graph"] as const,
   findings: (runId: string) => ["findings", runId] as const,
   feedback: (findingId: string) => ["feedback", findingId] as const,
   stats: ["stats"] as const,

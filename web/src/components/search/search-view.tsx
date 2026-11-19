@@ -194,13 +194,16 @@ export function SearchView() {
             label="Tipo"
             value={filters.type}
             onChange={(type) => patch({ type })}
-            options={[["", "Cualquier tipo"], ...TYPES.map((type) => [type, FINDING_TYPE_LABEL[type] ?? type])]}
+            options={[
+              ["", "Cualquier tipo"],
+              ...TYPES.map((type): [string, string] => [type, FINDING_TYPE_LABEL[type] ?? type]),
+            ]}
           />
           <FilterSelect
             label="Espacio de nombres"
             value={filters.namespace}
             onChange={(namespace) => patch({ namespace })}
-            options={[["", "Cualquiera"], ...NAMESPACES.map((item) => [item, item])]}
+            options={[["", "Cualquiera"], ...NAMESPACES.map((item): [string, string] => [item, item])]}
           />
           <FilterSelect
             label="Severidad"

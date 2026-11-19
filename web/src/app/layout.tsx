@@ -9,6 +9,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "MetaTracer",
   description: "Descubrimiento autorizado de metadatos",
+  icons: {
+    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

@@ -1,7 +1,7 @@
 # Backlog abierto (v3.4+)
 
 Solo ítems con spec. Prioridad de producto 2026-11-12 (búsqueda y operador primero).
-TASK-00–35 y specs 36–53 están **closed**. Spec 54 **active** (host público del lab).
+TASK-00–35 y specs 36–53 están **closed**. Spec 54 **active** (host público del lab). Spec 55 **closed** (grafos en vivo del scan).
 
 | # | Spec | Tema | Estado | Depende de |
 | :--- | :--- | :--- | :--- | :--- |
@@ -25,5 +25,6 @@ TASK-00–35 y specs 36–53 están **closed**. Spec 54 **active** (host públic
 | 52 | [52-ui-polish](52-ui-polish.md) | Pulido visual Web V2 | closed | contrato `polish-contract.md` |
 | 53 | [53-lab-target](53-lab-target.md) | Target lab Puertomontevideo | closed | extractores cerrados |
 | 54 | [54-lab-host](54-lab-host.md) | Host HTTPS gratuito del lab | active | 53 |
+| 55 | [55-scan-live-graph](55-scan-live-graph.md) | Grafos en vivo del scan (ECharts + Cytoscape) | closed | 36/47/51 |
 
-Orden: **36–53 closed**. **54 active** (fuera de `src/` y `web/`).
+Orden: **36–53 closed**. **54 active** (fuera de `src/` y `web/`). **55 closed**.

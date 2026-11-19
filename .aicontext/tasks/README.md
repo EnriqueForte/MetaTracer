@@ -10,7 +10,7 @@ Este directorio descompone el MVP en tareas implementables. Cada archivo es un c
 Las features del PRD definen *qué* debe existir. Estas tasks definen *cómo* construirlo sin contradecir el PRD.
 
 > **Gobernanza (2026-11-14):** TASK-00–35 y specs 36–53 están **closed**.
-> Spec 54 **active**: host público del lab (no producto). No mover TASK-00–53 a `archive/`.
+> Spec 54 **active**: host público del lab (no producto). Spec **55 closed**: grafos en vivo del scan. No mover TASK-00–53 a `archive/`.
 
 ---
 
@@ -48,6 +48,8 @@ Valores **en minúsculas** en base de datos, JSON, API y Pydantic. La capa de pr
 | `export.redaction` (Fase 5, [TASK-39](39-export-redaction.md)) | `none` \| `contacts` \| `coordinates` \| `all` (solo el fichero exportado; la base no cambia. API y CLI por defecto `none`. La UI de descarga propone `contacts`) |
 | `normalized_kind` | `decimal_degrees` \| `iso8601_utc` \| `lowercase_trim` (el `value` original no se sobrescribe; NULL si no hay forma normalizada distinta) |
 | `timezone_status` | `known` \| `assumed_utc` \| `unzoned` \| `invalid` (NULL si el campo no es una fecha) |
+| `graph_node.kind` ([TASK-55](55-scan-live-graph.md)) | `page` \| `asset` \| `local_root` \| `value` (nodo de grafo de scan; `value` es un `value_norm` de correlación, no una identidad) |
+| `discovery_edge.kind` ([TASK-55](55-scan-live-graph.md)) | `page` \| `document` \| `script` \| `probe` \| `local` (arista persistida de descubrimiento; `local` = estrella `file:` raíz → fichero) |
 | Idioma de **reportes exportados** | Inglés (plataformas de bug bounty) |
 | Idioma de **documentación** (esta carpeta) | Español |
 | Idioma de **Web UI** (`web/`) | Español |

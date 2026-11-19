@@ -60,6 +60,9 @@ describe("DashboardView", () => {
   it("paints severity with its own color and keeps agent usage in a strip", async () => {
     stubStats(2);
     render(<DashboardView />);
+    expect(await screen.findByRole("heading", { name: "Panel de Estado" })).toBeInTheDocument();
+    expect(screen.queryByText(/Esta instalación/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/panel multiusuario/)).not.toBeInTheDocument();
     expect(await screen.findByText("Completados 2 · Fallidos 0")).toBeInTheDocument();
     expect(swatchClass("Crítica")).toContain("bg-mt-sev-critical");
     expect(swatchClass("Alta")).toContain("bg-mt-sev-high");
@@ -68,6 +71,9 @@ describe("DashboardView", () => {
     expect(screen.getByRole("img", { name: "10 hallazgos" })).toBeInTheDocument();
     expect(screen.getByText("example.com")).toBeInTheDocument();
     expect(screen.getByText(/2 hallazgos sin severidad/)).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Ahora" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Inventario" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Composición" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Abrir escaneos completados" })).toHaveAttribute(
       "href",
       "/runs?status=completed",

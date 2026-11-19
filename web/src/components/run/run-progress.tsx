@@ -6,10 +6,11 @@ import { useEffect, useRef, useState } from "react";
 
 import { AssetIssues } from "@/components/run/asset-issues";
 import { findingsKey } from "@/components/run/findings-panel";
+import { LiveScanGraph } from "@/components/run/graph/live-scan-graph";
+import { LiveActivity } from "@/components/run/live-activity";
 import { isLive, runKey } from "@/components/run/run-model";
 import { CorrelationPanel } from "@/components/run/workspace/correlation-panel";
 import { useWorkspace } from "@/components/run/workspace/workspace-context";
-import { LiveActivity } from "@/components/run/live-activity";
 import { ApiError } from "@/lib/api/errors";
 import { queryKeys } from "@/lib/query/keys";
 import {
@@ -72,6 +73,7 @@ export function RunProgress({ runId }: { runId: string }) {
         void queryClient.invalidateQueries({ queryKey: runKey(runId) });
         void queryClient.invalidateQueries({ queryKey: findingsKey(runId) });
         void queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.graph(runId) });
       }
     };
     source.onerror = () => {
@@ -150,6 +152,8 @@ export function RunProgress({ runId }: { runId: string }) {
           totalSteps={step.total}
         />
       ) : null}
+
+      <LiveScanGraph runId={run.run_id} />
 
       {finished ? <CorrelationPanel runId={run.run_id} /> : null}
 

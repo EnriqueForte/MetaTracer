@@ -1,6 +1,10 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { NextConfig } from "next";
 
 import { apiOrigin } from "./src/lib/api/origin";
+
+const webRoot = path.dirname(fileURLToPath(import.meta.url));
 
 process.env.NEXT_TELEMETRY_DISABLED = "1";
 
@@ -45,6 +49,12 @@ const nextConfig: NextConfig = {
   // Standalone output for the Docker image (web/Dockerfile): a self-contained
   // server.js that needs no node_modules tree at runtime. Harmless in dev.
   output: "standalone",
+  // Parent-repo lockfiles otherwise make Turbopack treat MetaTracer/ as the
+  // workspace root and emit standalone/web/server.js. Docker builds from web/.
+  turbopack: { root: webRoot },
+  experimental: {
+    optimizePackageImports: ["echarts", "echarts/core", "echarts/charts", "echarts/renderers"],
+  },
   // next dev allows HMR only from localhost. Opening 127.0.0.1 otherwise
   // answers the dev socket with a bare "Unauthorized", hydration never
   // finishes, and the shell stays on the server-rendered scan page.

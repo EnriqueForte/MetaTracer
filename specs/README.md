@@ -43,6 +43,7 @@ Estados: `reserved` \| `active` \| `closed`.
 | [52-ui-polish](52-ui-polish.md) | closed | pulido visual (jerarquía, cromo, login) | [TASK-52](../.aicontext/tasks/52-ui-polish.md) | `metatracer-ui` | `v2-ui-engineer` |
 | [53-lab-target](53-lab-target.md) | closed | semanario lab Puertomontevideo | [TASK-53](../.aicontext/tasks/53-lab-target.md) | `metadata-extraction` + `detector-patterns` | lab (no `v2-ui-engineer`) |
 | [54-lab-host](54-lab-host.md) | active | host HTTPS gratuito del lab | [TASK-54](../.aicontext/tasks/54-lab-host.md) | — | lab |
+| [55-scan-live-graph](55-scan-live-graph.md) | closed | grafos en vivo del scan | [TASK-55](../.aicontext/tasks/55-scan-live-graph.md) | `metatracer-ui` | `pipeline-engineer` + `v2-ui-engineer` |
 
 ## Qué es histórico (no contrato)
 

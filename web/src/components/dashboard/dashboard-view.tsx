@@ -6,6 +6,7 @@ import Link from "next/link";
 import { EvidenceTable } from "@/components/dashboard/evidence-table";
 import { FindingsTypeChart } from "@/components/dashboard/findings-type-chart";
 import { MetricCard } from "@/components/dashboard/metric-card";
+import { EstadoScene } from "@/components/dashboard/estado-scene";
 import { SeverityOverview } from "@/components/dashboard/severity-overview";
 import { parseTrend, SeverityTrend, type TrendPoint } from "@/components/dashboard/severity-trend";
 import { TopDomains } from "@/components/dashboard/top-domains";
@@ -154,36 +155,47 @@ function Onboarding() {
   );
 }
 
-function nextStep(stats: Stats) {
+function NowCard({ stats }: { stats: Stats }) {
   const failed = stats.runs.failed ?? 0;
   const unclassified = stats.findings.unclassified;
+  const title =
+    unclassified > 0
+      ? `${formatCount(unclassified)} hallazgos sin severidad`
+      : failed > 0
+        ? `${formatCount(failed)} escaneos fallidos`
+        : "Revisar lo ya observado";
+  const hint =
+    unclassified > 0
+      ? "Abre un escaneo completado y clasifica lo que el detector dejó sin severidad."
+      : failed > 0
+        ? "Un escaneo fallido no tumba los demás. Revisa el error y vuelve a lanzar."
+        : "Reabre un informe o compara dos corridas del mismo alcance.";
   return (
-    <p className="text-sm text-mt-muted">
-      {unclassified > 0 ? (
-        <>
-          {formatCount(unclassified)} hallazgos sin severidad.{" "}
-          <Link href="/runs?status=completed" className="underline">
-            Abrir escaneos completados
-          </Link>
-        </>
-      ) : (
-        <Link href="/runs?status=completed" className="underline">
-          Abrir escaneos completados
-        </Link>
-      )}
-      {failed > 0 ? (
-        <>
-          {" · "}
-          <Link href="/runs?status=failed" className="underline">
-            Revisar escaneos fallidos
-          </Link>
-        </>
-      ) : null}
-      {" · "}
-      <Link href="/runs/compare" className="underline">
-        Abrir comparación
-      </Link>
-    </p>
+    <section
+      className="mt-card flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between"
+      aria-label="Ahora"
+    >
+      <div className="min-w-0">
+        <p className="mt-kicker">Ahora</p>
+        <h2 id="now-title" className="mt-section-title text-base">
+          {title}
+        </h2>
+        <p className="mt-meta mt-1">{hint}</p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="secondary" asChild>
+          <Link href="/runs?status=completed">Abrir escaneos completados</Link>
+        </Button>
+        {failed > 0 ? (
+          <Button variant="secondary" asChild>
+            <Link href="/runs?status=failed">Revisar escaneos fallidos</Link>
+          </Button>
+        ) : null}
+        <Button variant="ghost" asChild>
+          <Link href="/runs/compare">Abrir comparación</Link>
+        </Button>
+      </div>
+    </section>
   );
 }
 
@@ -209,54 +221,74 @@ export function DashboardView() {
 
   return (
     <div className="flex min-w-0 flex-col gap-5">
-      <div className="mt-page-head">
-        <div>
-          <h1 className="mt-page-title">Panel</h1>
-          <p className="mt-meta">Resumen de seguridad de cada escaneo guardado en esta instalación.</p>
-        </div>
+      <header className="relative flex flex-col items-center border-b border-mt-border pb-3">
         {stats && stats.runs.total > 0 ? (
-          <Button asChild>
-            <Link href="/">Nuevo escaneo</Link>
-          </Button>
+          <div className="sm:absolute sm:right-0 sm:top-0">
+            <Button asChild>
+              <Link href="/">Nuevo escaneo</Link>
+            </Button>
+          </div>
         ) : null}
-      </div>
+        <div className="mt-estado-lockup">
+          <EstadoScene />
+          <h1 className="mt-page-title mt-estado-title">
+            <span className="mt-estado-title-text">Panel de Estado</span>
+          </h1>
+        </div>
+      </header>
       {loading && !stats ? <LoadingState label="Cargando el panel" variant="page" /> : null}
       {error ? <ErrorState message={error} onRetry={() => void load()} /> : null}
       {stats && stats.runs.total === 0 ? <Onboarding /> : null}
       {stats && stats.runs.total > 0 ? (
-        <div className="flex flex-col gap-5">
-          {nextStep(stats)}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <MetricCard
-              label="Escaneos"
-              value={formatCount(stats.runs.total)}
-              detail={`Completados ${stats.runs.completed ?? 0} · Fallidos ${stats.runs.failed ?? 0}`}
-            />
-            <MetricCard
-              label="Hallazgos"
-              value={formatCount(stats.findings.total)}
-              detail={`Alta ${stats.findings.severity_breakdown.high ?? 0} · Sin clasificar ${stats.findings.unclassified} · Descartados ${stats.findings.dismissed}`}
-            />
-            <MetricCard
-              label="Activos"
-              value={formatCount(stats.assets.total)}
-              detail={`Con incidencias ${stats.assets.with_issues}`}
-            />
-            <MetricCard
-              label="Uso de IA"
-              value={formatCount(stats.agent_usage.total_tokens)}
-              detail={`${formatCount(stats.agent_usage.calls)} llamadas`}
-            />
-          </div>
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-            <SeverityOverview total={stats.findings.total} breakdown={stats.findings.severity_breakdown} />
-            <FindingsTypeChart rows={typeRank} />
-          </div>
-          {stats.trends.length > 0 ? <SeverityTrend points={stats.trends} /> : null}
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-            <TopDomains rows={domainRank} />
-            <EvidenceTable rows={stats.top_evidence} />
-          </div>
+        <div className="flex flex-col gap-6">
+          <NowCard stats={stats} />
+          <section className="mt-section" aria-label="Inventario">
+            <p className="mt-kicker">Inventario</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <MetricCard
+                label="Escaneos"
+                value={formatCount(stats.runs.total)}
+                detail={`Completados ${stats.runs.completed ?? 0} · Fallidos ${stats.runs.failed ?? 0}`}
+                href="/runs"
+              />
+              <MetricCard
+                label="Hallazgos"
+                value={formatCount(stats.findings.total)}
+                detail={`Alta ${stats.findings.severity_breakdown.high ?? 0} · Sin clasificar ${stats.findings.unclassified} · Descartados ${stats.findings.dismissed}`}
+                href="/runs?status=completed"
+              />
+              <MetricCard
+                label="Activos"
+                value={formatCount(stats.assets.total)}
+                detail={`Con incidencias ${stats.assets.with_issues}`}
+              />
+              <MetricCard
+                label="Uso de IA"
+                value={formatCount(stats.agent_usage.total_tokens)}
+                detail={`${formatCount(stats.agent_usage.calls)} llamadas`}
+              />
+            </div>
+          </section>
+          <section className="mt-section" aria-label="Composición">
+            <p className="mt-kicker">Composición</p>
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              <SeverityOverview total={stats.findings.total} breakdown={stats.findings.severity_breakdown} />
+              <FindingsTypeChart rows={typeRank} />
+            </div>
+          </section>
+          {stats.trends.length > 0 ? (
+            <section className="mt-section" aria-label="Tendencia">
+              <p className="mt-kicker">Tendencia</p>
+              <SeverityTrend points={stats.trends} />
+            </section>
+          ) : null}
+          <section className="mt-section" aria-label="Qué se repite">
+            <p className="mt-kicker">Qué se repite</p>
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+              <TopDomains rows={domainRank} />
+              <EvidenceTable rows={stats.top_evidence} />
+            </div>
+          </section>
         </div>
       ) : null}
     </div>

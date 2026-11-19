@@ -20,7 +20,7 @@ from metatracer.db.models import (
 )
 from metatracer.db.repositories import FindingRepository, RunRepository
 
-_TABLES = {"run", "asset", "raw_metadata_item", "finding", "agent_log", "scope"}
+_TABLES = {"run", "asset", "raw_metadata_item", "finding", "agent_log", "scope", "discovery_edge"}
 
 
 @pytest.fixture()

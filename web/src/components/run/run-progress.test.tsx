@@ -3,6 +3,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { renderWithProviders as render } from "@/test/render";
 
+vi.mock("@/components/run/graph/live-scan-graph", () => ({
+  LiveScanGraph: () => <section aria-label="Grafos del escaneo" />,
+}));
+
 import { RunProgress } from "@/components/run/run-progress";
 import { RunWorkspaceShell } from "@/components/run/workspace/run-workspace-shell";
 
@@ -69,6 +73,17 @@ function stub(status: string, role?: "operator" | "viewer") {
       if (url.includes("/correlations")) {
         return new Response(JSON.stringify({ run_id: "run-1", total: 0, groups: [] }), { status: 200 });
       }
+      if (url.includes("/graph")) {
+        return new Response(
+          JSON.stringify({
+            run_id: "run-1",
+            crawl: { nodes: [], edges: [], truncated: false, notice: null },
+            correlations: { nodes: [], edges: [], truncated: false, notice: null },
+            metrics: { by_content_type: {}, by_finding_type: {}, by_extraction_status: {} },
+          }),
+          { status: 200 },
+        );
+      }
       return new Response(JSON.stringify(runBody(status)), { status: 200 });
     }),
   );
@@ -83,6 +98,7 @@ describe("RunProgress", () => {
       </RunWorkspaceShell>,
     );
     const panel = await screen.findByRole("region", { name: "Actividad del escaneo" });
+    expect(await screen.findByRole("region", { name: "Grafos del escaneo" })).toBeInTheDocument();
     expect(panel).toHaveTextContent("Leyendo documentos guardados");
     expect(panel).toHaveTextContent("Documentos");
     expect(panel).toHaveTextContent("1");
@@ -229,6 +245,17 @@ describe("RunProgress", () => {
       }
       if (url.includes("/correlations")) {
         return new Response(JSON.stringify({ run_id: "run-1", total: 0, groups: [] }), { status: 200 });
+      }
+      if (url.includes("/graph")) {
+        return new Response(
+          JSON.stringify({
+            run_id: "run-1",
+            crawl: { nodes: [], edges: [], truncated: false, notice: null },
+            correlations: { nodes: [], edges: [], truncated: false, notice: null },
+            metrics: { by_content_type: {}, by_finding_type: {}, by_extraction_status: {} },
+          }),
+          { status: 200 },
+        );
       }
       return new Response(
         JSON.stringify(runBody("completed", { previous_run_id: "run-0" })),

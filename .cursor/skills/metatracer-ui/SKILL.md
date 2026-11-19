@@ -28,6 +28,10 @@ wrapper HTTP.
   cookie de sesión es `SameSite=Lax` y la CSP `connect-src 'self'`.
 - Wizard (TASK-51): modo carpeta local envía `local_paths` (rutas **en el
   servidor**, texto). No hay upload de bytes ni `<input type="file">`.
+- Grafos (TASK-55): `echarts` y `cytoscape` empaquetados, wrappers propios
+  client-only, `next/dynamic({ ssr: false })`. Cero CDN, cero `echarts-for-react`
+  / `react-cytoscapejs`. Tooltips texto; `safeUrl()`; `animate: false`. El
+  canvas vive en la ficha del run, no en el wizard.
 
 ## Reglas de renderizado (inviolables)
 

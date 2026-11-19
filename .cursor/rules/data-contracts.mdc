@@ -28,11 +28,13 @@ Fuente de verdad: `.aicontext/tasks/README.md`. Valores **en minúsculas** en ba
 | `export.redaction` | `none` \| `contacts` \| `coordinates` \| `all` (Fase 5: solo el fichero exportado; la base no cambia. API y CLI por defecto `none`) |
 | `normalized_kind` | `decimal_degrees` \| `iso8601_utc` \| `lowercase_trim` (el valor original no se sobrescribe) |
 | `timezone_status` | `known` \| `assumed_utc` \| `unzoned` \| `invalid` (NULL si el campo no es una fecha) |
+| `graph_node.kind` | `page` \| `asset` \| `local_root` \| `value` (nodo de grafo de scan; `value` es un valor compartido, no identidad) |
+| `discovery_edge.kind` | `page` \| `document` \| `script` \| `probe` \| `local` |
 
 No añadir valores sin actualizar antes `.aicontext/tasks/README.md`.
 
-**Reserved:** no hay specs reserved en el overlay v3.4. Specs 36–53 closed.
-Ver `MEMORY.md` y `specs/`.
+**Reserved:** no hay specs reserved. Specs 36–53 closed. Spec 54 lab host active.
+Spec 55 scan live graph closed. Ver `MEMORY.md` y `specs/`.
 
 ## Ciclo de vida de severity
 

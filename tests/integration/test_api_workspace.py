@@ -23,6 +23,8 @@ from metatracer.db.models import (
     Asset,
     Confidence,
     DetectorMethod,
+    DiscoveryEdge,
+    DiscoveryEdgeKind,
     ExtractionStatus,
     Finding,
     FindingType,
@@ -488,3 +490,33 @@ async def test_findings_expose_the_asset_they_came_from(
     assert finding["created_at"]
     assert len(payload["findings"]) == 1
     assert isinstance(finding["created_at"], str)
+
+
+async def test_graph_404_for_unknown_run(client: httpx.AsyncClient) -> None:
+    response = await client.get("/api/runs/does-not-exist/graph")
+    assert response.status_code == 404
+
+
+async def test_graph_returns_crawl_metrics_and_empty_correlations(
+    app: FastAPI, client: httpx.AsyncClient
+) -> None:
+    seeded = await _seed(app)
+    async with app.state.session_factory() as session:
+        session.add(
+            DiscoveryEdge(
+                run_id=seeded.run_id,
+                from_url="https://acme.test/",
+                to_url="https://acme.test/report.pdf",
+                kind=DiscoveryEdgeKind.document,
+            )
+        )
+        await session.commit()
+    payload = (await client.get(f"/api/runs/{seeded.run_id}/graph")).json()
+    assert payload["run_id"] == seeded.run_id
+    assert payload["crawl"]["truncated"] is False
+    assert payload["crawl"]["nodes"]
+    assert payload["crawl"]["edges"]
+    assert payload["correlations"]["nodes"] == []
+    assert "application/pdf" in payload["metrics"]["by_content_type"]
+    assert "email" in payload["metrics"]["by_finding_type"]
+    assert "evidence_snippet" not in json.dumps(payload)

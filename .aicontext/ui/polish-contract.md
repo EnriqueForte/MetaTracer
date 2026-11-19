@@ -16,7 +16,7 @@ Specs 36–53 closed. Overlay v3.4 sin reserved. No inventa producto.
 
 **Qué mejora.** Jerarquía de página (un `h1`, un kicker con significado, una CTA primaria), cromo que frena el trabajo diario (pestañas de dos líneas, cabezas duplicadas del run, “siguientes pasos” de tres tarjetas, wizard con pipeline decorativo, login con rejilla y dibujo animado) y estados vacíos/carga que ocupan una tarjeta de dashboard fuera del Panel.
 
-**Qué no se toca.** Paleta `--mt-*`, densidad `html[data-density]`, procedencia (`LayerChip`: Observado / Inferido / Externo ≠ severidad), rúbrica, gate de alcance, un origen, cero CDN, texto no HTML del target, `safeUrl()`, CSRF, SSE, enums. Ni ZIP, Wayback seed, HEIC, grafo, tiles ni pantallas nuevas.
+**Qué no se toca.** Paleta `--mt-*`, densidad `html[data-density]`, procedencia (`LayerChip`: Observado / Inferido / Externo ≠ severidad), rúbrica, gate de alcance, un origen, cero CDN, texto no HTML del target, `safeUrl()`, CSRF, SSE, enums. Ni ZIP, Wayback seed, HEIC, tiles ni pantallas nuevas. El grafo de scan vive en spec 55 (ficha del run, no adorno).
 
 **Principios (además del design system §1):**
 
@@ -162,7 +162,7 @@ Regla global: **toda página de trabajo usa `.mt-page-head` + un `h1.mt-page-tit
 **Prohibido:**
 
 - Loops salvo `mt-spin`.
-- Shimmer, partículas, count-up, grafos, `mt-sweep` / `mt-pulse`.
+- Shimmer, partículas, count-up, grafos decorativos/swarm, `mt-sweep` / `mt-pulse`.
 - `@keyframes mt-auth-draw`, `mt-auth-arrive`, `.mt-auth-spoke*`, `.mt-auth-node` con delay, `<animateMotion>` / `.mt-auth-signal`.
 - Transición de aparición de tarjetas del panel o del wizard.
 - Animar `.mt-stage*` en el wizard (el wizard ya no muestra el recorrido).

@@ -147,6 +147,17 @@ function stubFetch(overrides: Record<string, unknown> = {}) {
           { status: 200 },
         );
       }
+      if (url.includes("/graph")) {
+        return new Response(
+          JSON.stringify({
+            run_id: "run-1",
+            crawl: { nodes: [], edges: [], truncated: false, notice: null },
+            correlations: { nodes: [], edges: [], truncated: false, notice: null },
+            metrics: { by_content_type: {}, by_finding_type: {}, by_extraction_status: {} },
+          }),
+          { status: 200 },
+        );
+      }
       if (url.includes("/coverage")) {
         return new Response(JSON.stringify(overrides.coverage ?? coverage), { status: 200 });
       }

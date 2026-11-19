@@ -389,6 +389,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/runs/{run_id}/graph": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Run Graph
+         * @description Crawl tree, correlation bipartite graph, and live inventory metrics.
+         */
+        get: operations["get_run_graph_api_runs__run_id__graph_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/search": {
         parameters: {
             query?: never;
@@ -1730,6 +1750,64 @@ export interface components {
             findings: components["schemas"]["SearchPageFindings"];
             metadata: components["schemas"]["SearchPageMetadata"];
         };
+        /** GraphEdgeResponse */
+        GraphEdgeResponse: {
+            /** From Id */
+            from_id: string;
+            /** To Id */
+            to_id: string;
+            /** Kind */
+            kind: string;
+        };
+        /** GraphLayerResponse */
+        GraphLayerResponse: {
+            /** Nodes */
+            nodes: components["schemas"]["GraphNodeResponse"][];
+            /** Edges */
+            edges: components["schemas"]["GraphEdgeResponse"][];
+            /** Truncated */
+            truncated: boolean;
+            /** Notice */
+            notice?: string | null;
+        };
+        /** GraphMetricsResponse */
+        GraphMetricsResponse: {
+            /** By Content Type */
+            by_content_type: {
+                [key: string]: number;
+            };
+            /** By Finding Type */
+            by_finding_type: {
+                [key: string]: number;
+            };
+            /** By Extraction Status */
+            by_extraction_status: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * GraphNodeKind
+         * @description Kind of a node in the live scan graph (TASK-55). Not an identity.
+         * @enum {string}
+         */
+        GraphNodeKind: "page" | "asset" | "local_root" | "value";
+        /**
+         * GraphNodeResponse
+         * @description One graph node. ``url`` is the observed address; never HTML.
+         */
+        GraphNodeResponse: {
+            /** Id */
+            id: string;
+            kind: components["schemas"]["GraphNodeKind"];
+            /** Label */
+            label: string;
+            /** Url */
+            url?: string | null;
+            /** Asset Id */
+            asset_id?: string | null;
+            correlation_kind?: components["schemas"]["CorrelationKind"] | null;
+            extraction_status?: components["schemas"]["ExtractionStatus"] | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -2100,6 +2178,17 @@ export interface components {
         RunCreatedResponse: {
             /** Run Id */
             run_id: string;
+        };
+        /**
+         * RunGraphResponse
+         * @description Crawl connections, shared-value links, and inventory counts (TASK-55).
+         */
+        RunGraphResponse: {
+            /** Run Id */
+            run_id: string;
+            crawl: components["schemas"]["GraphLayerResponse"];
+            correlations: components["schemas"]["GraphLayerResponse"];
+            metrics: components["schemas"]["GraphMetricsResponse"];
         };
         /**
          * RunListItem
@@ -3228,6 +3317,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CoverageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_run_graph_api_runs__run_id__graph_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunGraphResponse"];
                 };
             };
             /** @description Validation Error */

@@ -1,11 +1,12 @@
-"""Read-only workspace endpoints: assets, raw metadata and coverage (Fase 1).
+"""Read-only workspace endpoints: assets, raw metadata, coverage and graph.
 
-Four routes, all ``GET`` and all scoped to one run:
+Routes, all ``GET`` and all scoped to one run:
 
 - ``GET /api/runs/{run_id}/assets``                    inventory, keyset paged
 - ``GET /api/runs/{run_id}/assets/{asset_id}/metadata`` one asset's fields
 - ``GET /api/runs/{run_id}/metadata``                  run-wide field search
 - ``GET /api/runs/{run_id}/coverage``                  what the run collected
+- ``GET /api/runs/{run_id}/graph``                     crawl + correlation + metrics
 
 Why these exist: ``RawMetadataItem`` has always been persisted, but no endpoint
 read it, so everything outside the five finding types was invisible to the
@@ -25,8 +26,14 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from metatracer.core.exceptions import MetaTracerError
-from metatracer.db.models import CorrelationKind, ExtractionStatus, SkipReason
+from metatracer.db.models import (
+    CorrelationKind,
+    ExtractionStatus,
+    GraphNodeKind,
+    SkipReason,
+)
 from metatracer.services.correlation import groups_touching_run
+from metatracer.services.graph import GraphEdge, GraphLayer, GraphNode, RunGraphService
 from metatracer.services.workspace import (
     DEFAULT_ASSET_PAGE,
     DEFAULT_METADATA_PAGE,
@@ -188,6 +195,10 @@ def _service(request: Request) -> RunWorkspaceService:
     return RunWorkspaceService(request.app.state.session_factory)
 
 
+def _graph_service(request: Request) -> RunGraphService:
+    return RunGraphService(request.app.state.session_factory)
+
+
 def _not_found(exc: MetaTracerError) -> HTTPException:
     """``run/asset not found`` is a 404, never a 500.
 
@@ -319,6 +330,71 @@ class CorrelationListResponse(BaseModel):
     groups: list[CorrelationGroupResponse]
 
 
+class GraphNodeResponse(BaseModel):
+    """One graph node. ``url`` is the observed address; never HTML."""
+
+    id: str
+    kind: GraphNodeKind
+    label: str
+    url: str | None = None
+    asset_id: str | None = None
+    correlation_kind: CorrelationKind | None = None
+    extraction_status: ExtractionStatus | None = None
+
+    @classmethod
+    def from_node(cls, node: GraphNode) -> GraphNodeResponse:
+        return cls(
+            id=node.id,
+            kind=node.kind,
+            label=node.label,
+            url=node.url,
+            asset_id=node.asset_id,
+            correlation_kind=node.correlation_kind,
+            extraction_status=node.extraction_status,
+        )
+
+
+class GraphEdgeResponse(BaseModel):
+    from_id: str
+    to_id: str
+    kind: str
+
+    @classmethod
+    def from_edge(cls, edge: GraphEdge) -> GraphEdgeResponse:
+        return cls(from_id=edge.from_id, to_id=edge.to_id, kind=edge.kind)
+
+
+class GraphLayerResponse(BaseModel):
+    nodes: list[GraphNodeResponse]
+    edges: list[GraphEdgeResponse]
+    truncated: bool
+    notice: str | None = None
+
+    @classmethod
+    def from_layer(cls, layer: GraphLayer) -> GraphLayerResponse:
+        return cls(
+            nodes=[GraphNodeResponse.from_node(node) for node in layer.nodes],
+            edges=[GraphEdgeResponse.from_edge(edge) for edge in layer.edges],
+            truncated=layer.truncated,
+            notice=layer.notice,
+        )
+
+
+class GraphMetricsResponse(BaseModel):
+    by_content_type: dict[str, int]
+    by_finding_type: dict[str, int]
+    by_extraction_status: dict[str, int]
+
+
+class RunGraphResponse(BaseModel):
+    """Crawl connections, shared-value links, and inventory counts (TASK-55)."""
+
+    run_id: str
+    crawl: GraphLayerResponse
+    correlations: GraphLayerResponse
+    metrics: GraphMetricsResponse
+
+
 @router.get("/{run_id}/correlations", response_model=CorrelationListResponse)
 async def list_correlations(run_id: str, request: Request) -> CorrelationListResponse:
     """Shared values that touch this run. A shared value is not a shared identity."""
@@ -364,6 +440,25 @@ async def get_coverage(run_id: str, request: Request) -> CoverageResponse:
     except MetaTracerError as exc:
         raise _not_found(exc) from exc
     return CoverageResponse.from_summary(coverage)
+
+
+@router.get("/{run_id}/graph", response_model=RunGraphResponse)
+async def get_run_graph(run_id: str, request: Request) -> RunGraphResponse:
+    """Crawl tree, correlation bipartite graph, and live inventory metrics."""
+    try:
+        graph = await _graph_service(request).get(run_id)
+    except MetaTracerError as exc:
+        raise _not_found(exc) from exc
+    return RunGraphResponse(
+        run_id=graph.run_id,
+        crawl=GraphLayerResponse.from_layer(graph.crawl),
+        correlations=GraphLayerResponse.from_layer(graph.correlations),
+        metrics=GraphMetricsResponse(
+            by_content_type=graph.metrics.by_content_type,
+            by_finding_type=graph.metrics.by_finding_type,
+            by_extraction_status=graph.metrics.by_extraction_status,
+        ),
+    )
 
 
 async def _metadata(

@@ -122,3 +122,15 @@ describe("Light mode (TASK-35)", () => {
     expect(screen.getByRole("radio", { name: "Claro" })).toHaveAttribute("aria-checked", "true");
   });
 });
+
+describe("App mark", () => {
+  it("uses an original MetaTracer SVG, not a leftover Lucide bell", () => {
+    const mark = readFileSync(path.resolve(__dirname, "../../../public/favicon.svg"), "utf8");
+    const appIcon = readFileSync(path.resolve(__dirname, "../../app/icon.svg"), "utf8");
+    expect(mark).toContain("#3cc4dc");
+    expect(appIcon).toContain("#3cc4dc");
+    expect(mark).not.toContain("#34d399");
+    expect(mark).not.toContain("M15 17h5l-1.405");
+    expect(block(".mt-brand-mark {")).toContain('url("/favicon.svg")');
+  });
+});

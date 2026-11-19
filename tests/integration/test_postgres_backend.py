@@ -234,13 +234,18 @@ async def test_delete_cascade_leaves_no_orphans_on_postgres(pg_engine: AsyncEngi
     from metatracer.agents.knowledge_pg import PgVectorKnowledgeIndex
     from metatracer.db.models import (
         Asset,
+        AssetValue,
         Confidence,
+        CorrelationKind,
         DetectorMethod,
+        DiscoveryEdge,
+        DiscoveryEdgeKind,
         ExtractionStatus,
         Finding,
         FindingType,
         Run,
         RunStatus,
+        ValueEntity,
     )
     from metatracer.db.repositories import RunRepository
     from metatracer.services.retention import delete_run
@@ -280,6 +285,32 @@ async def test_delete_cascade_leaves_no_orphans_on_postgres(pg_engine: AsyncEngi
                 confidence=Confidence.high,
             )
         )
+        entity = ValueEntity(
+            kind=CorrelationKind.email,
+            value_hash="c" * 64,
+            value_norm="ada@target.example",
+            first_seen_run_id=run.id,
+            occurrences=1,
+        )
+        session.add(entity)
+        await session.commit()
+        await session.refresh(entity)
+        session.add(
+            AssetValue(
+                asset_id=asset.id,
+                entity_id=entity.id,
+                namespace="pdfinfo",
+                key="Author",
+            )
+        )
+        session.add(
+            DiscoveryEdge(
+                run_id=run.id,
+                from_url="https://target.example/",
+                to_url="https://target.example/a.pdf",
+                kind=DiscoveryEdgeKind.document,
+            )
+        )
         await session.commit()
         run_id = run.id
     await PgVectorKnowledgeIndex(pg_engine, factory).rebuild()
@@ -303,6 +334,22 @@ async def test_delete_cascade_leaves_no_orphans_on_postgres(pg_engine: AsyncEngi
                 {"run_id": run_id},
             )
         ).scalar_one()
+        edges = (
+            await conn.execute(
+                text("SELECT COUNT(*) FROM discovery_edge WHERE run_id = :run_id"),
+                {"run_id": run_id},
+            )
+        ).scalar_one()
+        values = (await conn.execute(text("SELECT COUNT(*) FROM asset_value"))).scalar_one()
+        entities = (
+            await conn.execute(
+                text("SELECT COUNT(*) FROM value_entity WHERE first_seen_run_id = :run_id"),
+                {"run_id": run_id},
+            )
+        ).scalar_one()
     assert findings == 0
     assert vectors == 0
     assert runs == 0
+    assert edges == 0
+    assert values == 0
+    assert entities == 0

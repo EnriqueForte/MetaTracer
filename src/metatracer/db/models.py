@@ -120,6 +120,25 @@ class CorrelationKind(StrEnum):
     author_string = "author_string"
 
 
+class GraphNodeKind(StrEnum):
+    """Kind of a node in the live scan graph (TASK-55). Not an identity."""
+
+    page = "page"
+    asset = "asset"
+    local_root = "local_root"
+    value = "value"
+
+
+class DiscoveryEdgeKind(StrEnum):
+    """Kind of a persisted discovery edge (TASK-55)."""
+
+    page = "page"
+    document = "document"
+    script = "script"
+    probe = "probe"
+    local = "local"
+
+
 class InvestigationStatus(StrEnum):
     """Lifecycle of an investigation (Fase 3).
 
@@ -253,6 +272,33 @@ class AssetValue(SQLModel, table=True):
     entity_id: str = Field(foreign_key="value_entity.id", index=True)
     namespace: str
     key: str
+
+
+class DiscoveryEdge(SQLModel, table=True):
+    """One discovered parent→child link for the live scan graph (TASK-55).
+
+    URLs only — never file bytes. A page HTML node often has no ``Asset`` row.
+    Duplicate inserts are ignored by the unique constraint.
+    """
+
+    __tablename__ = "discovery_edge"
+    __table_args__ = (
+        UniqueConstraint(
+            "run_id",
+            "from_url",
+            "to_url",
+            "kind",
+            name="uq_discovery_edge_run_urls_kind",
+        ),
+        Index("ix_discovery_edge_run_id_created_at", "run_id", "created_at"),
+    )
+
+    id: str = Field(default_factory=_new_uuid, primary_key=True)
+    run_id: str = Field(foreign_key="run.id", index=True)
+    from_url: str = Field(sa_type=Text)
+    to_url: str = Field(sa_type=Text)
+    kind: DiscoveryEdgeKind
+    created_at: datetime = Field(default_factory=_utc_now, sa_type=DateTime(timezone=True))
 
 
 class Asset(SQLModel, table=True):

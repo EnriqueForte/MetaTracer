@@ -58,6 +58,7 @@ describe("FindingsPanel triage ergonomics (TASK-35)", () => {
   it("filters to unclassified findings only", async () => {
     stub([finding("a"), finding("b", { severity: null, evidence_snippet: "unclassified-evidence" })]);
     render(<FindingsPanel runId="run-1" totalAssets={2} />);
+    await screen.findByRole("button", { name: "Todos (2)" }, { timeout: 4000 });
     const chip = await screen.findByRole("button", { name: "Sin clasificar (1)" });
     fireEvent.click(chip);
     expect(chip).toHaveAttribute("aria-pressed", "true");

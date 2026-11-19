@@ -298,6 +298,68 @@ body {
   color: var(--mt-fg);
 }
 
+/* Dashboard nameplate: the title sits in the scan bowl, not as a caption. */
+.mt-estado-lockup {
+  position: relative;
+  width: 100%;
+  max-width: 36rem;
+}
+
+.mt-estado-lockup svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.mt-estado-title {
+  position: absolute;
+  left: 50%;
+  bottom: 10%;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  width: max-content;
+  max-width: calc(100% - 2rem);
+  margin: 0;
+  transform: translateX(-50%);
+  font-size: 1.625rem;
+  letter-spacing: -0.045em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.mt-estado-title::before,
+.mt-estado-title::after {
+  content: "";
+  flex: 0 0 2.25rem;
+  height: 1px;
+  background: var(--mt-border-strong);
+}
+
+.mt-estado-title-text {
+  padding: 0 0.15rem;
+  background: var(--mt-bg);
+}
+
+@media (min-width: 640px) {
+  .mt-estado-title {
+    font-size: 2rem;
+    gap: 1rem;
+  }
+
+  .mt-estado-title::before,
+  .mt-estado-title::after {
+    flex-basis: 2.75rem;
+  }
+}
+
+@media (max-width: 419px) {
+  .mt-estado-title::before,
+  .mt-estado-title::after {
+    display: none;
+  }
+}
+
 .mt-section-title {
   margin: 0;
   font-size: 0.8125rem;
@@ -369,6 +431,12 @@ body {
   background: var(--mt-elevated);
 }
 
+.mt-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mt-space-3);
+}
+
 .mt-skeleton {
   border-radius: var(--mt-radius-md);
   background: var(--mt-elevated);
@@ -430,13 +498,12 @@ body {
 
 .mt-brand-mark {
   display: block;
-  width: 16px;
-  height: 16px;
-  flex: 0 0 16px;
-  border: 1px solid var(--mt-border-strong);
-  border-left: 2px solid var(--mt-accent);
-  border-radius: 2px;
-  background: var(--mt-elevated);
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  border: 0;
+  border-radius: 5px;
+  background: url("/favicon.svg") center / contain no-repeat;
 }
 
 .mt-brand-name {
@@ -1231,6 +1298,71 @@ body {
   font-variant-numeric: tabular-nums;
   font-variant-ligatures: none;
   line-height: 1.2;
+}
+
+.mt-graph-canvas {
+  height: 320px;
+  min-height: 280px;
+  border: 1px solid var(--mt-border);
+  background: var(--mt-bg);
+}
+
+.mt-graph-canvas-network {
+  /* 1920 minus sidebar 232 and page/card padding. Ultrawide must not stretch past this. */
+  width: 100%;
+  max-width: 1600px;
+  margin-inline: auto;
+  height: min(62vh, 640px);
+  min-height: 420px;
+}
+
+.mt-graph-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.mt-graph-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  font-family: var(--mt-font-mono);
+  font-size: 11px;
+  color: var(--mt-muted);
+}
+
+.mt-graph-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mt-graph-key-node {
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--mt-border);
+  background: var(--mt-chart-1);
+}
+
+.mt-graph-key-node[data-kind="page"] {
+  background: var(--mt-chart-2);
+  border-radius: 2px;
+}
+
+.mt-graph-key-node[data-kind="asset"] {
+  background: var(--mt-chart-1);
+  border-radius: 999px;
+}
+
+.mt-graph-key-node[data-kind="local_root"] {
+  background: var(--mt-chart-3);
+  border-radius: 2px;
+}
+
+.mt-graph-key-node[data-kind="value"] {
+  background: var(--mt-elevated);
+  border-color: var(--mt-chart-4);
+  border-radius: 1px 4px 4px 1px;
 }
 
 .mt-spin {

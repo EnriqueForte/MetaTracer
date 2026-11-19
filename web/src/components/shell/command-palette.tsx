@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { isGlobalSearch } from "@/components/search/search-view";
+import { isGlobalSearch, type GlobalSearchResponse } from "@/components/search/search-view";
 import { getJson, hasArray } from "@/lib/api/client";
 import type { RunListResponse } from "@/lib/api/types";
 import { queryKeys } from "@/lib/query/keys";
@@ -17,7 +17,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 export function baseCommands(actor: Actor): Command[] {
   const commands: Command[] = [
     { id: "new-scan", label: "Nuevo escaneo", hint: "Objetivos y alcance", href: "/" },
-    { id: "dashboard", label: "Panel", hint: "Resumen", href: "/dashboard" },
+    { id: "dashboard", label: "Panel", hint: "Panel de Estado", href: "/dashboard" },
     { id: "search", label: "Buscar", hint: "Hallazgos y metadatos", href: "/search" },
     { id: "history", label: "Historial", hint: "Escaneos locales", href: "/runs" },
     { id: "investigations", label: "Investigaciones", hint: "Escaneos agrupados", href: "/investigations" },
@@ -87,7 +87,7 @@ export function CommandPalette({ open, onOpenChange, actor, onNavigate }: Props)
   const evidence = useQuery({
     queryKey: [...queryKeys.globalSearch({ q: needle, kind: "findings", limit: "8" }), "palette"],
     queryFn: () =>
-      getJson(
+      getJson<GlobalSearchResponse>(
         `/api/search?q=${encodeURIComponent(needle)}&kind=findings&limit=8`,
         isGlobalSearch,
       ),

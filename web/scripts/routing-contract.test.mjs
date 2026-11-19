@@ -17,6 +17,7 @@ import { routePath } from "./coexist-proxy.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const caddyfile = readFileSync(path.resolve(here, "../../deploy/Caddyfile"), "utf8");
+const nextConfig = readFileSync(path.resolve(here, "../next.config.ts"), "utf8");
 
 /** The routing table both entrypoints must honour.
  *
@@ -67,5 +68,13 @@ describe("Caddyfile declares the same matchers in the right order", () => {
 
   it("no longer exposes a /v2 prefix (Next serves from the root)", () => {
     assert.doesNotMatch(caddyfile, /handle \/v2/);
+  });
+});
+
+describe("Next production CSP (TASK-55)", () => {
+  it("does not grant unsafe-eval outside development", () => {
+    assert.match(nextConfig, /script-src 'self' 'unsafe-inline'/);
+    const productionSrc = nextConfig.match(/: "script-src 'self' 'unsafe-inline'"/);
+    assert.ok(productionSrc, "production script-src must omit unsafe-eval");
   });
 });

@@ -1217,6 +1217,49 @@
         }
       }
     },
+    "/api/runs/{run_id}/graph": {
+      "get": {
+        "tags": [
+          "workspace"
+        ],
+        "summary": "Get Run Graph",
+        "description": "Crawl tree, correlation bipartite graph, and live inventory metrics.",
+        "operationId": "get_run_graph_api_runs__run_id__graph_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunGraphResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/search": {
       "get": {
         "tags": [
@@ -4528,6 +4571,177 @@
         ],
         "title": "GlobalSearchResponse"
       },
+      "GraphEdgeResponse": {
+        "properties": {
+          "from_id": {
+            "type": "string",
+            "title": "From Id"
+          },
+          "to_id": {
+            "type": "string",
+            "title": "To Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          }
+        },
+        "type": "object",
+        "required": [
+          "from_id",
+          "to_id",
+          "kind"
+        ],
+        "title": "GraphEdgeResponse"
+      },
+      "GraphLayerResponse": {
+        "properties": {
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/GraphNodeResponse"
+            },
+            "type": "array",
+            "title": "Nodes"
+          },
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/GraphEdgeResponse"
+            },
+            "type": "array",
+            "title": "Edges"
+          },
+          "truncated": {
+            "type": "boolean",
+            "title": "Truncated"
+          },
+          "notice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notice"
+          }
+        },
+        "type": "object",
+        "required": [
+          "nodes",
+          "edges",
+          "truncated"
+        ],
+        "title": "GraphLayerResponse"
+      },
+      "GraphMetricsResponse": {
+        "properties": {
+          "by_content_type": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "By Content Type"
+          },
+          "by_finding_type": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "By Finding Type"
+          },
+          "by_extraction_status": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "By Extraction Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "by_content_type",
+          "by_finding_type",
+          "by_extraction_status"
+        ],
+        "title": "GraphMetricsResponse"
+      },
+      "GraphNodeKind": {
+        "type": "string",
+        "enum": [
+          "page",
+          "asset",
+          "local_root",
+          "value"
+        ],
+        "title": "GraphNodeKind",
+        "description": "Kind of a node in the live scan graph (TASK-55). Not an identity."
+      },
+      "GraphNodeResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/GraphNodeKind"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "asset_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Id"
+          },
+          "correlation_kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CorrelationKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "extraction_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExtractionStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "label"
+        ],
+        "title": "GraphNodeResponse",
+        "description": "One graph node. ``url`` is the observed address; never HTML."
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -5434,6 +5648,32 @@
         ],
         "title": "RunCreatedResponse",
         "description": "202 body of POST /api/runs."
+      },
+      "RunGraphResponse": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "crawl": {
+            "$ref": "#/components/schemas/GraphLayerResponse"
+          },
+          "correlations": {
+            "$ref": "#/components/schemas/GraphLayerResponse"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/GraphMetricsResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "crawl",
+          "correlations",
+          "metrics"
+        ],
+        "title": "RunGraphResponse",
+        "description": "Crawl connections, shared-value links, and inventory counts (TASK-55)."
       },
       "RunListItem": {
         "properties": {

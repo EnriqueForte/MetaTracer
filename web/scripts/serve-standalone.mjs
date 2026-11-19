@@ -13,9 +13,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const standalone = path.join(root, ".next", "standalone");
+const standaloneCandidates = [
+  path.join(root, ".next", "standalone"),
+  path.join(root, ".next", "standalone", "web"),
+];
+const standalone = standaloneCandidates.find((dir) => existsSync(path.join(dir, "server.js")));
 
-if (!existsSync(path.join(standalone, "server.js"))) {
+if (!standalone) {
   console.error("web/.next/standalone/server.js missing. Run `npm run build` first.");
   process.exit(1);
 }

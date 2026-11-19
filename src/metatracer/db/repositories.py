@@ -16,6 +16,9 @@ from metatracer.core.safety.scope import normalize_host
 from metatracer.db.models import (
     AgentLog,
     Asset,
+    AssetValue,
+    DiscoveryEdge,
+    DiscoveryEdgeKind,
     ExtractionStatus,
     Finding,
     FindingFeedback,
@@ -27,6 +30,7 @@ from metatracer.db.models import (
     Scope,
     Severity,
     TriageStatus,
+    ValueEntity,
     WebhookConfig,
     WebhookDelivery,
     WebhookDeliveryStatus,
@@ -86,8 +90,9 @@ class RunRepository:
     async def delete_cascade(self, run_id: str) -> bool:
         """Delete one run in a single transaction, children first.
 
-        Order: feedback, agent logs, raw metadata, findings, assets, webhook
-        deliveries, derived knowledge-index rows, then the run. Explicit
+        Order: feedback, agent logs, raw metadata, correlation links, findings,
+        assets, webhook deliveries, discovery edges, unreferenced value
+        entities, derived knowledge-index rows, then the run. Explicit
         deletes, not ``ON DELETE CASCADE``, so SQLite and PostgreSQL behave
         the same with ``PRAGMA foreign_keys=ON``.
         """
@@ -97,16 +102,65 @@ class RunRepository:
         await self._session.exec(delete(FindingFeedback).where(FindingFeedback.run_id == run_id))
         await self._session.exec(delete(AgentLog).where(AgentLog.run_id == run_id))
         asset_ids = select(Asset.id).where(Asset.run_id == run_id)
+        touched_entities = (
+            await self._session.exec(
+                select(AssetValue.entity_id).where(AssetValue.asset_id.in_(asset_ids))  # type: ignore[attr-defined]
+            )
+        ).all()
         await self._session.exec(
             delete(RawMetadataItem).where(RawMetadataItem.asset_id.in_(asset_ids))  # type: ignore[attr-defined]
+        )
+        await self._session.exec(
+            delete(AssetValue).where(AssetValue.asset_id.in_(asset_ids))  # type: ignore[attr-defined]
         )
         await self._session.exec(delete(Finding).where(Finding.run_id == run_id))
         await self._session.exec(delete(Asset).where(Asset.run_id == run_id))
         await self._session.exec(delete(WebhookDelivery).where(WebhookDelivery.run_id == run_id))
+        await self._session.exec(delete(DiscoveryEdge).where(DiscoveryEdge.run_id == run_id))
+        touched = [str(item) for item in touched_entities if item]
+        await self._reconcile_value_entities(run_id, touched)
         await self._drop_knowledge_rows(run_id)
+        await self._session.flush()
         await self._session.delete(run)
         await self._session.commit()
         return True
+
+    async def _reconcile_value_entities(self, run_id: str, touched_ids: list[str]) -> None:
+        """Drop or retarget ValueEntity rows so ``first_seen_run_id`` stays valid."""
+        extra = (
+            await self._session.exec(
+                select(ValueEntity.id).where(ValueEntity.first_seen_run_id == run_id)
+            )
+        ).all()
+        entity_ids = {str(item) for item in (*touched_ids, *extra) if item}
+        for entity_id in entity_ids:
+            entity = await self._session.get(ValueEntity, entity_id)
+            if entity is None:
+                continue
+            remaining = (
+                await self._session.exec(
+                    select(func.count())
+                    .select_from(AssetValue)
+                    .where(AssetValue.entity_id == entity_id)
+                )
+            ).one()
+            count = int(remaining)
+            if count == 0:
+                await self._session.delete(entity)
+                continue
+            entity.occurrences = count
+            if entity.first_seen_run_id != run_id:
+                continue
+            other = (
+                await self._session.exec(
+                    select(Asset.run_id)
+                    .join(AssetValue, AssetValue.asset_id == Asset.id)  # type: ignore[arg-type]
+                    .where(AssetValue.entity_id == entity_id)
+                    .limit(1)
+                )
+            ).first()
+            if other:
+                entity.first_seen_run_id = str(other)
 
     async def _drop_knowledge_rows(self, run_id: str) -> None:
         """Drop derived index rows for this run when the index table exists."""
@@ -321,6 +375,67 @@ class AssetRepository:
             select(func.count()).select_from(Asset).where(Asset.run_id == run_id)
         )
         return int(result.one())
+
+
+class DiscoveryEdgeRepository:
+    """Persist and list crawl/local discovery edges. No graph layout here."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def add(
+        self,
+        run_id: str,
+        from_url: str,
+        to_url: str,
+        kind: DiscoveryEdgeKind,
+    ) -> DiscoveryEdge | None:
+        """Insert one edge. Duplicates return the existing row without error."""
+        existing = await self._session.exec(
+            select(DiscoveryEdge).where(
+                DiscoveryEdge.run_id == run_id,
+                DiscoveryEdge.from_url == from_url,
+                DiscoveryEdge.to_url == to_url,
+                DiscoveryEdge.kind == kind,
+            )
+        )
+        found = existing.first()
+        if found is not None:
+            return found
+        edge = DiscoveryEdge(run_id=run_id, from_url=from_url, to_url=to_url, kind=kind)
+        self._session.add(edge)
+        try:
+            await self._session.commit()
+        except IntegrityError:
+            await self._session.rollback()
+            raced = await self._session.exec(
+                select(DiscoveryEdge).where(
+                    DiscoveryEdge.run_id == run_id,
+                    DiscoveryEdge.from_url == from_url,
+                    DiscoveryEdge.to_url == to_url,
+                    DiscoveryEdge.kind == kind,
+                )
+            )
+            return raced.first()
+        await self._session.refresh(edge)
+        return edge
+
+    async def add_many(
+        self,
+        run_id: str,
+        rows: list[tuple[str, str, DiscoveryEdgeKind]],
+    ) -> None:
+        """Insert many edges. Each duplicate is skipped."""
+        for from_url, to_url, kind in rows:
+            await self.add(run_id, from_url, to_url, kind)
+
+    async def list_by_run(self, run_id: str) -> list[DiscoveryEdge]:
+        result = await self._session.exec(
+            select(DiscoveryEdge)
+            .where(DiscoveryEdge.run_id == run_id)
+            .order_by(DiscoveryEdge.created_at.asc(), DiscoveryEdge.id.asc())  # type: ignore[arg-type]
+        )
+        return list(result.all())
 
 
 class RawMetadataRepository:

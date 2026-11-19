@@ -15,7 +15,12 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from metatracer.core.config import Settings
 from metatracer.db.engine import create_db_engine, create_session_factory, init_db
 from metatracer.db.models import ExtractionStatus, Run, SkipReason
-from metatracer.db.repositories import AssetRepository, RawMetadataRepository, RunRepository
+from metatracer.db.repositories import (
+    AssetRepository,
+    DiscoveryEdgeRepository,
+    RawMetadataRepository,
+    RunRepository,
+)
 from metatracer.extractors.ingest import IngestionPipeline
 from metatracer.extractors.local import LOCAL_SOURCE, file_uri, list_local_entries
 from metatracer.services.orchestrator import ScanRequest
@@ -114,6 +119,11 @@ async def test_local_directory_extracts_without_http(
             items.extend(await RawMetadataRepository(session).list_by_asset(asset.id))
         keys = {(item.namespace, item.key) for item in items}
         assert ("html", "title") in keys or any(item.value == "Local" for item in items)
+        edges = await DiscoveryEdgeRepository(session).list_by_run(run_id)
+        assert edges
+        assert all(str(edge.kind) == "local" for edge in edges)
+        root = file_uri(dump)
+        assert all(edge.from_url == root for edge in edges)
 
 
 @pytest.mark.asyncio

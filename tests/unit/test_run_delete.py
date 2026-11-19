@@ -14,8 +14,12 @@ from metatracer.db.engine import create_db_engine, create_session_factory, init_
 from metatracer.db.models import (
     AgentLog,
     Asset,
+    AssetValue,
     Confidence,
+    CorrelationKind,
     DetectorMethod,
+    DiscoveryEdge,
+    DiscoveryEdgeKind,
     ExtractionStatus,
     FeedbackVote,
     Finding,
@@ -25,6 +29,7 @@ from metatracer.db.models import (
     Run,
     RunStatus,
     Severity,
+    ValueEntity,
     WebhookConfig,
     WebhookDelivery,
 )
@@ -148,6 +153,162 @@ async def test_delete_cascade_removes_children_and_the_knowledge_index(
         ).scalar_one()
     assert rows == 0
     assert list(reports.iterdir()) == []
+
+
+async def test_delete_cascade_clears_graph_edges_and_orphan_correlations(factory) -> None:
+    """A scan with a live graph and shared values must still be deletable.
+
+    Spec 55 persisted ``discovery_edge``; Fase 3 persisted ``asset_value``.
+    Neither table was in the original TASK-30 cascade, so SQLite raised
+    ``FOREIGN KEY constraint failed`` on ``DELETE FROM asset``.
+    """
+    _engine, session_factory = factory
+    async with session_factory() as session:
+        run = await RunRepository(session).create(
+            Run(
+                target_input='["target.example"]',
+                allowed_scope='["target.example"]',
+                scope_confirmed=True,
+                status=RunStatus.completed,
+            )
+        )
+        asset = Asset(
+            run_id=run.id,
+            source_url="https://target.example/photo.jpg",
+            final_url="https://target.example/photo.jpg",
+            content_type="image/jpeg",
+            file_hash_sha256="ef" * 32,
+            file_size_bytes=24,
+            extraction_status=ExtractionStatus.ok,
+        )
+        session.add(asset)
+        await session.commit()
+        await session.refresh(asset)
+        entity = ValueEntity(
+            kind=CorrelationKind.device_serial,
+            value_hash="a" * 64,
+            value_norm="sn-88421",
+            first_seen_run_id=run.id,
+            occurrences=1,
+        )
+        session.add(entity)
+        await session.commit()
+        await session.refresh(entity)
+        session.add(
+            AssetValue(
+                asset_id=asset.id,
+                entity_id=entity.id,
+                namespace="exif",
+                key="BodySerialNumber",
+            )
+        )
+        session.add(
+            DiscoveryEdge(
+                run_id=run.id,
+                from_url="https://target.example/",
+                to_url="https://target.example/photo.jpg",
+                kind=DiscoveryEdgeKind.document,
+            )
+        )
+        await session.commit()
+        run_id = run.id
+        entity_id = entity.id
+
+    await delete_run(session_factory, run_id)
+
+    async with session_factory() as session:
+        assert await _count(session, Run) == 0
+        assert await _count(session, Asset) == 0
+        assert await _count(session, AssetValue) == 0
+        assert await _count(session, DiscoveryEdge) == 0
+        assert await session.get(ValueEntity, entity_id) is None
+
+
+async def test_delete_cascade_retargets_shared_value_first_seen(factory) -> None:
+    """Deleting the first-seen run must not orphan a value still used elsewhere."""
+    _engine, session_factory = factory
+    async with session_factory() as session:
+        repo = RunRepository(session)
+        first = await repo.create(
+            Run(
+                target_input='["first.example"]',
+                allowed_scope='["first.example"]',
+                scope_confirmed=True,
+                status=RunStatus.completed,
+            )
+        )
+        second = await repo.create(
+            Run(
+                target_input='["second.example"]',
+                allowed_scope='["second.example"]',
+                scope_confirmed=True,
+                status=RunStatus.completed,
+            )
+        )
+        first_asset = Asset(
+            run_id=first.id,
+            source_url="https://first.example/a.jpg",
+            final_url="https://first.example/a.jpg",
+            content_type="image/jpeg",
+            file_hash_sha256="11" * 32,
+            file_size_bytes=8,
+            extraction_status=ExtractionStatus.ok,
+        )
+        second_asset = Asset(
+            run_id=second.id,
+            source_url="https://second.example/b.jpg",
+            final_url="https://second.example/b.jpg",
+            content_type="image/jpeg",
+            file_hash_sha256="22" * 32,
+            file_size_bytes=8,
+            extraction_status=ExtractionStatus.ok,
+        )
+        session.add(first_asset)
+        session.add(second_asset)
+        await session.commit()
+        await session.refresh(first_asset)
+        await session.refresh(second_asset)
+        entity = ValueEntity(
+            kind=CorrelationKind.email,
+            value_hash="b" * 64,
+            value_norm="ada@target.example",
+            first_seen_run_id=first.id,
+            occurrences=2,
+        )
+        session.add(entity)
+        await session.commit()
+        await session.refresh(entity)
+        session.add(
+            AssetValue(
+                asset_id=first_asset.id,
+                entity_id=entity.id,
+                namespace="pdfinfo",
+                key="Author",
+            )
+        )
+        session.add(
+            AssetValue(
+                asset_id=second_asset.id,
+                entity_id=entity.id,
+                namespace="pdfinfo",
+                key="Author",
+            )
+        )
+        await session.commit()
+        first_id = first.id
+        second_id = second.id
+        entity_id = entity.id
+
+    await delete_run(session_factory, first_id)
+
+    async with session_factory() as session:
+        leftover = await session.get(ValueEntity, entity_id)
+        assert leftover is not None
+        assert leftover.first_seen_run_id == second_id
+        assert leftover.occurrences == 1
+        assert await _count(session, AssetValue) == 1
+        assert await session.get(Run, first_id) is None
+        assert await session.get(Run, second_id) is not None
 
 
 async def test_active_run_is_not_deleted(factory) -> None:
