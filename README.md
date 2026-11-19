@@ -6,7 +6,7 @@
 
 **Descubrimiento de metadata sensible en assets públicos, para bug bounty y red team autorizados.**
 
-[Instalación](#instalación) · [Arranque](#arranque) · [Primer escaneo](#primer-escaneo) · [Qué detecta](#qué-detecta) · [Docker](#docker)
+[Instalación](#instalación) · [Arranque](#arranque) · [Primer escaneo](#primer-escaneo) · [Sitio de prueba](#sitio-de-prueba) · [Qué detecta](#qué-detecta) · [Docker](#docker)
 
 </div>
 
@@ -146,6 +146,25 @@ CLI equivalente (Linux):
 
 Windows: `.venv\Scripts\python.exe` en lugar de `.venv/bin/python`. `-y`
 confirma el alcance sin pregunta interactiva.
+
+Para un primer recorrido sin un programa de bug bounty, usa el [sitio de prueba](#sitio-de-prueba).
+
+## Sitio de prueba
+
+[Puertomontevideo](https://puertomontevideo-lab.serious-radius.workers.dev) es un semanario portuario **ficticio** publicado por este proyecto. Sirve para ejercitar el crawl en HTTPS: loopback sigue bloqueado, así que `localhost` no vale.
+
+| Campo | Valor |
+| --- | --- |
+| Objetivo | `https://puertomontevideo-lab.serious-radius.workers.dev` |
+| Scope | `puertomontevideo-lab.serious-radius.workers.dev` |
+
+El scope es el host entero. `workers.dev` a secas queda fuera de alcance.
+
+```bash
+.venv/bin/python -m metatracer scan https://puertomontevideo-lab.serious-radius.workers.dev -s puertomontevideo-lab.serious-radius.workers.dev -y
+```
+
+Qué hay plantado (fotos, actas, metadata) está en [`lab/puertomontevideo/README.md`](lab/puertomontevideo/README.md). No es un medio real ni un target de terceros.
 
 ## Qué detecta
 
