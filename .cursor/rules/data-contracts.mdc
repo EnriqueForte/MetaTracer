@@ -34,7 +34,7 @@ Fuente de verdad: `.aicontext/tasks/README.md`. Valores **en minúsculas** en ba
 No añadir valores sin actualizar antes `.aicontext/tasks/README.md`.
 
 **Reserved:** no hay specs reserved. Specs 36–53 closed. Spec 54 lab host active.
-Spec 55 scan live graph closed. Ver `MEMORY.md` y `specs/`.
+Spec 55 scan live graph closed. Spec 56 clone/install closed. Ver `MEMORY.md` y `specs/`.
 
 ## Ciclo de vida de severity
 

@@ -44,6 +44,7 @@ Estados: `reserved` \| `active` \| `closed`.
 | [53-lab-target](53-lab-target.md) | closed | semanario lab Puertomontevideo | [TASK-53](../.aicontext/tasks/53-lab-target.md) | `metadata-extraction` + `detector-patterns` | lab (no `v2-ui-engineer`) |
 | [54-lab-host](54-lab-host.md) | active | host HTTPS gratuito del lab | [TASK-54](../.aicontext/tasks/54-lab-host.md) | — | lab |
 | [55-scan-live-graph](55-scan-live-graph.md) | closed | grafos en vivo del scan | [TASK-55](../.aicontext/tasks/55-scan-live-graph.md) | `metatracer-ui` | `pipeline-engineer` + `v2-ui-engineer` |
+| [56-clone-install](56-clone-install.md) | closed | instalador + lanzador Windows/Linux | [TASK-56](../.aicontext/tasks/56-clone-install.md) | `metatracer-supply-chain` | `pipeline-engineer` |
 
 ## Qué es histórico (no contrato)
 
@@ -62,4 +63,5 @@ Watch `--cron` y el ejemplo systemd/compose están en spec 44 (closed). Deltas
 `PAYLOAD_KEYS` incluye `resolved_findings` y `severity_up_count`). `secret`
 está en el enum ([spec 49](49-secret-finding.md) closed). Ingesta local:
 [spec 51](51-local-ingest.md) (closed). Pulido UI: [spec 52](52-ui-polish.md)
-(closed; contrato en `.aicontext/ui/polish-contract.md`).
+(closed; contrato en `.aicontext/ui/polish-contract.md`). Clone + instalador +
+lanzador: [spec 56](56-clone-install.md) (closed).

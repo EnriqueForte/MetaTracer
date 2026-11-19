@@ -108,29 +108,78 @@ suite verified 787 passed / coverage 91.30%).
 
 ## Requirements
 
-- Python >= 3.11, < 3.13 (or Docker, see below)
+- Python 3.11 or 3.12 (3.13+ is not supported)
+- Node.js 20 or newer (Web UI)
+- Git
+- Or Docker, see below
 
-## Install
+## Install (Windows and Linux)
+
+Clone the repo, run the **installer**, then the **app** launcher. The installer
+creates `.venv`, installs the Python package and the Web UI (`npm ci`). The
+launcher starts the API on `http://127.0.0.1:8000` and the UI on
+`http://127.0.0.1:3000`.
+
+### Windows
+
+```powershell
+git clone <this-repository>
+cd MetaTracer
+.\install.cmd
+.\MetaTracer.cmd
+```
+
+`install.cmd` and `MetaTracer.cmd` are also double-clickable. If Python or Node
+are missing, the installer prints the `winget` commands and exits.
+
+### Linux (Debian, Parrot)
+
+```bash
+git clone <this-repository>
+cd MetaTracer
+chmod +x install.sh run.sh   # or: bash install.sh
+./install.sh
+./run.sh
+```
+
+If Python 3.11/3.12 or Node.js are missing:
+
+```bash
+sudo apt install python3.12 python3.12-venv python3-pip nodejs npm git
+```
+
+Then run `./install.sh` again. Stop the app with Ctrl+C.
+
+Contributor extras (`pytest`, `ruff`): `./install.sh --dev` or
+`.\install.cmd --dev`.
+
+### Manual venv (optional)
 
 ```powershell
 python -m venv .venv
 .venv\Scripts\python.exe -m pip install -e ".[dev]"
 ```
 
+On Linux/Parrot use `.venv/bin/python` instead of `.venv\Scripts\python.exe`.
+
 ## Verify
 
 ```powershell
-.venv\Scripts\python.exe -m ruff check src tests
+.venv\Scripts\python.exe -m ruff check src tests scripts
 .venv\Scripts\python.exe -m pytest tests -v
 ```
 
 ## Usage
 
 ```powershell
+# App launcher (API :8000 + Web UI :3000) — prefer this after a clone
+.\MetaTracer.cmd          # Windows
+# ./run.sh                # Linux / Parrot
+
 # CLI (scope is never inferred; -y confirms authorization non-interactively)
 .venv\Scripts\python.exe -m metatracer scan example.com -s example.com -y
 
-# Web UI + API on http://127.0.0.1:8000
+# API only (no Web V2). The full UI is MetaTracer.cmd / ./run.sh
 .venv\Scripts\python.exe -m metatracer serve
 
 # Stop a scan from the CLI with Ctrl+C. The run is stored as aborted, not failed.

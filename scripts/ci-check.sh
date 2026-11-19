@@ -11,8 +11,8 @@ if [[ ! -x "$PY" ]]; then
   exit 1
 fi
 
-echo "==> [1/2] ruff check src tests"
-"$PY" -m ruff check src tests
+echo "==> [1/2] ruff check src tests scripts"
+"$PY" -m ruff check src tests scripts
 
 echo "==> [2/2] pytest -m 'not e2e' -q"
 "$PY" -m pytest -m "not e2e" -q

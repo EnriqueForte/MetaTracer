@@ -9,8 +9,8 @@ if (-not (Test-Path $Py)) {
     exit 1
 }
 
-Write-Host "==> [1/2] ruff check src tests" -ForegroundColor Cyan
-& $Py -m ruff check src tests
+Write-Host "==> [1/2] ruff check src tests scripts" -ForegroundColor Cyan
+& $Py -m ruff check src tests scripts
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "==> [2/2] pytest -m 'not e2e' -q" -ForegroundColor Cyan

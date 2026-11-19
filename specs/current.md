@@ -1,4 +1,4 @@
-# Producto ahora — MetaTracer v3.2 (overlay v3.4; spec 54 lab host active; spec 55 grafos closed)
+# Producto ahora — MetaTracer v3.2 (overlay v3.4; spec 54 lab host active; spec 55 grafos closed; spec 56 instaladores closed)
 
 Herramienta de descubrimiento de metadata sensible para bug bounty y red team **autorizados**.
 Pipeline: ingest → detectores deterministas → clasificador heurístico → agente LangGraph
@@ -18,4 +18,5 @@ Producto nuevo (ZIP, Wayback seed, HEIC) sigue fuera de alcance. El grafo de
 scan (spec 55) cubre crawl + correlación + métricas en la ficha del run, no
 un grafo OSINT de identidad. El lab
 `lab/puertomontevideo` (spec 53 closed; spec 54 host público) no toca `src/` ni
-`web/`.
+`web/`. Spec 56: tras `git clone`, `install.cmd`/`install.sh` y
+`MetaTracer.cmd`/`run.sh` (sin PyInstaller).

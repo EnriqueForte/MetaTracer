@@ -9,8 +9,9 @@ Este directorio descompone el MVP en tareas implementables. Cada archivo es un c
 
 Las features del PRD definen *qué* debe existir. Estas tasks definen *cómo* construirlo sin contradecir el PRD.
 
-> **Gobernanza (2026-11-14):** TASK-00–35 y specs 36–53 están **closed**.
-> Spec 54 **active**: host público del lab (no producto). Spec **55 closed**: grafos en vivo del scan. No mover TASK-00–53 a `archive/`.
+> **Gobernanza (2026-11-19):** TASK-00–35 y specs 36–53 están **closed**.
+> Spec 54 **active**: host público del lab (no producto). Spec **55 closed**: grafos en vivo del scan.
+> Spec **56 closed**: instalador y lanzador Windows + Linux/Parrot. No mover TASK-00–53 a `archive/`.
 
 ---
 
@@ -123,6 +124,7 @@ Aplican a **todas** las tasks. Un PR que las viole no está done.
 | **TASK-49** | [49-secret-finding.md](49-secret-finding.md) | `finding_type: secret` (allowlist AKIA/`ghp_`/PEM/JWT) — **cerrada 2026-11-13** | TASK-02, TASK-03, TASK-05 |
 | **TASK-50** | [50-watch-deltas.md](50-watch-deltas.md) | Watch `resolved_findings` / `severity_up_count` en `PAYLOAD_KEYS` — **cerrada 2026-11-13** | TASK-22, TASK-44 |
 | **TASK-51** | [51-local-ingest.md](51-local-ingest.md) | Ingesta local de carpeta (cero red, mismos extractores) — **cerrada 2026-11-13** | TASK-01, TASK-09 |
+| **TASK-56** | [56-clone-install.md](56-clone-install.md) | Instalador y lanzador post-clone (Windows + Linux/Parrot) — **cerrada 2026-11-19** | T11, TASK-07 |
 
 `TASK-04` **no** depende de `TASK-05`: el motor de reportes debe funcionar con clasificaciones heurísticas (campos de explicación vacíos o plantilla). `TASK-05` rellena justificación, impacto, remediación y repro. `TASK-06` orquesta el pipeline completo.
 

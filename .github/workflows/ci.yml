@@ -30,7 +30,7 @@ jobs:
       - name: Install project with dev extras
         run: pip install '.[dev]'
       - name: Lint
-        run: python -m ruff check src tests
+        run: python -m ruff check src tests scripts
       - name: Fast suite (no e2e)
         run: python -m pytest -m 'not e2e' -q
 
@@ -49,7 +49,7 @@ jobs:
       - name: Install project with dev extras
         run: pip install '.[dev]'
       - name: Lint
-        run: python -m ruff check src tests
+        run: python -m ruff check src tests scripts
       - name: Full suite incl. e2e
         # El e2e activa allow_loopback EN PROCESO (Settings(allow_loopback=True)),
         # no requiere METATRACER_ALLOW_LOOPBACK en el entorno.
