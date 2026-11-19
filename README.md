@@ -1,277 +1,266 @@
+<div align="center">
+
+<img src="web/src/app/icon.svg" alt="MetaTracer" width="72" height="72">
+
 # MetaTracer
 
-AI-powered sensitive metadata discovery for **authorized** bug bounty and red team
-engagements.
+**Descubrimiento de metadata sensible en assets públicos, para bug bounty y red team autorizados.**
 
-> **Authorized use only.** MetaTracer scans public assets of targets you are explicitly
-> authorized to test (an in-scope bug bounty program, a written audit agreement, or your
-> own assets). Every run requires an explicit scope confirmation; there is no hidden or
-> insecure mode in the default distribution. The goal is to help programs **remove**
-> sensitive metadata, not to exploit it.
+[Instalación](#instalación) · [Arranque](#arranque) · [Primer escaneo](#primer-escaneo) · [Qué detecta](#qué-detecta) · [Docker](#docker)
 
-## Status
+</div>
 
-Closed: **v1.0–v1.2** (safety core, ingestion, five detectors, heuristic risk
-classification, optional LangGraph agent analysis with heuristic fallback, reports,
-CLI + Web UI over one shared orchestrator) → **v2.0** platform (scopes, dashboard,
-notifications) → **v2.1+** (feedback loop, light RAG) → **v2.2** integrations (outbound
-webhooks, portable KB, bounty exports, CI guardrail, scope import) → **v2.3**
-performance & UI polish (API rate limiting, request body cap, accessibility, shared UI
-helpers, consistent states) → **v2.4** multi-engagement (union of saved scopes per run,
-keyset-paginated run history). Closed: **v3.0** platform (headless watch with
-deterministic deltas — `metatracer watch`; PostgreSQL+pgvector; basic auth with
-session cookies, CSRF and operator/viewer roles — `METATRACER_AUTH_ENABLED`),
-**v3.1** (multi-user registration with first-run setup, admin panel and one-time
-invitations; **Web UI redesign** — design system `.mt-*`, Tailwind compiled offline; the
-Alpine build served from `/static` was the V1 asset and is gone since T11) and **v3.2** (hardening after the
-2026-10-03 audit, TASK-27 → TASK-35: `trust_env=False`, auth-required public bind,
-webhook HMAC, CSV formula neutralization, XMP pre-inflate cap, run recovery/abort,
-agent output integrity, GDPR retention, API authz, webhook retries, detector precision,
-Web V2 UX).
+> **Solo uso autorizado.** MetaTracer rastrea metadata en targets que tienes
+> permiso explícito de probar (programa de bug bounty in-scope, contrato de
+> auditoría o tus propios assets). Cada run exige confirmar el alcance. No hay
+> modo oculto ni inseguro en la distribución por defecto. El objetivo es
+> **quitar** metadata sensible, no explotarla.
 
-Suite verified on 2026-10-23: **787 passed, 6 skipped** (e2e included, loopback test
-flag); coverage **91.30%** on core/detectors/extractors/reports (DoD ≥85%); `ruff`
-clean. PostgreSQL integration tests skip when no server is reachable (local Docker redir
-not supported). Fast loop re-verified on 2026-10-25: **751 passed, 6 skipped**
-(`pytest -m "not e2e"`).
+## Qué es
 
-See `.aicontext/tasks/`. Architecture tour (Spanish): `.aicontext/walkthrough.md`.
+MetaTracer recorre páginas y ficheros **públicos** in-scope (PDF, imágenes,
+HTML, JS, cabeceras HTTP, documentos de oficina) y extrae metadata: GPS,
+correos, rutas internas, versiones, comentarios de debug, endpoints internos,
+almacenamiento en la nube y secretos en valores ya extraídos.
 
-## How it works
+La detección es **determinista**. Un LLM opcional solo interpreta hallazgos
+ya vistos; un guard post-modelo no puede inventar evidencia ni subir
+severidad sin texto que lo justifique. Los bytes de los ficheros **nunca** se
+guardan ni se envían al modelo: solo metadata y snippets cortos.
 
-One pipeline, two surfaces (CLI and Web UI). Detection is deterministic; the LLM only
-interprets.
+Una instalación, dos superficies (mismos findings):
 
-1. **Safety gate** — no HTTP until the operator confirms scope. Private/loopback
-   addresses are blocked. Every request goes through `safe_httpx_request`
-   (`trust_env=False`: `HTTP(S)_PROXY` / `ALL_PROXY` are ignored). A download
-   sends HEAD first (redirects included, each hop checked) and then GET of the
-   already validated final URL, so the chain is not fetched twice. The leftover
-   cost is one HEAD per hop plus one GET. `METATRACER_ALLOW_LOOPBACK` is ignored
-   outside pytest: `scan`, `serve` and `watch` refuse to start.
-2. **Ingest** — depth-1 crawl. PDFs and images (magic-byte allowlist), the HTML page
-   itself, recon HTTP headers (allowlist), and comments from in-scope `.js`. File bytes
-   and HTML/JS bodies are never stored.
-3. **Detect** — five finding types (`gps`, `email`, `internal_path`, `software_version`,
-   `debug_comment`). Severity stays unset.
-4. **Classify** — heuristic rubric with type ceilings (always available).
-5. **Agents** (optional LangGraph) — one finding per call, short evidence snippets only.
-   If the model fails, the heuristic baseline remains. The post-LLM guard can only lower
-   or reject severity.
-6. **Report** — Markdown, JSON and HTML in English, ordered Critical → Info.
-7. **Triage** — an operator marks a finding `open`, `confirmed`, `false_positive` or
-   `fixed` (`PUT /api/runs/<id>/findings/<finding_id>/triage`, `metatracer findings
-   triage <finding_id> --status false_positive`, or the finding panel in Web V2). Triage
-   never changes severity or evidence. False positives are left out of every export
-   (`--include-false-positives` / `include_false_positives=true` keeps them) and of the
-   dashboard counts, which show them as **Dismissed**. Watch deltas and
-   `GET /api/compare?a=<run>&b=<run>` match findings across runs by asset URL, type and
-   evidence.
+| Superficie | Dirección | Para qué |
+| --- | --- | --- |
+| **Web UI** (español) | [127.0.0.1:3000](http://127.0.0.1:3000) | Wizard de scan, historial, triage, grafos, informes |
+| **API** | [127.0.0.1:8000](http://127.0.0.1:8000) | JSON + SSE; la CLI habla con el mismo orquestador |
+| **CLI** (inglés) | terminal | `scan`, `watch`, `findings`, exports |
 
-The Web UI is **Web V2** (`web/`): Next.js 16 + React 19 + Tailwind 4, TypeScript
-strict, TanStack Query for server data and Zod at form boundaries. It serves from the
-origin root; FastAPI is API-only (since T11 the Jinja/Alpine Web V1 is gone). Features:
-filters in the URL, a command palette (Ctrl/⌘+K), keyboard shortcuts (`?` lists them),
-a GPS map drawn locally (no map tiles), run comparison, Webhooks and Knowledge screens
-for operators, finding triage, and a System / Dark / Light theme switch. Security
-headers for the API come from `api/security_headers.py`; the app shell's come from
-`web/next.config.ts`. `GET /api/ready` checks the database; `/api/health` stays a
-stateless liveness probe. One origin is served by Caddy in production
-(`deploy/Caddyfile`), so the session cookie (`SameSite=Lax`) and the CSP
-(`connect-src 'self'`) keep working.
+La UI es Next.js en `web/`. FastAPI es **solo API**. En local el lanzador
+arranca las dos. En producción, Caddy sirve un solo origen (`/api` → FastAPI).
 
-SQLite (default, single writer) or PostgreSQL + pgvector (`METATRACER_DATABASE_URL=postgresql+asyncpg://...`,
-Alembic-managed schema, optional parallel scans via `METATRACER_MAX_CONCURRENT_RUNS`). Optional
-authentication for the Web UI/API: `METATRACER_AUTH_ENABLED=true` — first boot provisions an
-operator via `METATRACER_AUTH_PASSWORD` or, if unset, a one-time setup token printed to the
-console (`/setup`); session cookie HttpOnly + CSRF; viewer role read-only; invitations
-(`METATRACER_INVITE_TTL_SECONDS`) open registration to invited users; the localhost CLI needs no
-login. One installation is a single trust domain: every authenticated user sees every
-run. Viewers cannot list users, invitations or webhook configuration, and cannot
-export the knowledge base. An operator can delete a finished run
-(`DELETE /api/runs/<id>`, `metatracer runs delete <id>`, or Delete run in the
-history). `METATRACER_RETENTION_DAYS` deletes terminal runs older than that many
-days; watch deltas then use only the runs that remain, so a pruned baseline can
-surface old findings as new. `METATRACER_MAX_AGENT_FINDINGS` (default 50) caps how
-many findings are sent to the model, separate from the download cap; the same
-evidence on two assets is one model call. `METATRACER_LLM_CONCURRENCY` (default 1)
-limits in-flight model calls and still honors the per-call rate limit.
-`metatracer serve` on `127.0.0.1` still starts with auth off. Binding a non-loopback
-address (Docker publishes `0.0.0.0:8000`) refuses to start unless auth is on or
-`METATRACER_ALLOW_UNAUTHENTICATED_BIND=true` (logged warning; scope and the network guard stay
-on). Compose defaults auth to **true**. If `.env` sets `METATRACER_AUTH_ENABLED=false`, Compose
-uses that value and the container exits until you enable auth or the override. Roadmap: **v3.0**
-platform vision — watch/headless mode (done), PostgreSQL+pgvector (done), basic auth (done)
-(`.aicontext/features/12-platform-v3.md`); **v3.1** — multi-user registration and Web UI redesign
-(done); **v3.2** — hardening after the 2026-10-03 audit, TASK-27 → TASK-35 (all closed;
-suite verified 787 passed / coverage 91.30%).
+## Instalación
 
-## Requirements
+| Herramienta | Requisito |
+| --- | --- |
+| Git | Para clonar |
+| Python | **3.11 o 3.12** (3.13 no está soportado) |
+| Node.js | **20 o posterior**, con `npm` |
+| Docker y Compose | Opcional; alternativa al instalador nativo |
 
-- Python 3.11 or 3.12 (3.13+ is not supported)
-- Node.js 20 or newer (Web UI)
-- Git
-- Or Docker, see below
-
-## Install (Windows and Linux)
-
-Clone the repo, run the **installer**, then the **app** launcher. The installer
-creates `.venv`, installs the Python package and the Web UI (`npm ci`). The
-launcher starts the API on `http://127.0.0.1:8000` and the UI on
-`http://127.0.0.1:3000`.
+```bash
+git clone https://github.com/EnriqueForte/MetaTracer.git
+cd MetaTracer
+```
 
 ### Windows
 
+Python 3.12 y Node LTS, si faltan:
+
 ```powershell
-git clone <this-repository>
-cd MetaTracer
+winget install Python.Python.3.12 OpenJS.NodeJS.LTS Git.Git
+```
+
+```powershell
 .\install.cmd
 .\MetaTracer.cmd
 ```
 
-`install.cmd` and `MetaTracer.cmd` are also double-clickable. If Python or Node
-are missing, the installer prints the `winget` commands and exits.
+`install.cmd` y `MetaTracer.cmd` también se abren con doble clic.
 
-### Linux (Debian, Parrot)
+### Linux (Debian / Parrot)
 
 ```bash
-git clone <this-repository>
-cd MetaTracer
-chmod +x install.sh run.sh   # or: bash install.sh
+chmod +x install.sh run.sh    # o: bash install.sh
 ./install.sh
 ./run.sh
 ```
 
-If Python 3.11/3.12 or Node.js are missing:
+El instalador crea `.venv`, instala el paquete Python y la Web UI (`npm ci`),
+y copia `.env.example` → `.env` si aún no existe. **Ctrl+C** detiene la app.
+
+#### Parrot 7 (Python del sistema = 3.13)
+
+Apt **no** ofrece `python3.11` ni `python3.11-venv`. Si ya tienes Python 3.11
+en `~/.local` (o pyenv), crea el entorno con `virtualenv` y luego el
+instalador:
 
 ```bash
-sudo apt install python3.12 python3.12-venv python3-pip nodejs npm git
+sudo apt install python3-virtualenv python3-pip
+rm -rf .venv
+python3 -m virtualenv -p "$HOME/.local/bin/python3.11" .venv
+./install.sh
 ```
 
-Then run `./install.sh` again. Stop the app with Ctrl+C.
+Si `npm ci` corta con `ETIMEDOUT`, no borres `.venv`. Reintenta solo la UI:
 
-Contributor extras (`pytest`, `ruff`): `./install.sh --dev` or
-`.\install.cmd --dev`.
-
-### Manual venv (optional)
-
-```powershell
-python -m venv .venv
-.venv\Scripts\python.exe -m pip install -e ".[dev]"
+```bash
+cd web
+export NODE_OPTIONS=--dns-result-order=ipv4first
+npm ci
+cd ..
+./run.sh
 ```
 
-On Linux/Parrot use `.venv/bin/python` instead of `.venv\Scripts\python.exe`.
+### Extras de desarrollo
 
-## Verify
-
-```powershell
-.venv\Scripts\python.exe -m ruff check src tests scripts
-.venv\Scripts\python.exe -m pytest tests -v
+```bash
+./install.sh --dev          # Linux
+.\install.cmd --dev         # Windows
 ```
 
-## Usage
+Instala `pytest` y `ruff` además del runtime.
 
-```powershell
-# App launcher (API :8000 + Web UI :3000) — prefer this after a clone
-.\MetaTracer.cmd          # Windows
-# ./run.sh                # Linux / Parrot
+## Arranque
 
-# CLI (scope is never inferred; -y confirms authorization non-interactively)
-.venv\Scripts\python.exe -m metatracer scan example.com -s example.com -y
+Con el instalador ya ejecutado:
 
-# API only (no Web V2). The full UI is MetaTracer.cmd / ./run.sh
-.venv\Scripts\python.exe -m metatracer serve
+| Sistema | Comando | UI | API |
+| --- | --- | --- | --- |
+| Windows | `.\MetaTracer.cmd` | [127.0.0.1:3000](http://127.0.0.1:3000) | [127.0.0.1:8000](http://127.0.0.1:8000) |
+| Linux / Parrot | `./run.sh` | igual | igual |
 
-# Stop a scan from the CLI with Ctrl+C. The run is stored as aborted, not failed.
-# From the API (operator + CSRF): POST /api/runs/<run-id>/abort
-# A restart marks leftover pending/running runs aborted
-# ("interrupted: process restarted") when they started before this process.
+Mantén la terminal abierta. En una VM, abre esas URLs en el navegador de la VM.
 
-# v3.0: headless watch — continuously re-scan a saved scope, reporting deltas.
-# Scope-id first; --once runs one iteration and exits; --interval is the cadence.
-.venv\Scripts\python.exe -m metatracer watch <scope-id> --once
-.venv\Scripts\python.exe -m metatracer watch <scope-id> --interval 21600 --webhook <webhook-id>
+Un overlay rojo de hidratación en Next.js con atributos `data-darkreader-*`
+lo provoca **Dark Reader** (u otra extensión que reescribe el HTML). No es un
+fallo de MetaTracer: desactívala en `127.0.0.1` o ignora el overlay. El tema
+Sistema / Oscuro / Claro va en la propia UI.
+
+## Primer escaneo
+
+1. Abre [http://127.0.0.1:3000](http://127.0.0.1:3000).
+2. Crea un scan, indica el host **y el scope**. El scope no se infiere.
+3. Confirma que estás autorizado. Sin esa confirmación no hay HTTP.
+4. Revisa hallazgos, triaje (`open` / `confirmed` / `false_positive` / `fixed`)
+   y exporta el informe (Markdown, JSON, HTML, CSV o plantilla bounty, **en inglés**).
+
+Loopback y redes privadas están bloqueados. No uses la app contra `localhost`
+salvo la suite de tests. Un overlay de extensión no impide escanear.
+
+CLI equivalente (Linux):
+
+```bash
+.venv/bin/python -m metatracer scan example.com -s example.com -y
 ```
+
+Windows: `.venv\Scripts\python.exe` en lugar de `.venv/bin/python`. `-y`
+confirma el alcance sin pregunta interactiva.
+
+## Qué detecta
+
+| Tipo | Ejemplos |
+| --- | --- |
+| `gps` | Coordenadas EXIF / IPTC |
+| `email` | Correos en metadata y comentarios |
+| `internal_path` | Rutas de disco o UNC |
+| `software_version` | Producto y versión en PDF / cabeceras |
+| `debug_comment` | Comentarios HTML/JS de desarrollo |
+| `internal_endpoint` | Hosts `.internal` / RFC1918 en metadata |
+| `cloud_storage` | Hosts S3, GCS, Azure Blob, R2 |
+| `secret` | Allowlist: `AKIA`, `ghp_`, PEM, JWT compacto **ya extraídos** |
+
+Fuentes: JPEG/PNG/TIFF/WebP/GIF, SVG (solo RDF/metadata, nunca el dibujo),
+PDF, HTML, cabeceras HTTP, comentarios JS, propiedades OOXML/ODF (nunca el
+cuerpo). También una **carpeta local** (`--local` / `local_paths`): mismos
+extractores, cero red. No se descomprimen ZIP genéricos ni se piden HEIC/AVIF.
+
+## Cómo trabaja el pipeline
+
+1. **Safety** — scope confirmado, un único wrapper HTTP, redirects revalidados,
+   proxies de entorno ignorados (`trust_env=False`).
+2. **Ingesta** — crawl de profundidad 1, allowlist por magic bytes.
+3. **Detectores** — reglas; la severidad queda vacía.
+4. **Clasificador heurístico** — rúbrica con techos por tipo (siempre disponible).
+5. **Agente** (opcional) — un hallazgo por llamada; si el modelo falla, queda
+   la heurística.
+6. **Informe y triaje** — el operador marca falsos positivos; no se reescribe
+   la evidencia.
+
+El LLM es opcional (`METATRACER_LLM_*` en `.env`). Sin clave, solo corre la
+heurística.
+
+## CLI útil
+
+```bash
+.venv/bin/python -m metatracer scan example.com -s example.com -y
+.venv/bin/python -m metatracer watch <scope-id> --once
+.venv/bin/python -m metatracer watch <scope-id> --interval 21600 --webhook <webhook-id>
+.venv/bin/python -m metatracer findings triage <finding-id> --status false_positive
+```
+
+`watch` reescanea un scope guardado y reporta deltas (`new_findings`,
+`resolved_findings`, `severity_up_count`) **sin** mandar evidencia al webhook.
 
 ## Docker
 
-Multi-stage image on `python:3.12-slim` with a non-root `metatracer` user. The
-entrypoint accepts `web` (uvicorn serving the API + Web UI) or passes its
-arguments verbatim to the CLI.
+Un origen (cookie `SameSite=Lax`, CSP `connect-src 'self'`):
 
-Since **T10** the default `docker compose up` starts **three** services behind a
-single origin, so the browser sees one host for the session cookie
-(`SameSite=Lax`) and the CSP (`connect-src 'self'`):
+| Servicio | Rol |
+| --- | --- |
+| `web` | FastAPI (API + SSE), no publicado al host |
+| `web-v2` | Next.js, sin secretos ni base de datos |
+| `proxy` | Caddy en el puerto 8000 |
 
-| Service | Role |
-| :--- | :--- |
-| `web` | FastAPI: JSON API and SSE. Not published; reachable only from the proxy. |
-| `web-v2` | Next.js (Web V2): the product UI. No secrets, no DB. |
-| `proxy` | Caddy. Routes `/api/*` and `/static/*` → `web`; everything else → `web-v2`. |
-
-The Python image still does **not** contain Node (`web/` is in `.dockerignore`);
-Web V2 is a separate image. `deploy/Caddyfile` disables proxy buffering on
-`/api/*` so `GET /api/runs/{id}/stream` stays live.
-
-```powershell
-docker build -t metatracer .
-
-# Web UI + API on http://localhost:8000 (all of it is Web V2); ./data and
-# ./reports persist on the host
+```bash
 docker compose up --build
-
-# Ephemeral CLI: reports land in .\reports and the container is deleted on exit
-.\scripts\docker-metatracer.ps1 scan example.com -s example.com -y
-# bash equivalent: ./scripts/docker-metatracer.sh scan example.com -s example.com -y
-
-# v3.0 watch as a long-running container command (one watch per scope):
-.\scripts\docker-metatracer.ps1 watch <scope-id> --interval 21600
 ```
 
-The container keeps the default safety posture: `METATRACER_ALLOW_LOOPBACK` is a
-test-only flag and is **not** set by the image or the Compose file. The image
-healthcheck is `GET /api/health`. The ephemeral CLI passes the host's
-`METATRACER_LLM_*` variables through; without them the run uses the heuristic
-classifier only. The `web` command checks the bind address before uvicorn
-starts (see authentication above).
+UI en [http://localhost:8000](http://localhost:8000). Compose activa auth
+porque publica un bind no-loopback. CLI efímera:
 
-## Webhook signatures
+```bash
+./scripts/docker-metatracer.sh scan example.com -s example.com -y
+```
 
-A webhook created with `signature_secret` signs every delivery. The API never
-returns the secret. Headers:
+```powershell
+.\scripts\docker-metatracer.ps1 scan example.com -s example.com -y
+```
 
-- `X-MetaTracer-Timestamp` — Unix time in seconds
-- `X-MetaTracer-Signature` — `sha256=<hex>`
+La imagen **no** define `METATRACER_ALLOW_LOOPBACK`.
 
-The MAC is HMAC-SHA256 of the UTF-8 string `{timestamp}.{body}`, where `body`
-is the raw request body: compact JSON (`separators=(",", ":")`), keys sorted,
-UTF-8. Verify those exact bytes; do not re-encode the JSON. Reject timestamps
-outside a window you choose (five minutes is a reasonable start) to limit
-replay.
+## Configuración
 
-Configs created before TASK-27 stored only a hash of the secret. They are
-delivered **unsigned** until you set the secret again. `GET /api/webhooks`
-reports `signature_status`: `active`, `needs_secret`, or `none`.
+Copia `.env.example` → `.env`. Todas las variables llevan el prefijo
+`METATRACER_`.
 
-## Configuration
+| Variable | Nota |
+| --- | --- |
+| `METATRACER_DATABASE_URL` | SQLite por defecto; Postgres exige `postgresql+asyncpg://` |
+| `METATRACER_LLM_*` | Vacío = solo heurística |
+| `METATRACER_AUTH_ENABLED` | `false` en `127.0.0.1`; un bind público exige auth |
+| `METATRACER_ALLOW_LOOPBACK` | **Solo tests.** Fuera de pytest, `scan` / `serve` / `watch` no arrancan |
 
-Copy `.env.example` to `.env` and adjust. Every variable uses the `METATRACER_` prefix.
-`METATRACER_ALLOW_LOOPBACK` exists **only for the test suite** (local mock server); never
-enable it anywhere else.
+En localhost la CLI no pide login. Un bind a `0.0.0.0` sin auth se niega a
+arrancar (salvo `METATRACER_ALLOW_UNAUTHENTICATED_BIND`, que se registra y
+**no** desactiva el scope).
 
-## Layout
+Webhooks con `signature_secret`: HMAC-SHA256 de `{timestamp}.{body}` en
+`X-MetaTracer-Signature`. El API no vuelve a mostrar el secreto.
 
-- `src/metatracer/core/` — configuration, logging, exceptions, safety core
-  (`safety/scope.py`, `safety/guard.py`, `safety/http.py`)
-- `src/metatracer/db/` — async engine, SQLModel models, CRUD repositories
-- `src/metatracer/extractors/` — ingestion pipeline, crawler, PDF/image/HTML/JS/header extractors
-- `src/metatracer/detectors/` — the five metadata detectors + dedup consolidation
-- `src/metatracer/classification/` — severity rubric + heuristic classifier
-- `src/metatracer/agents/` — LangGraph agent loop, evidence guard, heuristic fallback
-- `src/metatracer/reports/` — Markdown/JSON exporters
-- `src/metatracer/services/`, `cli/`, `api/` — shared orchestrator, Typer CLI, FastAPI API
-  (API-only since T11; the UI lives in `web/`)
-- `tests/` — `unit/`, `integration/` (incl. e2e), `agents/`, `fixtures/` (see
-  `tests/README.md` for marks and the loopback test flag)
-- `data/` — runtime SQLite database (git-ignored)
-- `reports/` — exported reports (git-ignored)
+## Verificar (contribuidores)
+
+```bash
+.venv/bin/python -m ruff check src tests scripts
+.venv/bin/python -m pytest -m "not e2e"
+```
+
+Windows: `.venv\Scripts\python.exe`. Cobertura DoD ≥ 85 % en
+`core` / `detectors` / `extractors` / `reports`.
+
+## Documentación interna
+
+- Recorrido de arquitectura (español): [`.aicontext/walkthrough.md`](.aicontext/walkthrough.md)
+- Memoria de producto: [`MEMORY.md`](MEMORY.md)
+- Specs: [`specs/`](specs/)
+- Tests: [`tests/README.md`](tests/README.md)
+
+**Tecnologías:** Python · FastAPI · Next.js · React · TypeScript · LangGraph · SQLite / PostgreSQL.
+
+## Autor
+
+**Enrique Forte · T3r0S3c** · [GitHub](https://github.com/EnriqueForte) ·
+[LinkedIn](https://linkedin.com/in/enriqueforte)
+
+Uso autorizado en programas de bug bounty, auditorías y assets propios.
+No es un framework de explotación.
