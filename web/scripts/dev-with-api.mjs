@@ -81,7 +81,7 @@ async function start() {
     if (stopping) return;
     stopping = true;
     for (const child of children) {
-      if (child.exitCode === null && child.signalCode === null) child.kill();
+      if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");
     }
     const finish = () => process.exit(code);
     if (children.every((child) => child.exitCode !== null || child.signalCode !== null)) finish();
@@ -89,6 +89,13 @@ async function start() {
       for (const child of children) child.once("exit", () => {
         if (children.every((item) => item.exitCode !== null || item.signalCode !== null)) finish();
       });
+      const killer = setTimeout(() => {
+        for (const child of children) {
+          if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+        }
+        finish();
+      }, 4000);
+      if (typeof killer.unref === "function") killer.unref();
     }
   }
 

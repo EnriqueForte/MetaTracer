@@ -10,12 +10,14 @@ from __future__ import annotations
 import argparse
 import os
 import shutil
+import signal
 import socket
 import subprocess
 import sys
 import time
 import venv
 import webbrowser
+from collections.abc import Callable
 from pathlib import Path
 
 MIN_PY = (3, 11)
@@ -78,12 +80,32 @@ def node_modules_dir(root: Path) -> Path:
     return web_root(root) / "node_modules"
 
 
+def venv_apt_package(version_info: tuple[int, ...] | sys.version_info | None = None) -> str:
+    info = sys.version_info if version_info is None else version_info
+    return f"python{int(info[0])}.{int(info[1])}-venv"
+
+
+def debian_venv_hint(version_info: tuple[int, ...] | sys.version_info | None = None) -> str:
+    pkg = venv_apt_package(version_info)
+    return (
+        f"Debian/Parrot: sudo apt install {pkg} python3-pip\n"
+        "Then: rm -rf .venv && ./install.sh"
+    )
+
+
+def venv_create_hint(version_info: tuple[int, ...] | sys.version_info | None = None) -> str:
+    if os.name == "nt":
+        return "Windows: repair the Python 3.11/3.12 install and include pip/venv."
+    return debian_venv_hint(version_info)
+
+
 def python_hint() -> str:
     if os.name == "nt":
         return "Install Python 3.11 or 3.12: winget install Python.Python.3.12"
     return (
-        "Debian/Parrot: sudo apt install python3.12 python3.12-venv python3-pip\n"
-        "Then rerun: python3.12 scripts/desktop.py install"
+        "Debian/Parrot: sudo apt install python3.11 python3.11-venv "
+        "python3.12 python3.12-venv python3-pip\n"
+        "Then rerun: ./install.sh"
     )
 
 
@@ -214,6 +236,21 @@ def missing_install_markers(root: Path) -> list[str]:
     return missing
 
 
+def bootstrap_pip(interpreter: Path, root: Path) -> None:
+    """Install pip into a venv created without ensurepip (Debian/Parrot)."""
+    env = child_env()
+    try:
+        run_command(
+            [sys.executable, "-m", "pip", "install", "--python", str(interpreter), "pip"],
+            cwd=root,
+            env=env,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError) as exc:
+        raise BootstrapError(
+            "Could not bootstrap pip inside .venv (ensurepip is missing).\n" + venv_create_hint()
+        ) from exc
+
+
 def create_venv(root: Path, *, recreate: bool = False) -> Path:
     directory = venv_dir(root)
     interpreter = venv_python(root)
@@ -224,12 +261,21 @@ def create_venv(root: Path, *, recreate: bool = False) -> Path:
     print(f"==> Creating virtualenv at {directory}")
     try:
         venv.create(directory, with_pip=True)
-    except Exception as exc:
-        raise BootstrapError(
-            f"Could not create .venv ({exc}).\n"
-            "Debian/Parrot: sudo apt install python3.12-venv\n"
-            "Windows: repair the Python 3.12 install and tick 'pip'."
-        ) from exc
+    except Exception as first:
+        if directory.exists():
+            shutil.rmtree(directory)
+        print("==> ensurepip missing; retrying without it")
+        try:
+            venv.create(directory, with_pip=False)
+            if not interpreter.is_file():
+                raise RuntimeError(f"missing {interpreter}")
+            bootstrap_pip(interpreter, root)
+        except Exception as second:
+            if directory.exists():
+                shutil.rmtree(directory)
+            raise BootstrapError(
+                f"Could not create .venv ({first}).\n{venv_create_hint()}"
+            ) from second
     if not interpreter.is_file():
         raise BootstrapError(f"Virtualenv is missing {interpreter}")
     return interpreter
@@ -293,13 +339,22 @@ def install(root: Path, *, dev: bool = False, recreate_venv: bool = False) -> No
     print(f"  UI: {APP_URL}   API: http://127.0.0.1:8000")
 
 
-def wait_for_port(port: int, host: str = "127.0.0.1", timeout_s: float = WEB_WAIT_SECONDS) -> None:
+def wait_for_port(
+    port: int,
+    host: str = "127.0.0.1",
+    timeout_s: float = WEB_WAIT_SECONDS,
+    abort: Callable[[], bool] | None = None,
+) -> None:
     deadline = time.monotonic() + timeout_s
     while True:
+        if abort is not None and abort():
+            raise BootstrapError("stopped")
         try:
             with socket.create_connection((host, port), timeout=1.0):
                 return
         except OSError:
+            if abort is not None and abort():
+                raise BootstrapError("stopped") from None
             if time.monotonic() >= deadline:
                 raise BootstrapError(
                     f"Timed out waiting for {host}:{port}. Check the console output above."
@@ -307,15 +362,47 @@ def wait_for_port(port: int, host: str = "127.0.0.1", timeout_s: float = WEB_WAI
             time.sleep(0.2)
 
 
-def stop_process(proc: subprocess.Popen[bytes]) -> None:
-    if proc.poll() is not None:
-        return
-    proc.terminate()
+def stop_process_posix(proc: subprocess.Popen[bytes]) -> None:
+    """SIGTERM (then SIGKILL) the child's process group, not just npm."""
     try:
-        proc.wait(timeout=10)
+        pgid = os.getpgid(proc.pid)
+    except ProcessLookupError:
+        return
+    try:
+        os.killpg(pgid, signal.SIGTERM)
+    except ProcessLookupError:
+        return
+    try:
+        proc.wait(timeout=8)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(pgid, signal.SIGKILL)
+        except ProcessLookupError:
+            proc.kill()
+        proc.wait(timeout=5)
+
+
+def stop_process_windows(proc: subprocess.Popen[bytes]) -> None:
+    """Kill npm and its grandchildren (Next + uvicorn)."""
+    subprocess.run(
+        ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+        capture_output=True,
+        check=False,
+    )
+    try:
+        proc.wait(timeout=5)
     except subprocess.TimeoutExpired:
         proc.kill()
         proc.wait(timeout=5)
+
+
+def stop_process(proc: subprocess.Popen[bytes]) -> None:
+    if proc.poll() is not None:
+        return
+    if os.name == "nt":
+        stop_process_windows(proc)
+        return
+    stop_process_posix(proc)
 
 
 def run(root: Path, *, open_browser: bool = True) -> int:
@@ -348,17 +435,38 @@ def run(root: Path, *, open_browser: bool = True) -> int:
             env=env,
             start_new_session=True,
         )
-    try:
-        wait_for_port(WEB_PORT)
-        if open_browser:
-            webbrowser.open(APP_URL)
-        return int(proc.wait())
-    except KeyboardInterrupt:
+    stopping = False
+
+    def _stop(_signum: int | None = None, _frame: object | None = None) -> None:
+        nonlocal stopping
+        if stopping:
+            return
+        stopping = True
         print("\nStopping MetaTracer.")
         stop_process(proc)
+
+    signal.signal(signal.SIGINT, _stop)
+    if hasattr(signal, "SIGTERM"):
+        signal.signal(signal.SIGTERM, _stop)
+    try:
+        wait_for_port(WEB_PORT, abort=lambda: stopping)
+        if stopping:
+            return 130
+        if open_browser:
+            webbrowser.open(APP_URL)
+        code = int(proc.wait())
+        return 130 if stopping else code
+    except KeyboardInterrupt:
+        _stop()
         return 130
+    except BootstrapError as exc:
+        if stopping or str(exc) == "stopped":
+            _stop()
+            return 130
+        _stop()
+        raise
     except Exception:
-        stop_process(proc)
+        _stop()
         raise
 
 

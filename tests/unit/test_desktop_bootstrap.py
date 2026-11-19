@@ -142,6 +142,35 @@ def test_install_pip_and_npm_commands(
     assert any(cmd[-1] == ".[dev]" and "-e" in cmd for cmd in calls)
 
 
+def test_venv_apt_package_matches_python_minor(desktop) -> None:
+    assert desktop.venv_apt_package((3, 11, 17)) == "python3.11-venv"
+    assert desktop.venv_apt_package((3, 12, 0)) == "python3.12-venv"
+    hint = desktop.debian_venv_hint((3, 11, 17))
+    assert "python3.11-venv" in hint
+    assert "rm -rf .venv" in hint
+
+
+def test_create_venv_bootstraps_pip_when_ensurepip_fails(
+    desktop, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    interpreter = desktop.venv_python(tmp_path)
+    pip_calls: list[Path] = []
+
+    def fake_create(directory, with_pip=True):
+        if with_pip:
+            raise RuntimeError("ensurepip is not available")
+        interpreter.parent.mkdir(parents=True)
+        interpreter.write_text("", encoding="utf-8")
+
+    monkeypatch.setattr(desktop.venv, "create", fake_create)
+    monkeypatch.setattr(
+        desktop, "bootstrap_pip", lambda target, root: pip_calls.append(target)
+    )
+    result = desktop.create_venv(tmp_path)
+    assert result == interpreter
+    assert pip_calls == [interpreter]
+
+
 def test_hints_cover_windows_and_parrot(desktop, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(desktop.os, "name", "nt")
     assert "winget" in desktop.python_hint()
@@ -170,9 +199,36 @@ def test_wait_for_port_accepts_open_listener(desktop) -> None:
     thread.join(timeout=1)
 
 
+def test_stop_process_posix_signals_the_group(
+    desktop, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sent: list[tuple[int, int]] = []
+
+    class FakeProc:
+        pid = 4242
+
+        def poll(self) -> None:
+            return None
+
+        def wait(self, timeout: float | None = None) -> int:
+            return 0
+
+    monkeypatch.setattr(desktop.os, "getpgid", lambda pid: 9000, raising=False)
+    monkeypatch.setattr(
+        desktop.os, "killpg", lambda pgid, sig: sent.append((pgid, sig)), raising=False
+    )
+    desktop.stop_process_posix(FakeProc())  # type: ignore[arg-type]
+    assert sent == [(9000, desktop.signal.SIGTERM)]
+
+
 def test_wait_for_port_times_out(desktop) -> None:
     with pytest.raises(desktop.BootstrapError, match="Timed out"):
         desktop.wait_for_port(1, host="127.0.0.1", timeout_s=0.3)
+
+
+def test_wait_for_port_aborts(desktop) -> None:
+    with pytest.raises(desktop.BootstrapError, match="stopped"):
+        desktop.wait_for_port(1, host="127.0.0.1", timeout_s=5.0, abort=lambda: True)
 
 
 def test_linux_desktop_entry_points_at_run_sh(
