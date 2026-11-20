@@ -76,6 +76,24 @@ def test_copied_env_does_not_enable_loopback() -> None:
     assert "METATRACER_ALLOW_LOOPBACK=true" not in example
 
 
+def test_copied_env_enables_auth_for_clone() -> None:
+    example = (ROOT / ".env.example").read_text(encoding="utf-8")
+    assert "METATRACER_AUTH_ENABLED=true" in example
+    assert "METATRACER_AUTH_ENABLED=false" not in example
+
+
+def test_launch_env_enables_auth_unless_exported(desktop, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv(desktop.AUTH_FLAG, raising=False)
+    env = desktop.launch_env({"PATH": "/bin", desktop.LOOPBACK_FLAG: "true"})
+    assert env[desktop.AUTH_FLAG] == "true"
+    assert desktop.LOOPBACK_FLAG not in env
+
+
+def test_launch_env_respects_explicit_auth_kill_switch(desktop) -> None:
+    env = desktop.launch_env({"PATH": "/bin", desktop.AUTH_FLAG: "false"})
+    assert env[desktop.AUTH_FLAG] == "false"
+
+
 def test_run_refuses_missing_venv_without_spawning(
     desktop, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

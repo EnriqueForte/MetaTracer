@@ -24,7 +24,9 @@ MIN_PY = (3, 11)
 MAX_PY_EXCLUSIVE = (3, 13)
 MIN_NODE_MAJOR = 20
 LOOPBACK_FLAG = "METATRACER_ALLOW_LOOPBACK"
+AUTH_FLAG = "METATRACER_AUTH_ENABLED"
 APP_URL = "http://127.0.0.1:3000"
+LOGIN_URL = f"{APP_URL}/login"
 WEB_PORT = 3000
 WEB_WAIT_SECONDS = 120.0
 
@@ -59,6 +61,21 @@ def child_env(base: dict[str, str] | None = None) -> dict[str, str]:
     """Environment for pip/npm/serve: inherit the host, drop the test-only flag."""
     env = dict(os.environ if base is None else base)
     env.pop(LOOPBACK_FLAG, None)
+    return env
+
+
+def launch_env(base: dict[str, str] | None = None) -> dict[str, str]:
+    """Runtime env for ``./run.sh`` / MetaTracer.cmd.
+
+    Auth is ON so a clone hits /login and first-user setup. The Settings
+    default stays false for pytest and a bare ``metatracer serve``. An
+    explicit ``METATRACER_AUTH_ENABLED`` in the process environment wins
+    (including ``false``). A ``false`` only in ``.env`` does not: the
+    child env var overrides the file.
+    """
+    env = child_env(base)
+    if AUTH_FLAG not in env:
+        env[AUTH_FLAG] = "true"
     return env
 
 
@@ -415,11 +432,14 @@ def run(root: Path, *, open_browser: bool = True) -> int:
             + ", ".join(missing)
         )
     npm_exe = discover_npm()
-    env = child_env()
+    env = launch_env()
     env["METATRACER_PYTHON"] = str(venv_python(root))
     print("MetaTracer")
-    print("  API  http://127.0.0.1:8000")
-    print(f"  App  {APP_URL}")
+    print("  API   http://127.0.0.1:8000")
+    print(f"  App   {APP_URL}")
+    print(f"  Login {LOGIN_URL}")
+    print("  Auth is ON. First clone: create the operator at /setup")
+    print("  (SETUP MODE token is printed once in the API log).")
     print("  Ctrl+C stops both processes.")
     if os.name == "nt":
         proc = subprocess.Popen(
@@ -453,7 +473,7 @@ def run(root: Path, *, open_browser: bool = True) -> int:
         if stopping:
             return 130
         if open_browser:
-            webbrowser.open(APP_URL)
+            webbrowser.open(LOGIN_URL)
         code = int(proc.wait())
         return 130 if stopping else code
     except KeyboardInterrupt:

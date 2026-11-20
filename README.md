@@ -129,7 +129,9 @@ Sistema / Oscuro / Claro va en la propia UI.
 
 ## Primer escaneo
 
-1. Abre [http://127.0.0.1:3000](http://127.0.0.1:3000).
+1. El lanzador abre [http://127.0.0.1:3000/login](http://127.0.0.1:3000/login).
+   Si la base está vacía, usa **Crear la primera cuenta** (`/setup`) y pega el
+   token `SETUP MODE` que sale **una vez** en la terminal.
 2. Crea un scan, indica el host **y el scope**. El scope no se infiere.
 3. Confirma que estás autorizado. Sin esa confirmación no hay HTTP.
 4. Revisa hallazgos, triaje (`open` / `confirmed` / `false_positive` / `fixed`)
@@ -247,7 +249,7 @@ Copia `.env.example` → `.env`. Todas las variables llevan el prefijo
 | --- | --- |
 | `METATRACER_DATABASE_URL` | SQLite por defecto; Postgres exige `postgresql+asyncpg://` |
 | `METATRACER_LLM_*` | Vacío = solo heurística |
-| `METATRACER_AUTH_ENABLED` | `false` en `127.0.0.1`; un bind público exige auth |
+| `METATRACER_AUTH_ENABLED` | `true` en el clon (`./run.sh` / `MetaTracer.cmd` y `.env.example`): login y primer usuario. `false` solo si lo exportas. Un bind público exige auth |
 | `METATRACER_ALLOW_LOOPBACK` | **Solo tests.** Fuera de pytest, `scan` / `serve` / `watch` no arrancan |
 
 En localhost la CLI no pide login. Un bind a `0.0.0.0` sin auth se niega a
