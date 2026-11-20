@@ -34,6 +34,12 @@ export function IntegrationsView() {
   const [domain, setDomain] = useState("");
   const [waybackDomain, setWaybackDomain] = useState("");
   const [crawlDomain, setCrawlDomain] = useState("");
+  const [crawl, setCrawl] = useState<{
+    status: string;
+    detail: string | null;
+    warc_fetched: boolean;
+    hits: { capture_date: string; original_url: string }[];
+  } | null>(null);
   const [lookup, setLookup] = useState<Lookup | null>(null);
   const [wayback, setWayback] = useState<{
     status: string;
@@ -99,8 +105,16 @@ export function IntegrationsView() {
   });
   const crawlSearch = useMutation({
     mutationFn: (name: string) =>
-      sendJson("/api/connectors/commoncrawl/search", "POST", { domain: name }),
-    onSuccess: () => setFormError(""),
+      sendJson<{
+        status: string;
+        detail: string | null;
+        warc_fetched: boolean;
+        hits: { capture_date: string; original_url: string }[];
+      }>("/api/connectors/commoncrawl/search", "POST", { domain: name }),
+    onSuccess: (row) => {
+      setFormError("");
+      setCrawl(row);
+    },
     onError: (error) => setFormError(errorMessage(error, "La búsqueda del índice no se completó.")),
   });
 
@@ -287,6 +301,22 @@ export function IntegrationsView() {
               Buscar índice
             </Button>
           </form>
+          {crawl ? (
+            <div className="text-sm text-mt-fg">
+              <p>
+                {crawl.status}
+                {crawl.detail ? ` — ${crawl.detail}` : ""}. WARC descargado:{" "}
+                {crawl.warc_fetched ? "sí" : "no"}.
+              </p>
+              <ul>
+                {crawl.hits.map((item) => (
+                  <li key={`${item.capture_date}:${item.original_url}`} className="mt-tech text-xs">
+                    {item.capture_date} · {item.original_url}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </section>
       ) : null}
     </div>

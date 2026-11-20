@@ -98,7 +98,7 @@ async def search_domain(
         listing = await _get(client, COLLINFO_URL, backoff_seconds)
     except EgressError as exc:
         return _summary(name, _status_for(exc), str(exc), (), COLLINFO_URL)
-    if listing.status_code in _RETRYABLE:
+    if listing.status_code in _RETRYABLE or listing.status_code == 504:
         return _summary(
             name,
             ConnectorStatus.degraded,
@@ -128,7 +128,7 @@ async def search_domain(
         page = await _get(client, query, backoff_seconds)
     except EgressError as exc:
         return _summary(name, _status_for(exc), str(exc), (), query)
-    if page.status_code in _RETRYABLE:
+    if page.status_code in _RETRYABLE or page.status_code == 504:
         return _summary(
             name, ConnectorStatus.degraded, f"provider returned HTTP {page.status_code}", (), query
         )
@@ -232,6 +232,6 @@ def _summary(
 
 def _status_for(exc: EgressError) -> ConnectorStatus:
     text = str(exc).lower()
-    if "rate limited" in text or "503" in text:
+    if "rate limited" in text or "503" in text or "504" in text or "timed out" in text:
         return ConnectorStatus.degraded
     return ConnectorStatus.error

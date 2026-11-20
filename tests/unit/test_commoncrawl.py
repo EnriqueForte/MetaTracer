@@ -82,6 +82,18 @@ async def test_index_rows_keep_a_capture_date_and_skip_the_warc(fake_public_dns)
     summary.require_provenance()
 
 
+async def test_a_provider_timeout_is_degraded_instead_of_raising(fake_public_dns) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("timed out")
+
+    summary = await search_domain(
+        "example.com", client=_client(handler), enabled=True, backoff_seconds=0
+    )
+    assert summary.status == "degraded"
+    assert summary.hits == ()
+    assert summary.detail == "provider timed out"
+
+
 async def test_a_repeated_503_is_degraded_after_one_retry(fake_public_dns) -> None:
     calls = 0
 

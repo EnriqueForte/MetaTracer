@@ -59,18 +59,25 @@ class ProviderClient:
         except SecurityViolationError as exc:
             raise EgressError(f"provider host rejected ({sanitize_for_log(exc)})") from exc
         timeout = httpx.Timeout(connect=5.0, read=10.0, write=5.0, pool=5.0)
-        async with httpx.AsyncClient(
-            timeout=timeout,
-            follow_redirects=False,
-            trust_env=False,
-            transport=self._transport,
-        ) as client:
-            async with client.stream("GET", url) as response:
-                if response.status_code in _REDIRECTS:
-                    raise EgressError("provider redirect was not followed")
-                body = bytearray()
-                async for chunk in response.aiter_bytes():
-                    body.extend(chunk)
-                    if len(body) > self._max_bytes:
-                        raise EgressError("provider response exceeds the size cap")
-                return ProviderResponse(response.status_code, bytes(body), url)
+        try:
+            async with httpx.AsyncClient(
+                timeout=timeout,
+                follow_redirects=False,
+                trust_env=False,
+                transport=self._transport,
+            ) as client:
+                async with client.stream("GET", url) as response:
+                    if response.status_code in _REDIRECTS:
+                        raise EgressError("provider redirect was not followed")
+                    body = bytearray()
+                    async for chunk in response.aiter_bytes():
+                        body.extend(chunk)
+                        if len(body) > self._max_bytes:
+                            raise EgressError("provider response exceeds the size cap")
+                    return ProviderResponse(response.status_code, bytes(body), url)
+        except EgressError:
+            raise
+        except httpx.TimeoutException as exc:
+            raise EgressError("provider timed out") from exc
+        except httpx.HTTPError as exc:
+            raise EgressError("provider request failed") from exc
