@@ -190,13 +190,17 @@ Sin la confirmación de alcance no hay petición HTTP.
 
 ![Nuevo escaneo](docs/readme/nuevo-escaneo.png)
 
-Cuando el run termina, ábrelo desde el historial. Ahí están los hallazgos (con triaje), los assets, la metadata, la cobertura y dos grafos: el del crawl y el de valores que se repiten. El informe se exporta en Markdown, JSON, HTML, CSV o plantilla bounty, en inglés.
+Cuando el run termina, ábrelo desde el historial. Ahí están los hallazgos (con triaje), los assets, la metadata, la cobertura y dos grafos. El de descubrimiento es el crawl: de qué página salió cada fichero. El de valores compartidos junta lo que se repite (un correo, una versión, una coordenada) sin tratarlo como si fuera la misma persona. El informe se exporta en Markdown, JSON, HTML, CSV o plantilla bounty, en inglés.
+
+![Grafo de descubrimiento del lab](docs/readme/grafo-descubrimiento.png)
+
+![Grafo de valores compartidos](docs/readme/grafo-correlacion.png)
 
 El triaje lo marcas tú: `open`, `confirmed`, `false_positive` o `fixed`. Marcar un falso positivo no reescribe la evidencia.
 
 ### Panel
 
-El resumen de lo que ya has corrido en esta instalación: volumen, severidad y por dónde seguir. Si todavía no hay runs, te manda al primer escaneo.
+El resumen de lo que ya has corrido en esta instalación: cuántos escaneos, hallazgos y assets hay, cómo se reparte la severidad y qué tipos salen más. Si todavía no hay runs, te manda al primero.
 
 ![Panel](docs/readme/panel.png)
 
