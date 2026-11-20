@@ -196,6 +196,10 @@ Cuando el run termina, ábrelo desde el historial. Ahí están los hallazgos (co
 
 ![Grafo de valores compartidos](docs/readme/grafo-correlacion.png)
 
+En la misma ficha, mientras el run está en marcha o ya cerrado, hay dos barras: qué tipos de fichero entraron y cómo se reparten los hallazgos.
+
+![Inventario por tipo de fichero y de hallazgo](docs/readme/inventario-barras.png)
+
 El triaje lo marcas tú: `open`, `confirmed`, `false_positive` o `fixed`. Marcar un falso positivo no reescribe la evidencia.
 
 ### Panel
