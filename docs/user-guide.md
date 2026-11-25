@@ -129,7 +129,27 @@ La URL tiene que ser `https://`. `localhost` y las IPs privadas se rechazan. Si 
 
 ![Webhooks](readme/webhooks.png)
 
-Para ver el JSON sin montar un receptor, [webhook.site](https://webhook.site) vale. No dejes ahí un secreto de verdad: esa página la puede abrir cualquiera que tenga el enlace.
+Puedes usar [Webhook.site](https://webhook.site) para comprobar el JSON sin montar un receptor propio. La página del receptor puede ser accesible para quien tenga su enlace, así que evita usar secretos reales o datos sensibles en la prueba.
+
+Este es un ejemplo ficticio del cuerpo que puede recibir el servicio:
+
+```json
+{
+  "run_id": "00000000-0000-4000-8000-000000000001",
+  "run_ref": "ejemplo1",
+  "event": "completed",
+  "target": "https://example.com",
+  "total_assets": 12,
+  "total_findings": 59,
+  "new_findings": 0,
+  "resolved_findings": 0,
+  "severity_up_count": 0,
+  "executive_summary": "Example scan completed.",
+  "error_message": null
+}
+```
+
+Los valores son ilustrativos. Utiliza únicamente objetivos que tengas autorización para analizar.
 
 ### Integraciones
 

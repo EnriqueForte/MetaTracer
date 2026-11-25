@@ -59,13 +59,43 @@ El sistema incorpora comprobaciones para limitar las respuestas del modelo a la 
 
 ## Vista de la aplicación
 
-La interfaz permite crear escaneos, consultar su progreso y revisar los hallazgos desde un mismo lugar.
+### Panel de estado
+
+Consulta el resumen de escaneos, activos y hallazgos, así como su distribución por severidad y tipo.
+
+![Panel de estado de MetaTracer](docs/readme/panel.png)
+
+### Nuevo escaneo
+
+Indica qué quieres analizar, define el alcance autorizado y configura el escaneo desde la interfaz.
 
 ![Pantalla de nuevo escaneo de MetaTracer](docs/readme/nuevo-escaneo.png)
 
-También puedes explorar las relaciones entre los recursos descubiertos:
+### Grafo de descubrimiento
+
+Explora cómo se relacionan las páginas y los archivos encontrados durante un escaneo.
 
 ![Grafo de descubrimiento de MetaTracer](docs/readme/grafo-descubrimiento.png)
+
+### Valores compartidos
+
+Visualiza los valores que aparecen en varios archivos, como una dirección de correo o una versión de software. Un valor compartido no demuestra que exista una misma identidad detrás de los recursos.
+
+![Grafo de valores compartidos de MetaTracer](docs/readme/grafo-correlacion.png)
+
+### Inventario del escaneo
+
+Revisa cómo se distribuyen los recursos por tipo de archivo y los resultados por tipo de hallazgo.
+
+![Inventario de archivos y hallazgos de MetaTracer](docs/readme/inventario-barras.png)
+
+### Webhooks
+
+Configura notificaciones HTTPS para recibir un resumen cuando un escaneo termina, falla o se aborta.
+
+![Configuración de webhooks de MetaTracer](docs/readme/webhooks.png)
+
+Puedes consultar más capturas y detalles en la [guía de uso](docs/user-guide.md).
 
 ## Requisitos
 
