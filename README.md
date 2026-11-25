@@ -1,5 +1,7 @@
 # MetaTracer
 
+![Portada de MetaTracer: un documento, una fotografía y sus metadatos conectados por un grafo](docs/readme/metatracer-cover.jpg)
+
 **Descubre metadatos sensibles en archivos y sitios web que tienes autorización para analizar.**
 
 MetaTracer te ayuda a identificar información que puede quedar expuesta sin que sus propietarios lo sepan. Por ejemplo, una fotografía puede contener coordenadas GPS y un documento PDF puede incluir el nombre de su autor, rutas internas o la versión del programa con el que se creó.
