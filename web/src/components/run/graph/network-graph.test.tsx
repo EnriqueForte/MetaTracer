@@ -3,14 +3,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { GraphLayer, GraphNode } from "@/lib/api/graph";
 
+type CytoscapeMount = {
+  elements?: Array<{ data?: { kind?: string }; position?: { x: number; y: number } }>;
+};
+
 const { cytoscapeMock } = vi.hoisted(() => {
-  const cytoscapeMock = vi.fn(() => ({
+  const cytoscapeMock = vi.fn((_options?: CytoscapeMount) => ({
     container: () => ({ style: { setProperty: vi.fn() } }),
     on: vi.fn(),
     destroy: vi.fn(),
     resize: vi.fn(),
     fit: vi.fn(),
-    zoom: vi.fn(() => 1),
+    zoom: vi.fn((_level?: number) => 1),
     center: vi.fn(),
     width: vi.fn(() => 0),
     height: vi.fn(() => 0),
@@ -157,8 +161,8 @@ describe("NetworkGraph", () => {
 
   it("frames the crawl graph from the labelled bounding box so edge names stay inside", () => {
     const boundingBox = vi.fn(() => ({ x1: 0, y1: 0, w: 1000, h: 400 }));
-    const zoom = vi.fn(() => 1);
-    const pan = vi.fn();
+    const zoom = vi.fn((_level?: number) => 1);
+    const pan = vi.fn((_position?: { x: number; y: number }) => undefined);
     cytoscapeMock.mockImplementationOnce(() => ({
       container: () => ({ style: { setProperty: vi.fn() } }),
       on: vi.fn(),
@@ -167,8 +171,8 @@ describe("NetworkGraph", () => {
       fit: vi.fn(),
       zoom,
       center: vi.fn(),
-      width: () => 800,
-      height: () => 640,
+      width: vi.fn(() => 800),
+      height: vi.fn(() => 640),
       pan,
       getElementById: () => ({ position: vi.fn() }),
       layout: () => ({ run: vi.fn() }),
@@ -242,11 +246,9 @@ describe("NetworkGraph", () => {
         layout: expect.objectContaining({ name: "preset", animate: false }),
       }),
     );
-    const mounted = cytoscapeMock.mock.calls[0]?.[0] as {
-      elements: Array<{ data?: { kind?: string }; position?: { x: number; y: number } }>;
-    };
-    const values = mounted.elements.filter((entry) => entry.data?.kind === "value" && entry.position);
-    const assets = mounted.elements.filter((entry) => entry.data?.kind === "asset" && entry.position);
+    const mounted = cytoscapeMock.mock.calls[0]?.[0];
+    const values = (mounted?.elements ?? []).filter((entry) => entry.data?.kind === "value" && entry.position);
+    const assets = (mounted?.elements ?? []).filter((entry) => entry.data?.kind === "asset" && entry.position);
     expect(Math.max(...values.map((entry) => entry.position!.y))).toBeLessThan(
       Math.min(...assets.map((entry) => entry.position!.y)),
     );
